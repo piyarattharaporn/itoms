@@ -36,6 +36,27 @@ test('authenticated portal shell has no horizontal overflow on mobile', async ({
   expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1)
 })
 
+test('representative operational pages have no WCAG A/AA violations', async ({ page }) => {
+  await signInAsLocalAdmin(page)
+
+  const scanCurrentPage = async () => {
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+    expect(results.violations).toEqual([])
+  }
+
+  await page.getByRole('button', { name: 'Create Task', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'แจ้งงาน IT', exact: true })).toBeVisible()
+  await scanCurrentPage()
+
+  await page.getByRole('button', { name: 'ปฏิทินงาน', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'ปฏิทินงานดูแล', exact: true })).toBeVisible()
+  await scanCurrentPage()
+
+  await page.getByRole('button', { name: 'ตั้งค่ารายการ', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'ตั้งค่ารายการ', exact: true })).toBeVisible()
+  await scanCurrentPage()
+})
+
 test('catalog settings exposes responsive SLA navigation and fields', async ({ page }) => {
   await signInAsLocalAdmin(page)
   await page.getByRole('button', { name: 'ตั้งค่ารายการ', exact: true }).click()

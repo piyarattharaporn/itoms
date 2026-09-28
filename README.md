@@ -39,6 +39,9 @@ npm run test:unit       # Vitest + React Testing Library
 npm run test:e2e        # Playwright browser smoke, accessibility, and responsive snapshots
 npm run test:a11y       # Playwright + axe WCAG A/AA scan
 npm run test:responsive # Responsive layout and screenshot regression at mobile/tablet/desktop widths
+npm run test:e2e:phase4 # Emulator E2E, visual regression, accessibility, and local performance budget
+npm run test:e2e:visual # Authenticated visual baselines for Dashboard, Task, Calendar, and Settings
+npm run test:performance # Authenticated dashboard timing and viewport budget on the Emulator
 npm run lint            # ESLint
 npm run format:check    # Prettier checks for QA/config files
 npm run test:contract   # OpenAPI document and trusted-server route contract

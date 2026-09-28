@@ -4,7 +4,7 @@ import type { ServerConfig } from './config.js'
 import { authenticate, loadActor } from './auth.js'
 import { createAdminServices, type AdminServices } from './firebase.js'
 import { HttpError, isHttpError } from './errors.js'
-import { assignTicket, changeTicketStatus, createTicket, listAuditEvents } from './repository.js'
+import { assignTicket, changeTicketStatus, createTicket, getSlaSummary, listAuditEvents } from './repository.js'
 import { SlidingWindowRateLimiter } from './rate-limit.js'
 
 const maxBodyBytes = 32 * 1024
@@ -32,24 +32,39 @@ async function body(request: IncomingMessage): Promise<Record<string, unknown>> 
     const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('object required')
     return parsed as Record<string, unknown>
-  } catch { throw new HttpError(400, 'invalid_json', 'Request body must be a JSON object') }
+  } catch {
+    throw new HttpError(400, 'invalid_json', 'Request body must be a JSON object')
+  }
 }
 
 async function route(request: IncomingMessage, config: ServerConfig, services: AdminServices, correlationId: string) {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
   if (request.method === 'OPTIONS') return { status: 204, payload: {} }
-  if (request.method === 'GET' && url.pathname === '/health') return { status: 200, payload: { status: 'ok', backend: 'trusted-boundary', environment: config.environment, productionEnabled: false } }
+  if (request.method === 'GET' && url.pathname === '/health')
+    return {
+      status: 200,
+      payload: { status: 'ok', backend: 'trusted-boundary', environment: config.environment, productionEnabled: false },
+    }
 
   const actor = await loadActor(services.db, await authenticate(services.auth, request.headers.authorization))
   if (request.method === 'POST') {
     const input = await body(request)
-    if (url.pathname === '/v1/tickets') return { status: 201, payload: await createTicket(services.db, actor, input, correlationId) }
+    if (url.pathname === '/v1/tickets')
+      return { status: 201, payload: await createTicket(services.db, actor, input, correlationId) }
     const assignMatch = url.pathname.match(/^\/v1\/tickets\/([^/]+)\/assign$/)
-    if (assignMatch) return { status: 200, payload: await assignTicket(services.db, actor, assignMatch[1], input, correlationId) }
+    if (assignMatch)
+      return { status: 200, payload: await assignTicket(services.db, actor, assignMatch[1], input, correlationId) }
     const statusMatch = url.pathname.match(/^\/v1\/tickets\/([^/]+)\/status$/)
-    if (statusMatch) return { status: 200, payload: await changeTicketStatus(services.db, actor, statusMatch[1], input, correlationId) }
+    if (statusMatch)
+      return {
+        status: 200,
+        payload: await changeTicketStatus(services.db, actor, statusMatch[1], input, correlationId),
+      }
   }
-  if (request.method === 'GET' && url.pathname === '/v1/audit-events') return { status: 200, payload: await listAuditEvents(services.db, actor, url.searchParams) }
+  if (request.method === 'GET' && url.pathname === '/v1/sla-summary')
+    return { status: 200, payload: await getSlaSummary(services.db, actor, url.searchParams) }
+  if (request.method === 'GET' && url.pathname === '/v1/audit-events')
+    return { status: 200, payload: await listAuditEvents(services.db, actor, url.searchParams) }
   throw new HttpError(404, 'not_found', 'Route was not found')
 }
 
@@ -64,16 +79,18 @@ export function createHttpServer(config: ServerConfig, services = createAdminSer
         if (!mutationLimiter.allow(clientKey)) throw new HttpError(429, 'rate_limited', 'Too many mutation requests')
       }
       return route(request, config, services, correlationId)
-    })().then((result) => {
-      response.setHeader('X-Correlation-Id', correlationId)
-      send(response, config, result.status, result.payload)
-    }).catch((cause: unknown) => {
-      const error = isHttpError(cause) ? cause : new HttpError(500, 'internal_error', 'Internal server error')
-      response.setHeader('X-Correlation-Id', correlationId)
-      if (error.status === 429) response.setHeader('Retry-After', '60')
-      if (!isHttpError(cause)) console.error({ correlationId, error: cause })
-      send(response, config, error.status, { error: error.code, message: error.message, correlationId })
-    })
+    })()
+      .then((result) => {
+        response.setHeader('X-Correlation-Id', correlationId)
+        send(response, config, result.status, result.payload)
+      })
+      .catch((cause: unknown) => {
+        const error = isHttpError(cause) ? cause : new HttpError(500, 'internal_error', 'Internal server error')
+        response.setHeader('X-Correlation-Id', correlationId)
+        if (error.status === 429) response.setHeader('Retry-After', '60')
+        if (!isHttpError(cause)) console.error({ correlationId, error: cause })
+        send(response, config, error.status, { error: error.code, message: error.message, correlationId })
+      })
   })
 }
 

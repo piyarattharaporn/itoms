@@ -13,7 +13,14 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import type { GlobalRole, PropertyRole } from '../auth/types'
-import { isPriority, isProblemType, isTicketStatus, ticketIssueAreas, type TicketEvent, type TicketRecord } from './types'
+import {
+  isPriority,
+  isProblemType,
+  isTicketStatus,
+  ticketIssueAreas,
+  type TicketEvent,
+  type TicketRecord,
+} from './types'
 import { recordUsageEvent } from '../../lib/telemetry'
 import type { CursorPage } from '../../lib/pagination'
 
@@ -39,23 +46,33 @@ function asDate(value: unknown): Date | null {
 
 function parseTicket(id: string, data: DocumentData): TicketRecord | null {
   if (
-    typeof data.propertyId !== 'string' || typeof data.propertyCode !== 'string' ||
-    typeof data.requesterUid !== 'string' || typeof data.requesterName !== 'string' ||
-    typeof data.requesterEmail !== 'string' || typeof data.department !== 'string' ||
-    typeof data.location !== 'string' || typeof data.assetId !== 'string' ||
-    !isProblemType(data.problemType) || !isPriority(data.priority) || !isTicketStatus(data.status) ||
-    typeof data.description !== 'string' || typeof data.assignedEngineerUid !== 'string' ||
+    typeof data.propertyId !== 'string' ||
+    typeof data.propertyCode !== 'string' ||
+    typeof data.requesterUid !== 'string' ||
+    typeof data.requesterName !== 'string' ||
+    typeof data.requesterEmail !== 'string' ||
+    typeof data.department !== 'string' ||
+    typeof data.location !== 'string' ||
+    typeof data.assetId !== 'string' ||
+    !isProblemType(data.problemType) ||
+    !isPriority(data.priority) ||
+    !isTicketStatus(data.status) ||
+    typeof data.description !== 'string' ||
+    typeof data.assignedEngineerUid !== 'string' ||
     typeof data.lastEventId !== 'string'
-  ) return null
+  )
+    return null
 
   const storedProblemType = data.problemType
   const storedCategory = typeof data.problemCategory === 'string' ? data.problemCategory : ''
   const legacySeparator = ' / '
   const legacySeparatorIndex = storedProblemType.indexOf(legacySeparator)
-  const problemCategory = storedCategory || (legacySeparatorIndex > 0 ? storedProblemType.slice(0, legacySeparatorIndex) : '')
-  const problemType = !storedCategory && legacySeparatorIndex > 0
-    ? storedProblemType.slice(legacySeparatorIndex + legacySeparator.length)
-    : storedProblemType
+  const problemCategory =
+    storedCategory || (legacySeparatorIndex > 0 ? storedProblemType.slice(0, legacySeparatorIndex) : '')
+  const problemType =
+    !storedCategory && legacySeparatorIndex > 0
+      ? storedProblemType.slice(legacySeparatorIndex + legacySeparator.length)
+      : storedProblemType
 
   return {
     id,
@@ -66,12 +83,17 @@ function parseTicket(id: string, data: DocumentData): TicketRecord | null {
     requesterName: data.requesterName,
     requesterEmail: data.requesterEmail,
     department: data.department,
-    issueArea: typeof data.issueArea === 'string' && ticketIssueAreas.includes(data.issueArea as (typeof ticketIssueAreas)[number]) ? data.issueArea as TicketRecord['issueArea'] : 'Uncategorized',
+    issueArea:
+      typeof data.issueArea === 'string' &&
+      ticketIssueAreas.includes(data.issueArea as (typeof ticketIssueAreas)[number])
+        ? (data.issueArea as TicketRecord['issueArea'])
+        : 'Uncategorized',
     location: data.location,
     assetId: data.assetId,
     problemCategory,
     problemType,
-    channel: typeof data.channel === 'string' && data.channel.length > 0 && data.channel.length <= 80 ? data.channel : 'Line',
+    channel:
+      typeof data.channel === 'string' && data.channel.length > 0 && data.channel.length <= 80 ? data.channel : 'Line',
     priority: data.priority,
     status: data.status,
     description: data.description,
@@ -82,16 +104,43 @@ function parseTicket(id: string, data: DocumentData): TicketRecord | null {
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt),
     lastEventId: data.lastEventId,
+    ...(typeof data.slaPolicyId === 'string' ? { slaPolicyId: data.slaPolicyId } : {}),
     ...(typeof data.slaPolicyVersion === 'string' ? { slaPolicyVersion: data.slaPolicyVersion } : {}),
-    ...(typeof data.slaResponseTargetMinutes === 'number' ? { slaResponseTargetMinutes: data.slaResponseTargetMinutes } : {}),
-    ...(typeof data.slaResolutionTargetMinutes === 'number' ? { slaResolutionTargetMinutes: data.slaResolutionTargetMinutes } : {}),
+    ...(typeof data.slaResponseTargetMinutes === 'number'
+      ? { slaResponseTargetMinutes: data.slaResponseTargetMinutes }
+      : {}),
+    ...(typeof data.slaResolutionTargetMinutes === 'number'
+      ? { slaResolutionTargetMinutes: data.slaResolutionTargetMinutes }
+      : {}),
     ...(data.slaStartedAt ? { slaStartedAt: asDate(data.slaStartedAt) } : {}),
     ...(data.slaResponseDueAt ? { slaResponseDueAt: asDate(data.slaResponseDueAt) } : {}),
     ...(data.slaResolutionDueAt ? { slaResolutionDueAt: asDate(data.slaResolutionDueAt) } : {}),
     ...(data.slaResponseMetAt ? { slaResponseMetAt: asDate(data.slaResponseMetAt) } : {}),
     ...(data.slaResolutionMetAt ? { slaResolutionMetAt: asDate(data.slaResolutionMetAt) } : {}),
-    ...(data.slaState === 'running' || data.slaState === 'paused' || data.slaState === 'met' || data.slaState === 'cancelled' ? { slaState: data.slaState } : {}),
-    ...(data.slaPauseReason === 'Waiting for User' || data.slaPauseReason === 'Waiting for Vendor' || data.slaPauseReason === '' ? { slaPauseReason: data.slaPauseReason } : {}),
+    ...(data.slaResponseStatus === 'pending' ||
+    data.slaResponseStatus === 'met' ||
+    data.slaResponseStatus === 'breached' ||
+    data.slaResponseStatus === 'cancelled'
+      ? { slaResponseStatus: data.slaResponseStatus }
+      : {}),
+    ...(data.slaResolutionStatus === 'running' ||
+    data.slaResolutionStatus === 'paused' ||
+    data.slaResolutionStatus === 'met' ||
+    data.slaResolutionStatus === 'breached' ||
+    data.slaResolutionStatus === 'cancelled'
+      ? { slaResolutionStatus: data.slaResolutionStatus }
+      : {}),
+    ...(data.slaState === 'running' ||
+    data.slaState === 'paused' ||
+    data.slaState === 'met' ||
+    data.slaState === 'cancelled'
+      ? { slaState: data.slaState }
+      : {}),
+    ...(data.slaPauseReason === 'Waiting for User' ||
+    data.slaPauseReason === 'Waiting for Vendor' ||
+    data.slaPauseReason === ''
+      ? { slaPauseReason: data.slaPauseReason }
+      : {}),
     ...(typeof data.slaPausedAt !== 'undefined' ? { slaPausedAt: asDate(data.slaPausedAt) } : {}),
     ...(typeof data.slaPausedMinutes === 'number' ? { slaPausedMinutes: data.slaPausedMinutes } : {}),
     ...(typeof data.slaResponseBreached === 'boolean' ? { slaResponseBreached: data.slaResponseBreached } : {}),
@@ -102,10 +151,13 @@ function parseTicket(id: string, data: DocumentData): TicketRecord | null {
 
 function parseEvent(id: string, data: DocumentData): TicketEvent | null {
   if (
-    typeof data.actorUid !== 'string' || !isTicketStatus(data.toStatus) ||
+    typeof data.actorUid !== 'string' ||
+    !isTicketStatus(data.toStatus) ||
     !(data.fromStatus === null || isTicketStatus(data.fromStatus)) ||
-    typeof data.note !== 'string' || !['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned'].includes(data.type)
-  ) return null
+    typeof data.note !== 'string' ||
+    !['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned'].includes(data.type)
+  )
+    return null
 
   return {
     id,
@@ -115,14 +167,20 @@ function parseEvent(id: string, data: DocumentData): TicketEvent | null {
     note: data.note,
     createdAt: asDate(data.createdAt),
     type: data.type,
-    ...(typeof data.fromAssignedEngineerUid === 'string' ? { fromAssignedEngineerUid: data.fromAssignedEngineerUid } : {}),
+    ...(typeof data.fromAssignedEngineerUid === 'string'
+      ? { fromAssignedEngineerUid: data.fromAssignedEngineerUid }
+      : {}),
     ...(typeof data.toAssignedEngineerUid === 'string' ? { toAssignedEngineerUid: data.toAssignedEngineerUid } : {}),
   }
 }
 
 export type TicketPageCursor = QueryDocumentSnapshot<DocumentData> | null
 
-export async function getTicketPage(access: TicketAccess, pageSize = 25, cursor: TicketPageCursor = null): Promise<CursorPage<TicketRecord>> {
+export async function getTicketPage(
+  access: TicketAccess,
+  pageSize = 25,
+  cursor: TicketPageCursor = null,
+): Promise<CursorPage<TicketRecord>> {
   const firestore = requiredFirestore()
   pageSize = Math.min(Math.max(pageSize, 1), 50)
   const constraints: QueryConstraint[] = []
@@ -134,7 +192,9 @@ export async function getTicketPage(access: TicketAccess, pageSize = 25, cursor:
   const snapshot = await getDocs(query(collection(firestore, 'tickets'), ...constraints))
   recordUsageEvent('ticket_page_loaded', { count: snapshot.size, pageSize })
   return {
-    items: snapshot.docs.map((ticket) => parseTicket(ticket.id, ticket.data())).filter((ticket): ticket is TicketRecord => ticket !== null),
+    items: snapshot.docs
+      .map((ticket) => parseTicket(ticket.id, ticket.data()))
+      .filter((ticket): ticket is TicketRecord => ticket !== null),
     nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null,
     hasMore: snapshot.docs.length === pageSize,
   }
@@ -153,13 +213,24 @@ export function subscribeToTickets(
   constraints.push(orderBy('createdAt', 'desc'), limit(50))
 
   const ticketQuery = query(collection(firestore, 'tickets'), ...constraints)
-  return onSnapshot(ticketQuery, (snapshot) => {
-    onTickets(snapshot.docs
-      .map((ticket) => parseTicket(ticket.id, ticket.data()))
-      .filter((ticket): ticket is TicketRecord => ticket !== null))
-  }, (cause) => onError(new Error(cause.code === 'permission-denied'
-    ? 'Firestore Rules ปฏิเสธการอ่าน Task ตรวจสอบสิทธิ์ Property'
-    : 'โหลด Task ไม่สำเร็จ')))
+  return onSnapshot(
+    ticketQuery,
+    (snapshot) => {
+      onTickets(
+        snapshot.docs
+          .map((ticket) => parseTicket(ticket.id, ticket.data()))
+          .filter((ticket): ticket is TicketRecord => ticket !== null),
+      )
+    },
+    (cause) =>
+      onError(
+        new Error(
+          cause.code === 'permission-denied'
+            ? 'Firestore Rules ปฏิเสธการอ่าน Task ตรวจสอบสิทธิ์ Property'
+            : 'โหลด Task ไม่สำเร็จ',
+        ),
+      ),
+  )
 }
 
 export function subscribeToTicketEvents(
@@ -169,22 +240,33 @@ export function subscribeToTicketEvents(
 ) {
   const firestore = requiredFirestore()
   const eventsQuery = query(collection(firestore, 'tickets', ticketId, 'events'), orderBy('createdAt', 'asc'))
-  return onSnapshot(eventsQuery, (snapshot) => {
-    onEvents(snapshot.docs
-      .map((event) => parseEvent(event.id, event.data()))
-      .filter((event): event is TicketEvent => event !== null))
-  }, () => onError(new Error('โหลดประวัติ Task ไม่สำเร็จ')))
+  return onSnapshot(
+    eventsQuery,
+    (snapshot) => {
+      onEvents(
+        snapshot.docs
+          .map((event) => parseEvent(event.id, event.data()))
+          .filter((event): event is TicketEvent => event !== null),
+      )
+    },
+    () => onError(new Error('โหลดประวัติ Task ไม่สำเร็จ')),
+  )
 }
 
 export async function getAssignableEngineers(propertyId: string) {
   const firestore = requiredFirestore()
-  const snapshot = await getDocs(query(
-    collection(firestore, 'memberships'),
-    where('propertyId', '==', propertyId),
-    where('role', '==', 'supportEngineer'),
-    where('active', '==', true),
-    orderBy('userId', 'asc'),
-    limit(50),
-  ))
-  return snapshot.docs.map((item) => ({ uid: item.data().userId as string, propertyName: item.data().propertyName as string }))
+  const snapshot = await getDocs(
+    query(
+      collection(firestore, 'memberships'),
+      where('propertyId', '==', propertyId),
+      where('role', '==', 'supportEngineer'),
+      where('active', '==', true),
+      orderBy('userId', 'asc'),
+      limit(50),
+    ),
+  )
+  return snapshot.docs.map((item) => ({
+    uid: item.data().userId as string,
+    propertyName: item.data().propertyName as string,
+  }))
 }

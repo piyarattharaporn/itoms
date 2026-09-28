@@ -1,5 +1,9 @@
 import type { TicketRecord, TicketStatus } from './types'
-import { getSlaPolicy as getSharedSlaPolicy, isSlaPauseStatus, type SlaPolicy as SharedSlaPolicy } from '../../../shared/sla-contracts'
+import {
+  getSlaPolicy as getSharedSlaPolicy,
+  isSlaPauseStatus,
+  type SlaPolicy as SharedSlaPolicy,
+} from '../../../shared/sla-contracts'
 
 export type SlaState = 'notStarted' | 'onTrack' | 'dueSoon' | 'breached' | 'met' | 'paused'
 export type SlaPauseReason = 'Waiting for User' | 'Waiting for Vendor'
@@ -16,16 +20,76 @@ export function isSlaPaused(status: TicketStatus): status is SlaPauseReason {
 
 export function getSlaSnapshot(ticket: TicketRecord, now = new Date()) {
   const policy = getSlaPolicy(ticket.priority)
-  if (!ticket.createdAt) return { state: 'notStarted' as const, dueAt: null, responseDueAt: null, remainingMinutes: null, policy }
+  if (!ticket.createdAt)
+    return {
+      state: 'notStarted' as const,
+      dueAt: null,
+      responseDueAt: null,
+      remainingMinutes: null,
+      responseRemainingMinutes: null,
+      responseStatus: 'pending' as const,
+      resolutionStatus: 'running' as const,
+      policy,
+    }
   const responseDueAt = ticket.slaResponseDueAt ?? new Date(ticket.createdAt.getTime() + policy.responseMinutes * 60000)
   const dueAt = ticket.slaResolutionDueAt ?? new Date(ticket.createdAt.getTime() + policy.resolutionMinutes * 60000)
-  if (ticket.status === 'Completed') return { state: ticket.slaResolutionBreached ? 'breached' as const : 'met' as const, dueAt, responseDueAt, remainingMinutes: null, policy }
-  if (ticket.status === 'Cancelled' || ticket.slaState === 'cancelled') return { state: 'notStarted' as const, dueAt: null, responseDueAt: null, remainingMinutes: null, policy }
-  if (ticket.slaState === 'paused' || isSlaPaused(ticket.status)) return { state: 'paused' as const, dueAt, responseDueAt, remainingMinutes: null, policy }
+  const responseStatus =
+    ticket.slaResponseStatus ??
+    (ticket.slaResponseMetAt ? (ticket.slaResponseBreached ? 'breached' : 'met') : 'pending')
+  const resolutionStatus =
+    ticket.slaResolutionStatus ??
+    (ticket.slaState === 'paused' || isSlaPaused(ticket.status)
+      ? 'paused'
+      : ticket.slaResolutionMetAt
+        ? ticket.slaResolutionBreached
+          ? 'breached'
+          : 'met'
+        : 'running')
+  if (ticket.status === 'Cancelled' || ticket.slaState === 'cancelled')
+    return {
+      state: 'notStarted' as const,
+      dueAt: null,
+      responseDueAt: null,
+      remainingMinutes: null,
+      responseRemainingMinutes: null,
+      responseStatus: responseStatus === 'pending' ? ('cancelled' as const) : responseStatus,
+      resolutionStatus: 'cancelled' as const,
+      policy,
+    }
+  if (ticket.status === 'Completed')
+    return {
+      state: resolutionStatus === 'breached' || ticket.slaResolutionBreached ? ('breached' as const) : ('met' as const),
+      dueAt,
+      responseDueAt,
+      remainingMinutes: null,
+      responseRemainingMinutes: null,
+      responseStatus,
+      resolutionStatus,
+      policy,
+    }
 
   const remainingMinutes = Math.round((dueAt.getTime() - now.getTime()) / 60000)
-  const state: SlaState = ticket.slaResolutionBreached || remainingMinutes <= 0 ? 'breached' : remainingMinutes <= 120 ? 'dueSoon' : 'onTrack'
-  return { state, dueAt, responseDueAt, remainingMinutes, policy }
+  const responseRemainingMinutes =
+    responseStatus === 'pending' ? Math.round((responseDueAt.getTime() - now.getTime()) / 60000) : null
+  const dueSoonThresholdMinutes = Math.min(120, Math.max(1, Math.round(policy.resolutionMinutes * 0.2)))
+  const state: SlaState =
+    resolutionStatus === 'paused' && !ticket.slaResolutionBreached
+      ? 'paused'
+      : resolutionStatus === 'breached' || ticket.slaResolutionBreached || remainingMinutes <= 0
+        ? 'breached'
+        : remainingMinutes <= dueSoonThresholdMinutes
+          ? 'dueSoon'
+          : 'onTrack'
+  return {
+    state,
+    dueAt,
+    responseDueAt,
+    remainingMinutes,
+    responseRemainingMinutes,
+    responseStatus,
+    resolutionStatus,
+    policy,
+  }
 }
 
 export function slaStateLabel(state: SlaState) {

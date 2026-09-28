@@ -1,6 +1,13 @@
 import { t } from '../../lib/i18n'
-import { priorities, ticketIssueAreas, ticketStatuses, type Priority, type TicketIssueArea, type TicketStatus } from '../../../shared/ticket-contracts'
-import type { SlaLifecycleState } from '../../../shared/sla-contracts'
+import {
+  priorities,
+  ticketIssueAreas,
+  ticketStatuses,
+  type Priority,
+  type TicketIssueArea,
+  type TicketStatus,
+} from '../../../shared/ticket-contracts'
+import type { SlaLifecycleState, SlaResolutionStatus, SlaResponseStatus } from '../../../shared/sla-contracts'
 
 export { priorities, ticketIssueAreas, ticketStatuses }
 export type { Priority, TicketIssueArea, TicketStatus }
@@ -41,6 +48,7 @@ export interface TicketRecord {
   createdAt: Date | null
   updatedAt: Date | null
   lastEventId: string
+  slaPolicyId?: string
   slaPolicyVersion?: string
   slaResponseTargetMinutes?: number
   slaResolutionTargetMinutes?: number
@@ -49,6 +57,8 @@ export interface TicketRecord {
   slaResolutionDueAt?: Date | null
   slaResponseMetAt?: Date | null
   slaResolutionMetAt?: Date | null
+  slaResponseStatus?: SlaResponseStatus
+  slaResolutionStatus?: SlaResolutionStatus
   slaState?: SlaLifecycleState
   slaPausedAt?: Date | null
   slaPauseReason?: 'Waiting for User' | 'Waiting for Vendor' | ''
@@ -107,12 +117,17 @@ export function isPriority(value: unknown): value is Priority {
 
 export function statusTransitions(status: TicketStatus): TicketStatus[] {
   switch (status) {
-    case 'Pending': return ['In Progress', 'Cancelled']
-    case 'In Progress': return ['Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled']
-    case 'Monitoring': return ['In Progress', 'Completed', 'Cancelled']
+    case 'Pending':
+      return ['In Progress', 'Cancelled']
+    case 'In Progress':
+      return ['Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled']
+    case 'Monitoring':
+      return ['In Progress', 'Completed', 'Cancelled']
     case 'Waiting for Vendor':
-    case 'Waiting for User': return ['In Progress', 'Cancelled']
+    case 'Waiting for User':
+      return ['In Progress', 'Cancelled']
     case 'Completed':
-    case 'Cancelled': return []
+    case 'Cancelled':
+      return []
   }
 }

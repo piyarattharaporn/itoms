@@ -96,6 +96,16 @@ describe('Phase 3–6 trusted boundary', () => {
     const audit = await fetch(`${baseUrl}/v1/audit-events?propertyId=PROP-1&limit=10`, { headers })
     assert.equal(audit.status, 200)
     assert.ok(((await audit.json()).items as unknown[]).length >= 2)
+
+    const summary = await fetch(`${baseUrl}/v1/sla-summary?propertyId=PROP-1&limit=50`, { headers })
+    assert.equal(summary.status, 200)
+    const summaryBody = await summary.json() as { totals: { total: number; open: number }; byPriority: Array<{ key: string; total: number }> }
+    assert.ok(summaryBody.totals.total >= 1)
+    assert.ok(summaryBody.totals.open >= 1)
+    assert.ok(summaryBody.byPriority.some((row) => row.key === 'Medium'))
+
+    const unscopedSummary = await fetch(`${baseUrl}/v1/sla-summary`, { headers })
+    assert.equal(unscopedSummary.status, 400)
   })
 
   it('creates a Ticket through the trusted boundary and rejects injected fields', async () => {

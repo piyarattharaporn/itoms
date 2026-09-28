@@ -62,6 +62,32 @@ service cloud.firestore {
       return value is string && (value == '' || validIsoDate(value));
     }
 
+    function validSlaTarget(value) {
+      return value is map
+        && value.keys().hasAll(['responseMinutes', 'resolutionMinutes'])
+        && value.keys().hasOnly(['responseMinutes', 'resolutionMinutes'])
+        && value.responseMinutes is int
+        && value.responseMinutes >= 1 && value.responseMinutes <= 525600
+        && value.resolutionMinutes is int
+        && value.resolutionMinutes >= 1 && value.resolutionMinutes <= 525600;
+    }
+
+    function validSlaPolicy(value) {
+      return value is map
+        && value.keys().hasAll(['id', 'version', 'calendar', 'targets'])
+        && value.keys().hasOnly(['id', 'version', 'calendar', 'targets'])
+        && value.id is string && value.id.size() >= 1 && value.id.size() <= 80
+        && value.version is int && value.version >= 1
+        && value.calendar == '24x7'
+        && value.targets is map
+        && value.targets.keys().hasAll(['Critical', 'High', 'Medium', 'Low'])
+        && value.targets.keys().hasOnly(['Critical', 'High', 'Medium', 'Low'])
+        && validSlaTarget(value.targets.Critical)
+        && validSlaTarget(value.targets.High)
+        && validSlaTarget(value.targets.Medium)
+        && validSlaTarget(value.targets.Low);
+    }
+
     function validTicketIssueArea(value) {
       return value in ['Guest Property Problem', 'BOH (Back of House)', 'Office / Corporate', 'Other'];
     }
@@ -844,8 +870,9 @@ service cloud.firestore {
       allow list: if isSuperAdmin();
       allow create, delete: if false;
       allow update: if isSuperAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cctvEnabled', 'updatedAt'])
-        && request.resource.data.cctvEnabled is bool
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cctvEnabled', 'slaPolicy', 'updatedAt'])
+        && (!request.resource.data.keys().hasAny(['cctvEnabled']) || request.resource.data.cctvEnabled is bool)
+        && (!request.resource.data.keys().hasAny(['slaPolicy']) || validSlaPolicy(request.resource.data.slaPolicy))
         && request.resource.data.updatedAt == request.time;
     }
 

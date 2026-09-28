@@ -15,6 +15,7 @@ assert.ok(document.paths?.['/health']?.get)
 assert.ok(document.paths?.['/v1/tickets']?.post)
 assert.ok(document.paths?.['/v1/tickets/{ticketId}/assign']?.post)
 assert.ok(document.paths?.['/v1/tickets/{ticketId}/status']?.post)
+assert.ok(document.paths?.['/v1/sla-summary']?.get)
 assert.ok(document.paths?.['/v1/audit-events']?.get)
 
 for (const [path, methods] of Object.entries(document.paths ?? {})) {
@@ -32,6 +33,7 @@ const routeMarkers = [
   ['/v1/tickets', "url.pathname === '/v1/tickets'"],
   ['/v1/tickets/{ticketId}/assign', 'url.pathname.match(/^\\/v1\\/tickets\\/([^/]+)\\/assign$/)'],
   ['/v1/tickets/{ticketId}/status', 'url.pathname.match(/^\\/v1\\/tickets\\/([^/]+)\\/status$/)'],
+  ['/v1/sla-summary', "url.pathname === '/v1/sla-summary'"],
   ['/v1/audit-events', "url.pathname === '/v1/audit-events'"],
 ]
 for (const [path, marker] of routeMarkers)

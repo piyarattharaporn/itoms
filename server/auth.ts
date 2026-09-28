@@ -27,18 +27,28 @@ export async function authenticate(auth: Auth, authorization: string | undefined
 
 export async function loadActor(db: Firestore, actor: Actor): Promise<Actor> {
   const snapshot = await db.doc(`users/${actor.uid}`).get()
-  if (!snapshot.exists || snapshot.data()?.active !== true) throw new HttpError(403, 'inactive_profile', 'Active ITOMS profile is required')
+  if (!snapshot.exists || snapshot.data()?.active !== true)
+    throw new HttpError(403, 'inactive_profile', 'Active ITOMS profile is required')
   const globalRole = snapshot.data()?.globalRole
-  if (globalRole !== 'superAdmin' && globalRole !== 'member') throw new HttpError(403, 'invalid_profile', 'Profile role is invalid')
+  if (globalRole !== 'superAdmin' && globalRole !== 'member')
+    throw new HttpError(403, 'invalid_profile', 'Profile role is invalid')
   return { ...actor, globalRole, active: true }
 }
 
-export async function loadMembership(db: Firestore, uid: string, propertyId: string): Promise<PropertyMembership | null> {
+export async function loadMembership(
+  db: Firestore,
+  uid: string,
+  propertyId: string,
+): Promise<PropertyMembership | null> {
   const snapshot = await db.doc(`memberships/${uid}__${propertyId}`).get()
   return membershipFromData(snapshot.exists ? snapshot.data() : undefined, uid, propertyId)
 }
 
-export function membershipFromData(data: Record<string, unknown> | undefined, uid: string, propertyId: string): PropertyMembership | null {
+export function membershipFromData(
+  data: Record<string, unknown> | undefined,
+  uid: string,
+  propertyId: string,
+): PropertyMembership | null {
   if (!data) return null
   if (data.userId !== uid || data.propertyId !== propertyId || typeof data.role !== 'string') return null
   if (!['supportEngineer', 'clientExecutive', 'requester'].includes(data.role)) return null
@@ -47,7 +57,8 @@ export function membershipFromData(data: Record<string, unknown> | undefined, ui
 
 export function requireSupportMembership(actor: Actor, membership: PropertyMembership | null) {
   if (actor.globalRole === 'superAdmin') return null
-  if (!membership?.active || membership.role !== 'supportEngineer') throw new HttpError(403, 'forbidden', 'Support Engineer access is required for this Property')
+  if (!membership?.active || membership.role !== 'supportEngineer')
+    throw new HttpError(403, 'forbidden', 'Support Engineer access is required for this Property')
   return membership
 }
 
@@ -61,5 +72,15 @@ export async function requireAuditRead(db: Firestore, actor: Actor, propertyId: 
   if (actor.globalRole === 'superAdmin') return
   if (!propertyId) throw new HttpError(400, 'property_required', 'propertyId is required for non-admin Audit queries')
   const membership = await loadMembership(db, actor.uid, propertyId)
-  if (!membership?.active || membership.role !== 'supportEngineer') throw new HttpError(403, 'forbidden', 'Support Engineer access is required for this Property')
+  if (!membership?.active || membership.role !== 'supportEngineer')
+    throw new HttpError(403, 'forbidden', 'Support Engineer access is required for this Property')
+}
+
+export async function requireSlaRead(db: Firestore, actor: Actor, propertyId: string | null) {
+  if (actor.globalRole === 'superAdmin') return
+  if (!propertyId) throw new HttpError(400, 'property_required', 'propertyId is required for non-admin SLA queries')
+  const membership = await loadMembership(db, actor.uid, propertyId)
+  if (!membership?.active || !['supportEngineer', 'clientExecutive'].includes(membership.role)) {
+    throw new HttpError(403, 'forbidden', 'Support Engineer or Client Executive access is required for this Property')
+  }
 }

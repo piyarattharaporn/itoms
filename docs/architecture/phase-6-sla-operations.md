@@ -5,11 +5,13 @@ Date: 2026-09-26
 ## Delivered
 
 - Added shared SLA contracts under `shared/sla-contracts.ts` so the UI and backend use one policy definition.
+- Added Property-aware policy resolution with safe fallback to the global default policy.
 - Added backend-owned policy snapshots for new Tickets: policy ID, response target, resolution target, start time, due timestamps, and lifecycle state.
+- Added independent Response and Resolution SLA outcomes so late response and late resolution are reported separately.
 - New Tickets use `schemaVersion: 3`; existing schema-version 1/2 Tickets remain readable.
 - Status transitions persist response met time and resolution met time.
-- `Waiting for User` and `Waiting for Vendor` pause the SLA clock with a trusted `slaPausedAt` timestamp and reason.
-- Returning to an active status adds the elapsed pause duration to both due timestamps and records accumulated pause minutes.
+- `Waiting for User` and `Waiting for Vendor` pause only the Resolution SLA clock with a trusted `slaPausedAt` timestamp and reason.
+- Returning to an active status adds the elapsed pause duration to the Resolution due timestamp and records accumulated pause minutes. The Response deadline remains immutable.
 - Completed and Cancelled states are persisted as terminal SLA states. Breach flags are evaluated by the trusted backend during a mutation.
 - Client SLA display prefers persisted backend fields and falls back safely for legacy Tickets with no SLA fields.
 - Server integration tests cover creation, pause, resume, and legacy Ticket compatibility.
@@ -20,13 +22,13 @@ Date: 2026-09-26
 The current emulator policy is 24x7 and is intentionally a versioned operational default:
 
 | Priority | Response target | Resolution target |
-|---|---:|---:|
-| Critical | 30 minutes | 4 hours |
-| High | 1 hour | 8 hours |
-| Medium | 4 hours | 24 hours |
-| Low | 8 hours | 48 hours |
+| -------- | --------------: | ----------------: |
+| Critical |      30 minutes |           4 hours |
+| High     |          1 hour |           8 hours |
+| Medium   |         4 hours |          24 hours |
+| Low      |         8 hours |          48 hours |
 
-The policy is stored as a snapshot on the Ticket so later policy changes do not rewrite historical intent. Property-specific calendars and business hours are not implemented yet.
+The policy is stored as a snapshot on the Ticket so later policy changes do not rewrite historical intent. A Property may provide a validated `slaPolicy` object on its document; incomplete or invalid overrides use the default policy. Property policy administration and Rules validation are planned for Phase 2. Property-specific calendars and business hours are not implemented yet.
 
 ## Migration behavior
 

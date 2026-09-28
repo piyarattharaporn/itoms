@@ -47,7 +47,8 @@
       allow list: if isSuperAdmin();
       allow create, delete: if false;
       allow update: if isSuperAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cctvEnabled', 'updatedAt'])
-        && request.resource.data.cctvEnabled is bool
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cctvEnabled', 'slaPolicy', 'updatedAt'])
+        && (!request.resource.data.keys().hasAny(['cctvEnabled']) || request.resource.data.cctvEnabled is bool)
+        && (!request.resource.data.keys().hasAny(['slaPolicy']) || validSlaPolicy(request.resource.data.slaPolicy))
         && request.resource.data.updatedAt == request.time;
     }

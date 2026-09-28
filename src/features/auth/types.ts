@@ -1,3 +1,5 @@
+import type { SlaPolicyConfig } from '../../../shared/sla-contracts'
+
 export type GlobalRole = 'superAdmin' | 'member'
 
 export type PropertyRole = 'supportEngineer' | 'clientExecutive' | 'requester'
@@ -25,4 +27,5 @@ export interface PropertyOption {
   code: string
   name: string
   cctvEnabled?: boolean
+  slaPolicy?: SlaPolicyConfig | null
 }

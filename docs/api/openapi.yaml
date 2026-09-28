@@ -81,6 +81,26 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/sla-summary:
+    get:
+      summary: Read a Property-scoped SLA summary
+      parameters:
+        - in: query
+          name: propertyId
+          schema: { type: string, maxLength: 160 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500, default: 500 }
+      responses:
+        '200':
+          description: SLA totals and bounded breakdowns by Property, priority, and engineer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlaSummary'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /v1/audit-events:
     get:
       summary: Read Property-scoped Audit Events
@@ -114,7 +134,23 @@ components:
     CreateTicketCommand:
       type: object
       additionalProperties: false
-      required: [propertyId, propertyCode, requesterName, requesterEmail, department, issueArea, location, assetId, problemCategory, problemType, channel, priority, description, idempotencyKey]
+      required:
+        [
+          propertyId,
+          propertyCode,
+          requesterName,
+          requesterEmail,
+          department,
+          issueArea,
+          location,
+          assetId,
+          problemCategory,
+          problemType,
+          channel,
+          priority,
+          description,
+          idempotencyKey,
+        ]
       properties:
         propertyId: { type: string, minLength: 1, maxLength: 160 }
         propertyCode: { type: string, minLength: 1, maxLength: 40 }
@@ -142,7 +178,11 @@ components:
       additionalProperties: false
       required: [nextStatus, idempotencyKey]
       properties:
-        nextStatus: { type: string, enum: [Pending, In Progress, Monitoring, Waiting for Vendor, Waiting for User, Completed, Cancelled] }
+        nextStatus:
+          {
+            type: string,
+            enum: [Pending, In Progress, Monitoring, Waiting for Vendor, Waiting for User, Completed, Cancelled],
+          }
         resolutionNotes: { type: string, maxLength: 4000 }
         idempotencyKey: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
     TicketCommandResult:
@@ -159,6 +199,57 @@ components:
           required: [status]
           properties:
             status: { type: string }
+    SlaSummary:
+      type: object
+      required: [asOf, propertyId, truncated, totals, averages, byProperty, byPriority, byEngineer]
+      properties:
+        asOf: { type: string, format: date-time }
+        propertyId: { type: [string, 'null'] }
+        truncated: { type: boolean }
+        totals: { $ref: '#/components/schemas/SlaSummaryGroup' }
+        averages:
+          type: object
+          required: [firstResponseMinutes, resolutionMinutes]
+          properties:
+            firstResponseMinutes: { type: [integer, 'null'] }
+            resolutionMinutes: { type: [integer, 'null'] }
+        byProperty:
+          type: array
+          items: { $ref: '#/components/schemas/SlaSummaryGroup' }
+        byPriority:
+          type: array
+          items: { $ref: '#/components/schemas/SlaSummaryGroup' }
+        byEngineer:
+          type: array
+          items: { $ref: '#/components/schemas/SlaSummaryGroup' }
+    SlaSummaryGroup:
+      type: object
+      required:
+        [
+          key,
+          total,
+          eligible,
+          open,
+          completed,
+          dueSoon,
+          breached,
+          responseBreached,
+          resolutionBreached,
+          responseMet,
+          resolutionMet,
+        ]
+      properties:
+        key: { type: string }
+        total: { type: integer, minimum: 0 }
+        eligible: { type: integer, minimum: 0 }
+        open: { type: integer, minimum: 0 }
+        completed: { type: integer, minimum: 0 }
+        dueSoon: { type: integer, minimum: 0 }
+        breached: { type: integer, minimum: 0 }
+        responseBreached: { type: integer, minimum: 0 }
+        resolutionBreached: { type: integer, minimum: 0 }
+        responseMet: { type: integer, minimum: 0 }
+        resolutionMet: { type: integer, minimum: 0 }
     Error:
       type: object
       required: [error, message, correlationId]

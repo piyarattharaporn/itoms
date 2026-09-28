@@ -7,16 +7,10 @@ import {
   GoogleAuthProvider,
   type User,
 } from 'firebase/auth'
-import {
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  where,
-  type DocumentData,
-} from 'firebase/firestore'
+import { collection, doc, onSnapshot, query, where, type DocumentData } from 'firebase/firestore'
 import { auth, db, isConfigured } from '../../lib/firebase'
 import type { GlobalRole, PropertyMembership, PropertyOption, PropertyRole, UserProfile } from './types'
+import { parseSlaPolicyConfig } from '../../../shared/sla-contracts'
 
 type AccessState = 'loading' | 'signedOut' | 'unprovisioned' | 'inactive' | 'ready' | 'noProperties'
 
@@ -63,7 +57,8 @@ function readMembership(id: string, data: DocumentData): PropertyMembership | nu
     typeof data.propertyName !== 'string' ||
     !isPropertyRole(data.role) ||
     typeof data.active !== 'boolean'
-  ) return null
+  )
+    return null
 
   return {
     id,
@@ -77,9 +72,7 @@ function readMembership(id: string, data: DocumentData): PropertyMembership | nu
 }
 
 function authErrorMessage(error: unknown): string {
-  const code = typeof error === 'object' && error !== null && 'code' in error
-    ? String(error.code)
-    : ''
+  const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : ''
 
   if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
     return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
@@ -168,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     code: typeof property.data().code === 'string' ? property.data().code : property.id,
                     name: typeof property.data().name === 'string' ? property.data().name : property.id,
                     cctvEnabled: property.data().cctvEnabled !== false,
+                    slaPolicy: parseSlaPolicyConfig(property.data().slaPolicy),
                   }))
                   .sort((a, b) => a.name.localeCompare(b.name, 'th'))
                 setProperties(nextProperties)
@@ -191,9 +185,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .map((membership) => readMembership(membership.id, membership.data()))
                 .filter((membership): membership is PropertyMembership => membership !== null && membership.active)
               setMemberships(nextMemberships)
-              setProperties(nextMemberships
-                .map((membership) => ({ id: membership.propertyId, code: membership.propertyCode, name: membership.propertyName }))
-                .sort((a, b) => a.name.localeCompare(b.name, 'th')))
+              setProperties(
+                nextMemberships
+                  .map((membership) => ({
+                    id: membership.propertyId,
+                    code: membership.propertyCode,
+                    name: membership.propertyName,
+                  }))
+                  .sort((a, b) => a.name.localeCompare(b.name, 'th')),
+              )
               setAccessState(nextMemberships.length > 0 ? 'ready' : 'noProperties')
             },
             () => {
@@ -219,43 +219,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const value = useMemo<AuthContextValue>(() => ({
-    firebaseUser,
-    profile,
-    memberships,
-    properties,
-    accessState,
-    error,
-    firebaseReady: Boolean(auth && db && isConfigured),
-    signIn: async (email, password) => {
-      if (!auth) throw new Error('Firebase Auth ยังไม่ได้ตั้งค่า')
-      setError(null)
-      try {
-        await signInWithEmailAndPassword(auth, email.trim(), password)
-      } catch (cause) {
-        const message = authErrorMessage(cause)
-        setError(message)
-        throw new Error(message)
-      }
-    },
-    signInWithGoogle: async () => {
-      if (!auth) throw new Error('Firebase Auth ยังไม่ได้ตั้งค่า')
-      setError(null)
-      try {
-        const provider = new GoogleAuthProvider()
-        provider.setCustomParameters({ prompt: 'select_account' })
-        await signInWithPopup(auth, provider)
-      } catch (cause) {
-        const message = authErrorMessage(cause)
-        setError(message)
-        throw new Error(message)
-      }
-    },
-    signOut: async () => {
-      if (!auth) return
-      await firebaseSignOut(auth)
-    },
-  }), [firebaseUser, profile, memberships, properties, accessState, error])
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      firebaseUser,
+      profile,
+      memberships,
+      properties,
+      accessState,
+      error,
+      firebaseReady: Boolean(auth && db && isConfigured),
+      signIn: async (email, password) => {
+        if (!auth) throw new Error('Firebase Auth ยังไม่ได้ตั้งค่า')
+        setError(null)
+        try {
+          await signInWithEmailAndPassword(auth, email.trim(), password)
+        } catch (cause) {
+          const message = authErrorMessage(cause)
+          setError(message)
+          throw new Error(message)
+        }
+      },
+      signInWithGoogle: async () => {
+        if (!auth) throw new Error('Firebase Auth ยังไม่ได้ตั้งค่า')
+        setError(null)
+        try {
+          const provider = new GoogleAuthProvider()
+          provider.setCustomParameters({ prompt: 'select_account' })
+          await signInWithPopup(auth, provider)
+        } catch (cause) {
+          const message = authErrorMessage(cause)
+          setError(message)
+          throw new Error(message)
+        }
+      },
+      signOut: async () => {
+        if (!auth) return
+        await firebaseSignOut(auth)
+      },
+    }),
+    [firebaseUser, profile, memberships, properties, accessState, error],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-server
+playwright-report
+test-results
+.firebase
+snapshots
+emulator-data
+package-lock.json
+firestore.rules

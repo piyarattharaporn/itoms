@@ -35,7 +35,7 @@ The production client must be built with the matching App Check site key before 
 
 ## Deployment safety note
 
-The repository's current `firebase.json` still names the legacy Hosting site `itmos-4aff7`. Do not run a Hosting deploy until the target site is deliberately changed to `itoms-v2` (or an explicitly approved custom Hosting site), the production environment is loaded, and the production preflight passes.
+The repository's current `firebase.json` names the approved Hosting site `itoms-v2`. Before a subsequent Hosting deploy, load the approved production environment, verify the project/site target, and require the production preflight and QA gates to pass.
 
 ## Spark-only operating decision
 

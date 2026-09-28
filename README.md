@@ -1,6 +1,6 @@
 # Lotus IT Portal
 
-Local MVP for IT Outsource Management built with Vite, React, TypeScript, Tailwind CSS, and Firebase client SDK. It serves as a static single-page app on Firebase Hosting and uses Firebase Authentication and Cloud Firestore. A Firebase project has now been provisioned, but this repository still does not contain production credentials, a production environment file, or a deployed backend.
+Local MVP for IT Outsource Management built with Vite, React, TypeScript, Tailwind CSS, and Firebase client SDK. It serves as a static single-page app on Firebase Hosting and uses Firebase Authentication and Cloud Firestore. Hosting is deployed to the approved `itoms-v2` project; this repository does not contain production credentials, a production environment file, or a deployed trusted backend.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ In another terminal, run `npm run dev`. Local configuration uses the `demo-lotus
 
 The default Production direction is Firebase + Spark only. Ticket creation, assignment, status changes, and operational audit events use a bounded Firestore client path protected by Rules. The optional Phase 3–6 Trusted Backend remains emulator-only and can be enabled locally with `VITE_ENABLE_TRUSTED_BACKEND=true` for boundary testing; it is not required for the Spark-only workflow. The HTTP contract is documented in `docs/api/openapi.yaml`.
 
-Phase 7 adds production configuration guardrails and go-live runbooks. The Firebase project and App Check enforcement are now configured in Console, but no application deployment has been performed. Before any approved production build, run `npm run check:production-config` after filling `.env.production`; the command validates configuration locally and never deploys. See [`docs/architecture/spark-only-production.md`](docs/architecture/spark-only-production.md).
+Phase 7 adds production configuration guardrails and go-live runbooks. The Firebase project and App Check enforcement are configured in Console, and the static application is deployed to `https://itoms-v2.web.app`. Before every approved production build, run `npm run check:production-config` after loading `.env.production`; the command validates configuration locally and never deploys. See [`docs/architecture/spark-only-production.md`](docs/architecture/spark-only-production.md).
 
 To persist local emulator data between sessions, run `npm run emulators:import`. Emulator data, `.env.local`, and production env files are ignored by Git. Never import production data into the local emulator.
 
@@ -30,16 +30,33 @@ Run Firestore Rules tests locally with:
 npm run test:rules
 ```
 
+## Quality checks
+
+The repository includes the following repeatable QA commands:
+
+```sh
+npm run test:unit       # Vitest + React Testing Library
+npm run test:e2e        # Playwright browser smoke, accessibility, and responsive snapshots
+npm run test:a11y       # Playwright + axe WCAG A/AA scan
+npm run test:responsive # Responsive layout and screenshot regression at mobile/tablet/desktop widths
+npm run lint            # ESLint
+npm run format:check    # Prettier checks for QA/config files
+npm run test:contract   # OpenAPI document and trusted-server route contract
+npm run test:load       # Local static preview load test; never targets Production Firebase by default
+```
+
+`npm run test:quality` runs the unit, OpenAPI, lint, and formatting gates used by the Hosting predeploy hook. Playwright tests use placeholder Firebase configuration and do not connect to a real Firebase project.
+
 ## Production Firebase setup
 
-The approved project record is documented in [`docs/operations/production-project-record.md`](docs/operations/production-project-record.md). The project and Web app were created in Firebase Console, Firestore was provisioned in `asia-southeast3`, and Cloud Firestore App Check enforcement was enabled. The application has not been deployed from this repository yet.
+The approved project record is documented in [`docs/operations/production-project-record.md`](docs/operations/production-project-record.md). The project and Web app were created in Firebase Console, Firestore was provisioned in `asia-southeast3`, Cloud Firestore App Check enforcement was enabled, and Hosting is deployed to `itoms-v2`.
 
 1. Use the approved project record and copy the registered Web app configuration to `.env.production` (copy `.env.production.example` first). The web API key and app ID are public client configuration, not private credentials; never put service account keys or other secrets in the Vite app. `.env.production` is Git-ignored.
 2. The **Cloud Firestore Standard edition** database is provisioned in the approved region with delete protection and deny-by-default Rules. Do not load production records until the backend, Auth providers, indexes, backup plan, and restore owner are approved.
 3. In Authentication, enable Email/Password and Google providers. Add the eventual Firebase Hosting domain and any approved custom domain to Authorized Domains. Google sign-in requires the provider and allowed domains to be configured in the Firebase Console. Phone sign-in is not part of this MVP.
 4. Bootstrap the initial Super Admin and access records through an authorized Firebase Console/admin process. Client writes to `users`, `memberships`, and `properties` are denied by Rules. Provision a `users/{uid}` profile with `globalRole: "superAdmin"` and `active: true`, and active Property documents with their matching Membership records. Never grant a role from client code.
 5. Copy `.firebaserc.example` to `.firebaserc` and replace its placeholder with the approved project ID, or always pass `--project` explicitly. Do not commit production config files containing project-specific deployment state.
-6. Build using `.env.production`, then deploy only after reviewing the target project and access records. The current `firebase.json` still points to legacy Hosting site `itmos-4aff7`; change it deliberately to `itoms-v2` or an approved custom site before any deploy:
+6. Build using `.env.production`, then deploy only after reviewing the target project and access records. The current `firebase.json` targets the approved Hosting site `itoms-v2`:
 
    ```sh
    cp .env.production.example .env.production
@@ -76,4 +93,4 @@ npm run build
 npm run preview
 ```
 
-Firebase Hosting serves the static `dist` output and rewrites app routes to `index.html`. Its predeploy hook builds the app; Firestore Rules' predeploy hook runs the local Rules tests. The approved Hosting site is recorded separately; the repository target must be corrected before deployment.
+Firebase Hosting serves the static `dist` output and rewrites app routes to `index.html`. Its predeploy hook runs the QA gates, production configuration check, and build; Firestore Rules' predeploy hook runs the local Rules tests. The approved Hosting site is `itoms-v2`.

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-server/
+playwright-report/
+test-results/
 .DS_Store
 .firebase/
 .firebaserc

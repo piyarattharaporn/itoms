@@ -23,7 +23,7 @@
     "site": "itoms-v2",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "predeploy": ["npm run check:production-config", "npm run build"],
+    "predeploy": ["npm run test:quality", "npm run check:production-config", "npm run build"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }],
     "headers": [
       {

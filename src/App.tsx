@@ -216,12 +216,12 @@ function Portal() {
               </button>
             ))}
             {visibleTicketNavItems.length > 0 && <>
-              <div className="mb-2 mt-5 border-t border-line pt-4"><p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{t("Tasks")}</p></div>
+              <div className="mb-2 mt-5 border-t border-line pt-4"><p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t("Tasks")}</p></div>
               {visibleTicketNavItems.map((item) => <button aria-current={activeItem === item ? 'page' : undefined} className={navItemClass(activeItem === item)} key={item} onClick={() => { setTicketSearch(''); selectNavigationItem(item) }} type="button"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${activeItem === item ? 'bg-white text-lotus-700' : 'bg-slate-50 text-slate-500 group-hover:bg-white group-hover:text-lotus-700'}`}><NavigationIcon item={item} /></span>{t(item)}</button>)}
             </>}
             {canManageCatalog && <>
               <div className="mb-2 mt-5 border-t border-line pt-4">
-                <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{t("System Menu")}</p>
+                <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t("System Menu")}</p>
               </div>
               {visibleSystemNavItems.map((item) => (
                 <button

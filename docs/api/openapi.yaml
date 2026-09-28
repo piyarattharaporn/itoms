@@ -1,0 +1,186 @@
+openapi: 3.1.0
+info:
+  title: ITOMS Trusted Backend API
+  version: 0.6.0
+  description: Emulator-only contract for the Phase 6 trusted Ticket mutation and SLA boundary. Successful and failed responses include X-Correlation-Id.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local Emulator-only server
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        '200':
+          description: Emulator-only health response
+  /v1/tickets:
+    post:
+      summary: Create a Ticket with its initial event and Audit Event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTicketCommand'
+      responses:
+        '201':
+          description: Ticket created or the idempotent result returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketCommandResult'
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/tickets/{ticketId}/assign:
+    post:
+      summary: Assign a Ticket to a same-Property Support Engineer
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentCommand'
+      responses:
+        '200':
+          description: Assignment result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketCommandResult'
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/tickets/{ticketId}/status:
+    post:
+      summary: Change a Ticket status with a domain event and Audit Event
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusCommand'
+      responses:
+        '200':
+          description: Status result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResult'
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /v1/audit-events:
+    get:
+      summary: Read Property-scoped Audit Events
+      parameters:
+        - in: query
+          name: propertyId
+          schema: { type: string, maxLength: 160 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 30 }
+        - in: query
+          name: cursor
+          schema: { type: string }
+      responses:
+        '200': { description: Cursor-paginated Audit Events }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
+  parameters:
+    TicketId:
+      in: path
+      name: ticketId
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 150 }
+  schemas:
+    CreateTicketCommand:
+      type: object
+      additionalProperties: false
+      required: [propertyId, propertyCode, requesterName, requesterEmail, department, issueArea, location, assetId, problemCategory, problemType, channel, priority, description, idempotencyKey]
+      properties:
+        propertyId: { type: string, minLength: 1, maxLength: 160 }
+        propertyCode: { type: string, minLength: 1, maxLength: 40 }
+        requesterName: { type: string, minLength: 1, maxLength: 120 }
+        requesterEmail: { type: string, format: email, maxLength: 254 }
+        department: { type: string, minLength: 1, maxLength: 80 }
+        issueArea: { type: string, enum: [Guest Property Problem, BOH (Back of House), Office / Corporate, Other] }
+        location: { type: string, minLength: 1, maxLength: 160 }
+        assetId: { type: string, maxLength: 160 }
+        problemCategory: { type: string, minLength: 1, maxLength: 80 }
+        problemType: { type: string, minLength: 1, maxLength: 80 }
+        channel: { type: string, minLength: 1, maxLength: 80 }
+        priority: { type: string, enum: [Low, Medium, High, Critical] }
+        description: { type: string, minLength: 10, maxLength: 4000 }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    AssignmentCommand:
+      type: object
+      additionalProperties: false
+      required: [engineerUid, idempotencyKey]
+      properties:
+        engineerUid: { type: string, maxLength: 128 }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    StatusCommand:
+      type: object
+      additionalProperties: false
+      required: [nextStatus, idempotencyKey]
+      properties:
+        nextStatus: { type: string, enum: [Pending, In Progress, Monitoring, Waiting for Vendor, Waiting for User, Completed, Cancelled] }
+        resolutionNotes: { type: string, maxLength: 4000 }
+        idempotencyKey: { type: string, minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    TicketCommandResult:
+      type: object
+      required: [ticketId, eventId, action]
+      properties:
+        ticketId: { type: string }
+        eventId: { type: string }
+        action: { type: string }
+    StatusResult:
+      allOf:
+        - $ref: '#/components/schemas/TicketCommandResult'
+        - type: object
+          required: [status]
+          properties:
+            status: { type: string }
+    Error:
+      type: object
+      required: [error, message, correlationId]
+      properties:
+        error: { type: string }
+        message: { type: string }
+        correlationId: { type: string, format: uuid }
+  responses:
+    Unauthenticated:
+      description: Missing or invalid Firebase ID token
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Active profile or Property authorization failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Invalid state transition or idempotency conflict
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ValidationError:
+      description: Strict request contract validation failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: Mutation burst limit exceeded; retry after the indicated delay
+      headers:
+        Retry-After: { schema: { type: integer, example: 60 } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

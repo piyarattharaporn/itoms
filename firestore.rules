@@ -1,0 +1,1148 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function hasActiveProfile() {
+      return signedIn()
+        && exists(profilePath(request.auth.uid))
+        && get(profilePath(request.auth.uid)).data.active == true;
+    }
+
+    function isSuperAdmin() {
+      return hasActiveProfile()
+        && get(profilePath(request.auth.uid)).data.globalRole == 'superAdmin';
+    }
+
+    function membershipPath(uid, propertyId) {
+      return /databases/$(database)/documents/memberships/$(uid + '__' + propertyId);
+    }
+
+    function hasPropertyMembership(propertyId) {
+      let path = membershipPath(request.auth.uid, propertyId);
+      return hasActiveProfile()
+        && exists(path)
+        && get(path).data.userId == request.auth.uid
+        && get(path).data.propertyId == propertyId
+        && get(path).data.active == true;
+    }
+
+    function hasPropertyRole(propertyId, role) {
+      let path = membershipPath(request.auth.uid, propertyId);
+      return hasPropertyMembership(propertyId) && get(path).data.role == role;
+    }
+
+    function hasAnyPropertyRole(propertyId, roles) {
+      let path = membershipPath(request.auth.uid, propertyId);
+      return hasPropertyMembership(propertyId) && get(path).data.role in roles;
+    }
+
+    function canUseProperty(propertyId, propertyCode) {
+      let propertyPath = /databases/$(database)/documents/properties/$(propertyId);
+      let membership = membershipPath(request.auth.uid, propertyId);
+      return (isSuperAdmin()
+          && exists(propertyPath)
+          && get(propertyPath).data.active == true
+          && get(propertyPath).data.code == propertyCode)
+        || (hasPropertyMembership(propertyId)
+          && get(membership).data.propertyCode == propertyCode);
+    }
+
+    function validIsoDate(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function validOptionalIsoDate(value) {
+      return value is string && (value == '' || validIsoDate(value));
+    }
+
+    function validTicketIssueArea(value) {
+      return value in ['Guest Property Problem', 'BOH (Back of House)', 'Office / Corporate', 'Other'];
+    }
+
+    function validTicketChannel(propertyId, value) {
+      let path = ticketCatalogPath(propertyId);
+      return value in ['Line', 'Message Box', 'Personal Call', 'Other']
+        || (exists(path) && value in get(path).data.channels);
+    }
+
+    function ticketCatalogPath(propertyId) {
+      return /databases/$(database)/documents/ticketCatalogs/$(propertyId);
+    }
+
+    function validProblemType(propertyId, category, value) {
+      let path = ticketCatalogPath(propertyId);
+      let defaults = [
+          'Hardware / Computer PC', 'Hardware / Computer Laptop', 'Hardware / Office Printer',
+          'Hardware / POS Printer', 'Hardware / Network Equipments', 'Hardware / Server',
+          'Hardware / NAS', 'Hardware / CCTV Equipments', 'Hardware / Door Lock Equipments',
+          'Software / OPERA Cloud', 'Software / Symphony Cloud', 'Software / Sun Cloud',
+          'Software / Interface Communications', 'Network / WiFi Connections',
+          'Network / Network Configurations', 'Helpdesk / Helpdesk'
+        ];
+      let legacyDefaults = [
+          'Hardware', 'OPERA Cloud', 'Simphony Cloud', 'CCTV System', 'Door Lock System',
+          'Network', 'Printer/POS', 'Interface Communications', 'Software', 'Other'
+        ];
+      let selected = category + ' / ' + value;
+      return category is string && category.size() > 0 && category.size() <= 80
+        && value is string && value.size() > 0 && value.size() <= 80
+        && ((exists(path) && (selected in get(path).data.problemTypes
+              || (get(path).data.problemTypes.hasAll(legacyDefaults)
+                && (selected in defaults || value in get(path).data.problemTypes))))
+          || (!exists(path) && selected in defaults));
+    }
+
+    function validDepartment(propertyId, value) {
+      let path = ticketCatalogPath(propertyId);
+      return value == '' || value in [
+          'Front Office', 'Housekeeping', 'Food & Beverage', 'Kitchen', 'Engineering',
+          'Finance & Accounting', 'Human Resources', 'Sales & Marketing', 'Security', 'Spa', 'IT', 'Other'
+        ]
+        || (exists(path) && value in get(path).data.departments);
+    }
+
+    function validAssetCategory(propertyId, value) {
+      let path = ticketCatalogPath(propertyId);
+      return value in [
+          'Computer', 'POS Terminal', 'CCTV DVR', 'CCTV Camera', 'Network Switch',
+          'Access Point', 'Door Lock Encoder', 'Printer', 'UPS', 'Server', 'Other'
+        ]
+        || (exists(path) && value in get(path).data.assetCategories);
+    }
+
+    function validTicketCatalog(catalog) {
+      return catalog.keys().hasAll([
+          'propertyId', 'propertyCode', 'problemTypes', 'departments', 'assetCategories', 'channels', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && catalog.keys().hasOnly([
+          'propertyId', 'propertyCode', 'problemTypes', 'departments', 'assetCategories', 'channels', 'todoCategories', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && catalog.propertyId is string
+        && catalog.propertyCode is string
+        && catalog.problemTypes is list && catalog.problemTypes.size() <= 100
+        && catalog.departments is list && catalog.departments.size() <= 100
+        && catalog.departments.hasAll([
+          'Front Office', 'Housekeeping', 'Food & Beverage', 'Kitchen', 'Engineering',
+          'Finance & Accounting', 'Human Resources', 'Sales & Marketing', 'Security', 'Spa', 'IT', 'Other'
+        ])
+        && catalog.assetCategories is list && catalog.assetCategories.size() <= 100
+        && catalog.assetCategories.hasAll([
+          'Computer', 'POS Terminal', 'CCTV DVR', 'CCTV Camera', 'Network Switch',
+          'Access Point', 'Door Lock Encoder', 'Printer', 'UPS', 'Server', 'Other'
+        ])
+        && catalog.channels is list && catalog.channels.size() <= 100
+        && catalog.channels.hasAll(['Line', 'Message Box', 'Personal Call', 'Other'])
+        && (!catalog.keys().hasAny(['todoCategories']) || (catalog.todoCategories is list && catalog.todoCategories.size() <= 100 && catalog.todoCategories.hasAll(['General', 'Meeting Room'])))
+        && catalog.createdBy is string;
+    }
+
+    function validTicketAssetOption(option) {
+      return option.keys().hasAll([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && option.keys().hasOnly([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && option.propertyId is string
+        && option.propertyCode is string
+        && option.assetTag is string && option.assetTag.size() > 0 && option.assetTag.size() <= 80
+        && option.name is string && option.name.size() > 0 && option.name.size() <= 160
+        && validAssetCategory(option.propertyId, option.category)
+        && option.department is string && option.department.size() <= 80
+        && (option.department == '' || validDepartment(option.propertyId, option.department))
+        && option.location is string && option.location.size() > 0 && option.location.size() <= 160
+        && option.status in ['In Service', 'Under Repair', 'Retired'];
+    }
+
+    function validRequestUser(user) {
+      return user.keys().hasAll([
+          'propertyId', 'propertyCode', 'email', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && user.keys().hasOnly([
+          'propertyId', 'propertyCode', 'email', 'name', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && user.propertyId is string
+        && user.propertyCode is string
+        && user.email is string && user.email.size() >= 6 && user.email.size() <= 254
+        && user.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && (!user.keys().hasAny(['name']) || user.name == null || (user.name is string && user.name.size() <= 120))
+        && user.department is string && user.department.size() > 0 && user.department.size() <= 80
+        && validDepartment(user.propertyId, user.department)
+        && user.active is bool
+        && user.createdBy is string;
+    }
+
+    function validSoftwareLicense(license) {
+      return license.keys().hasAll([
+          'propertyId', 'propertyCode', 'productName', 'vendor', 'licenseType', 'expiresOn',
+          'quantity', 'renewalOwner', 'status', 'notes', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && license.keys().hasOnly([
+          'propertyId', 'propertyCode', 'productName', 'vendor', 'licenseType', 'expiresOn',
+          'quantity', 'renewalOwner', 'status', 'notes', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && license.propertyId is string
+        && license.propertyCode is string
+        && license.productName is string && license.productName.size() > 0 && license.productName.size() <= 160
+        && license.vendor is string && license.vendor.size() > 0 && license.vendor.size() <= 160
+        && license.licenseType in ['Subscription', 'Maintenance', 'Support', 'Perpetual']
+        && validIsoDate(license.expiresOn)
+        && license.quantity is int && license.quantity >= 1 && license.quantity <= 100000
+        && license.renewalOwner is string && license.renewalOwner.size() <= 160
+        && license.status in ['Active', 'Renewal In Progress', 'Not Renewing']
+        && license.notes is string && license.notes.size() <= 1000
+        && license.createdBy is string;
+    }
+
+    function validAsset(asset) {
+      return asset.keys().hasAll([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'vendor', 'model', 'serialNumber', 'warrantyExpiresOn', 'status',
+          'ownershipType', 'lessorName', 'leaseContractNumber', 'leaseStartDate', 'leaseEndDate', 'monthlyRentalCost',
+          'spec', 'detail', 'usedBy',
+          'serviceType', 'serviceVendor', 'serviceSentOn', 'expectedReturnOn', 'serviceNotes',
+          'createdBy', 'createdAt', 'updatedAt'
+      ])
+        && asset.keys().hasOnly([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'vendor', 'model', 'serialNumber', 'warrantyExpiresOn', 'status',
+          'ownershipType', 'lessorName', 'leaseContractNumber', 'leaseStartDate', 'leaseEndDate', 'monthlyRentalCost',
+          'spec', 'detail', 'usedBy',
+          'serviceType', 'serviceVendor', 'serviceSentOn', 'expectedReturnOn', 'serviceNotes',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && asset.propertyId is string
+        && asset.propertyCode is string
+        && asset.assetTag is string && asset.assetTag.size() > 0 && asset.assetTag.size() <= 80
+        && asset.name is string && asset.name.size() > 0 && asset.name.size() <= 160
+        && asset.category is string && asset.category.size() > 0 && asset.category.size() <= 100
+        && asset.department is string && asset.department.size() > 0 && asset.department.size() <= 80
+        && validDepartment(asset.propertyId, asset.department)
+        && asset.location is string && asset.location.size() > 0 && asset.location.size() <= 160
+        && asset.vendor is string && asset.vendor.size() <= 160
+        && asset.model is string && asset.model.size() <= 160
+        && asset.spec is string && asset.spec.size() <= 1000
+        && asset.detail is string && asset.detail.size() <= 2000
+        && asset.usedBy is string && asset.usedBy.size() <= 160
+        && asset.serialNumber is string && asset.serialNumber.size() <= 160
+        && validOptionalIsoDate(asset.warrantyExpiresOn)
+        && asset.ownershipType in ['Owned', 'Leased']
+        && asset.lessorName is string && asset.lessorName.size() <= 160
+        && asset.leaseContractNumber is string && asset.leaseContractNumber.size() <= 120
+        && validOptionalIsoDate(asset.leaseStartDate)
+        && validOptionalIsoDate(asset.leaseEndDate)
+        && (asset.monthlyRentalCost == null || (asset.monthlyRentalCost is number
+          && asset.monthlyRentalCost >= 0 && asset.monthlyRentalCost <= 1000000000))
+        && (asset.ownershipType != 'Leased' || asset.lessorName.size() > 0)
+        && asset.status in ['In Service', 'Under Repair', 'Retired']
+        && asset.serviceType in ['', 'Internal Repair', 'Warranty Claim', 'Vendor Repair']
+        && asset.serviceVendor is string && asset.serviceVendor.size() <= 160
+        && validOptionalIsoDate(asset.serviceSentOn)
+        && validOptionalIsoDate(asset.expectedReturnOn)
+        && asset.serviceNotes is string && asset.serviceNotes.size() <= 500
+        && asset.createdBy is string;
+    }
+
+    function canManageProperty(propertyId) {
+      return isSuperAdmin() || hasPropertyRole(propertyId, 'supportEngineer');
+    }
+
+    function cctvEnabledForProperty(propertyId) {
+      let path = /databases/$(database)/documents/properties/$(propertyId);
+      return exists(path)
+        && (!get(path).data.keys().hasAny(['cctvEnabled']) || get(path).data.cctvEnabled == true);
+    }
+
+    function canReadOperationalTodos(propertyId) {
+      return isSuperAdmin() || hasPropertyMembership(propertyId);
+    }
+
+    function validOperationalTodo(todo) {
+      return todo.keys().hasAll([
+          'propertyId', 'propertyCode', 'title', 'kind', 'startDate', 'dueTime', 'room',
+          'assignee', 'repeat', 'checklistText', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && todo.keys().hasOnly([
+          'propertyId', 'propertyCode', 'title', 'kind', 'startDate', 'dueTime', 'room',
+          'assignee', 'repeat', 'checklistText', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && todo.propertyId is string && todo.propertyId.size() > 0 && todo.propertyId.size() <= 160
+        && todo.propertyCode is string && todo.propertyCode.size() > 0 && todo.propertyCode.size() <= 40
+        && todo.title is string && todo.title.size() > 0 && todo.title.size() <= 160
+        && todo.kind is string && todo.kind.size() > 0 && todo.kind.size() <= 80
+        && validIsoDate(todo.startDate)
+        && todo.dueTime is string && todo.dueTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        && todo.room is string && todo.room.size() <= 120
+        && (todo.kind != 'Meeting Room' || todo.room.size() > 0)
+        && todo.assignee is string && todo.assignee.size() > 0 && todo.assignee.size() <= 120
+        && todo.repeat in ['None', 'Weekly', 'Monthly']
+        && todo.checklistText is string && todo.checklistText.size() <= 1200
+        && todo.active is bool && todo.createdBy is string;
+    }
+
+    function validOperationalTodoUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return (changed.hasOnly(['title', 'kind', 'startDate', 'dueTime', 'room', 'assignee', 'repeat', 'checklistText', 'updatedAt'])
+          && request.resource.data.active == resource.data.active)
+        || (changed.hasOnly(['active', 'updatedAt'])
+          && resource.data.active == true
+          && request.resource.data.active == false);
+    }
+
+    function validOperationalTodoCompletion(completion) {
+      return completion.keys().hasAll([
+          'taskId', 'propertyId', 'propertyCode', 'occurrenceDate', 'completed',
+          'completedByUid', 'completedAt', 'createdAt', 'updatedAt'
+        ])
+        && completion.keys().hasOnly([
+          'taskId', 'propertyId', 'propertyCode', 'occurrenceDate', 'completed',
+          'completedByUid', 'completedAt', 'createdAt', 'updatedAt'
+        ])
+        && completion.taskId is string && completion.taskId.size() > 0
+        && completion.propertyId is string && completion.propertyId.size() > 0
+        && completion.propertyCode is string && completion.propertyCode.size() > 0
+        && validIsoDate(completion.occurrenceDate)
+        && completion.completed is bool
+        && completion.completedByUid is string
+        && (completion.completed
+          ? completion.completedByUid == request.auth.uid && completion.completedAt == request.time
+          : completion.completedByUid == '' && completion.completedAt == null);
+    }
+
+    function operationalTodoMatchesCompletion(completion) {
+      let taskPath = /databases/$(database)/documents/operationalTodos/$(completion.taskId);
+      return exists(taskPath)
+        && get(taskPath).data.propertyId == completion.propertyId
+        && get(taskPath).data.propertyCode == completion.propertyCode;
+    }
+
+    function meetingRoomCareIsEnabled(propertyId) {
+      let settingsPath = /databases/$(database)/documents/operationalTodoSettings/$(propertyId);
+      return exists(settingsPath)
+        && get(settingsPath).data.propertyId == propertyId
+        && get(settingsPath).data.meetingRoomCareEnabled == true;
+    }
+
+    function validCctvNvrDetail(detail) {
+      return detail is map
+        && detail.keys().hasAll(['nvrId', 'online', 'cameraTotal', 'cameraOnline', 'retentionDays', 'notes'])
+        && detail.keys().hasOnly([
+          'nvrId', 'nvrName', 'location', 'online', 'cameraTotal', 'cameraOnline',
+          'retentionDays', 'oldestFootageOn', 'targetRetentionDays', 'notes'
+        ])
+        && detail.nvrId is string && detail.nvrId.size() > 0 && detail.nvrId.size() <= 80
+        && (!detail.keys().hasAny(['nvrName']) || (detail.nvrName is string && detail.nvrName.size() <= 100))
+        && (!detail.keys().hasAny(['location']) || (detail.location is string && detail.location.size() <= 160))
+        && detail.online is bool
+        && detail.cameraTotal is int && detail.cameraTotal >= 0 && detail.cameraTotal <= 20000
+        && detail.cameraOnline is int && detail.cameraOnline >= 0 && detail.cameraOnline <= detail.cameraTotal
+        && detail.retentionDays is int && detail.retentionDays >= 0 && detail.retentionDays <= 3650
+        && (!detail.keys().hasAny(['oldestFootageOn']) || detail.oldestFootageOn == null || validIsoDate(detail.oldestFootageOn))
+        && (!detail.keys().hasAny(['targetRetentionDays']) || detail.targetRetentionDays == null
+          || (detail.targetRetentionDays is int && detail.targetRetentionDays >= 0 && detail.targetRetentionDays <= 3650))
+        && detail.notes is string && detail.notes.size() <= 500;
+    }
+
+    function validCctvNvrDetails(details) {
+      return details is list
+        && details.size() <= 5
+        && (details.size() <= 0 || validCctvNvrDetail(details[0]))
+        && (details.size() <= 1 || validCctvNvrDetail(details[1]))
+        && (details.size() <= 2 || validCctvNvrDetail(details[2]))
+        && (details.size() <= 3 || validCctvNvrDetail(details[3]))
+        && (details.size() <= 4 || validCctvNvrDetail(details[4]))
+        && (details.size() <= 4 || validCctvNvrDetail(details[4]));
+    }
+
+    function validCctvDailyCheck(check) {
+      return check.keys().hasAll([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.keys().hasOnly([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
+        && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
+        && validIsoDate(check.checkedOn)
+        && check.nvrTotal is int && check.nvrTotal >= 0 && check.nvrTotal <= 20000
+        && check.nvrOnline is int && check.nvrOnline >= 0 && check.nvrOnline <= check.nvrTotal
+        && check.cameraTotal is int && check.cameraTotal >= 0 && check.cameraTotal <= 20000
+        && check.cameraOnline is int && check.cameraOnline >= 0 && check.cameraOnline <= check.cameraTotal
+        && validCctvNvrDetails(check.nvrDetails)
+        && check.notes is string && check.notes.size() <= 1000
+        && check.checkedByUid == request.auth.uid
+        && check.checkedAt == request.time
+        && check.createdAt is timestamp
+        && check.updatedAt == request.time;
+    }
+
+    function validCctvNvrInventory(nvr) {
+      return nvr.keys().hasAll([
+          'propertyId', 'propertyCode', 'name', 'location', 'cameraTotal',
+          'targetRetentionDays', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && nvr.keys().hasOnly([
+          'propertyId', 'propertyCode', 'name', 'location', 'cameraTotal',
+          'targetRetentionDays', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && nvr.propertyId is string && nvr.propertyId.size() > 0 && nvr.propertyId.size() <= 100
+        && nvr.propertyCode is string && nvr.propertyCode.size() > 0 && nvr.propertyCode.size() <= 40
+        && nvr.name is string && nvr.name.size() > 0 && nvr.name.size() <= 100
+        && nvr.location is string && nvr.location.size() <= 160
+        && nvr.cameraTotal is int && nvr.cameraTotal > 0 && nvr.cameraTotal <= 20000
+        && nvr.targetRetentionDays is int && nvr.targetRetentionDays >= 0 && nvr.targetRetentionDays <= 3650
+        && nvr.active is bool
+        && nvr.createdBy is string && nvr.createdBy.size() > 0
+        && nvr.createdAt is timestamp
+        && nvr.updatedAt == request.time;
+    }
+
+    function infrastructureIncidentPath(incidentId) {
+      return /databases/$(database)/documents/infrastructureIncidents/$(incidentId);
+    }
+
+    function infrastructureIncidentEventPath(incidentId, eventId) {
+      return /databases/$(database)/documents/infrastructureIncidents/$(incidentId)/events/$(eventId);
+    }
+
+    function validInfrastructureIncident(incident) {
+      return incident.keys().hasAll([
+          'propertyId', 'propertyCode', 'type', 'title', 'location', 'impact', 'description',
+          'status', 'reportedByUid', 'startedAt', 'restoredAt', 'resolutionNotes', 'updatedAt', 'lastEventId'
+        ])
+        && incident.keys().hasOnly([
+          'propertyId', 'propertyCode', 'type', 'title', 'location', 'impact', 'description',
+          'status', 'reportedByUid', 'startedAt', 'restoredAt', 'resolutionNotes', 'updatedAt', 'lastEventId'
+        ])
+        && incident.propertyId is string && incident.propertyId.size() > 0 && incident.propertyId.size() <= 100
+        && incident.propertyCode is string && incident.propertyCode.size() > 0 && incident.propertyCode.size() <= 40
+        && incident.type in ['CCTV', 'Network', 'ISP', 'Power', 'WiFi', 'Server', 'Update', 'Maintenance', 'Other']
+        && incident.title is string && incident.title.size() > 0 && incident.title.size() <= 160
+        && incident.location is string && incident.location.size() > 0 && incident.location.size() <= 160
+        && incident.impact in ['Low', 'Medium', 'High', 'Critical']
+        && incident.description is string && incident.description.size() >= 10 && incident.description.size() <= 3000
+        && incident.status in ['Open', 'Monitoring', 'Restored']
+        && incident.reportedByUid is string && incident.reportedByUid.size() > 0
+        && incident.startedAt is timestamp
+        && (incident.restoredAt == null || incident.restoredAt is timestamp)
+        && incident.resolutionNotes is string && incident.resolutionNotes.size() <= 1000
+        && incident.updatedAt == request.time
+        && incident.lastEventId is string && incident.lastEventId.size() > 0 && incident.lastEventId.size() <= 150;
+    }
+
+    function validInfrastructureIncidentEvent(event) {
+      return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
+        && event.keys().hasOnly(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
+        && event.actorUid == request.auth.uid
+        && (event.fromStatus == null || event.fromStatus in ['Open', 'Monitoring', 'Restored'])
+        && event.toStatus in ['Open', 'Monitoring', 'Restored']
+        && event.note is string && event.note.size() <= 1000
+        && event.type in ['reported', 'statusChanged']
+        && event.createdAt == request.time;
+    }
+
+    function validInfrastructureStatusTransition(fromStatus, toStatus) {
+      return (fromStatus == 'Open' && toStatus in ['Monitoring', 'Restored'])
+        || (fromStatus == 'Monitoring' && toStatus in ['Open', 'Restored']);
+    }
+
+    function validInitialInfrastructureEvent(incidentId, eventId, event) {
+      let incidentAfter = getAfter(infrastructureIncidentPath(incidentId)).data;
+      return !exists(infrastructureIncidentPath(incidentId))
+        && existsAfter(infrastructureIncidentPath(incidentId))
+        && incidentAfter.lastEventId == eventId
+        && incidentAfter.status == 'Open'
+        && incidentAfter.reportedByUid == request.auth.uid
+        && event.actorUid == request.auth.uid
+        && event.fromStatus == null
+        && event.toStatus == 'Open'
+        && event.type == 'reported';
+    }
+
+    function validStatusInfrastructureEvent(incidentId, eventId, event) {
+      let incidentBefore = get(infrastructureIncidentPath(incidentId)).data;
+      let incidentAfter = getAfter(infrastructureIncidentPath(incidentId)).data;
+      return exists(infrastructureIncidentPath(incidentId))
+        && existsAfter(infrastructureIncidentPath(incidentId))
+        && incidentAfter.lastEventId == eventId
+        && canManageProperty(incidentBefore.propertyId)
+        && event.fromStatus == incidentBefore.status
+        && event.toStatus == incidentAfter.status
+        && validInfrastructureStatusTransition(event.fromStatus, event.toStatus)
+        && event.type == 'statusChanged';
+    }
+
+    function validPmChecklistItem(item) {
+      return item is string && item.size() > 0 && item.size() <= 200;
+    }
+
+    function validPmChecklistItems(items) {
+      return items is list
+        && items.size() >= 1
+        && items.size() <= 10
+        && (items.size() <= 0 || validPmChecklistItem(items[0]))
+        && (items.size() <= 1 || validPmChecklistItem(items[1]))
+        && (items.size() <= 2 || validPmChecklistItem(items[2]))
+        && (items.size() <= 3 || validPmChecklistItem(items[3]))
+        && (items.size() <= 4 || validPmChecklistItem(items[4]))
+        && (items.size() <= 5 || validPmChecklistItem(items[5]))
+        && (items.size() <= 6 || validPmChecklistItem(items[6]))
+        && (items.size() <= 7 || validPmChecklistItem(items[7]))
+        && (items.size() <= 8 || validPmChecklistItem(items[8]))
+        && (items.size() <= 9 || validPmChecklistItem(items[9]))
+        && (items.size() <= 9 || validPmChecklistItem(items[9]));
+    }
+
+    function validPmSchedule(schedule) {
+      return schedule.keys().hasAll([
+          'propertyId', 'propertyCode', 'title', 'location', 'frequency', 'checklistItems',
+          'nextDueOn', 'active', 'createdBy', 'createdAt', 'updatedAt', 'lastRunOn', 'lastRunId'
+        ])
+        && schedule.keys().hasOnly([
+          'propertyId', 'propertyCode', 'title', 'location', 'frequency', 'checklistItems',
+          'nextDueOn', 'active', 'createdBy', 'createdAt', 'updatedAt', 'lastRunOn', 'lastRunId'
+        ])
+        && schedule.propertyId is string
+        && schedule.propertyCode is string
+        && schedule.title is string && schedule.title.size() > 0 && schedule.title.size() <= 160
+        && schedule.location is string && schedule.location.size() <= 160
+        && schedule.frequency in ['Weekly', 'Monthly', 'Quarterly']
+        && validPmChecklistItems(schedule.checklistItems)
+        && validIsoDate(schedule.nextDueOn)
+        && schedule.active is bool
+        && schedule.createdBy is string
+        && schedule.lastRunOn is string
+        && (schedule.lastRunOn == '' || validIsoDate(schedule.lastRunOn))
+        && schedule.lastRunId is string && schedule.lastRunId.size() <= 150;
+    }
+
+    function pmRunPath(scheduleId, runId) {
+      return /databases/$(database)/documents/pmSchedules/$(scheduleId)/runs/$(runId);
+    }
+
+    function validPmScheduleEdit() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly([
+          'title', 'location', 'frequency', 'checklistItems', 'nextDueOn', 'active', 'updatedAt'
+        ])
+        && after.lastRunOn == before.lastRunOn
+        && after.lastRunId == before.lastRunId
+        && after.createdBy == before.createdBy
+        && after.createdAt == before.createdAt
+        && after.propertyId == before.propertyId
+        && after.propertyCode == before.propertyCode
+        && after.updatedAt == request.time
+        && validPmSchedule(after);
+    }
+
+    function validPmScheduleAdvance(scheduleId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let runPath = pmRunPath(scheduleId, after.lastRunId);
+      return after.diff(before).affectedKeys().hasOnly(['nextDueOn', 'lastRunOn', 'lastRunId', 'updatedAt'])
+        && before.active == true
+        && after.active == true
+        && after.lastRunOn == before.nextDueOn
+        && after.nextDueOn is string
+        && after.nextDueOn > before.nextDueOn
+        && after.lastRunId is string
+        && after.updatedAt == request.time
+        && existsAfter(runPath)
+        && getAfter(runPath).data.performedBy == request.auth.uid
+        && getAfter(runPath).data.dueOn == before.nextDueOn
+        && getAfter(runPath).data.propertyId == before.propertyId
+        && getAfter(runPath).data.checklistItems == before.checklistItems
+        && getAfter(runPath).data.checklistResults is list
+        && getAfter(runPath).data.checklistResults.size() == before.checklistItems.size()
+        && getAfter(runPath).data.checklistResults.hasOnly([true, false])
+        && ((getAfter(runPath).data.outcome == 'Completed'
+              && getAfter(runPath).data.checklistResults.hasOnly([true]))
+          || (getAfter(runPath).data.outcome == 'Needs Attention'
+              && getAfter(runPath).data.checklistResults.hasAny([false])));
+    }
+
+    function validPmRunCreate(scheduleId, runId, run) {
+      let parentPath = /databases/$(database)/documents/pmSchedules/$(scheduleId);
+      let before = get(parentPath).data;
+      let after = getAfter(parentPath).data;
+      return exists(parentPath)
+        && canManageProperty(before.propertyId)
+        && before.active == true
+        && run.keys().hasAll([
+          'propertyId', 'propertyCode', 'scheduleTitle', 'dueOn', 'checklistItems', 'performedBy',
+          'completedOn', 'outcome', 'checklistResults', 'notes'
+        ])
+        && run.keys().hasOnly([
+          'propertyId', 'propertyCode', 'scheduleTitle', 'dueOn', 'checklistItems', 'performedBy',
+          'completedOn', 'outcome', 'checklistResults', 'notes'
+        ])
+        && run.propertyId == before.propertyId
+        && run.propertyCode == before.propertyCode
+        && run.scheduleTitle == before.title
+        && run.dueOn == before.nextDueOn
+        && run.checklistItems == before.checklistItems
+        && run.performedBy == request.auth.uid
+        && run.completedOn == request.time
+        && run.outcome in ['Completed', 'Needs Attention']
+        && run.checklistResults is list
+        && run.checklistResults.size() == before.checklistItems.size()
+        && run.checklistResults.hasOnly([true, false])
+        && ((run.outcome == 'Completed' && run.checklistResults.hasOnly([true]))
+          || (run.outcome == 'Needs Attention' && run.checklistResults.hasAny([false])))
+        && run.notes is string && run.notes.size() <= 2000
+        && after.lastRunId == runId
+        && after.lastRunOn == before.nextDueOn
+        && after.nextDueOn > before.nextDueOn;
+    }
+
+    function ticketPath(ticketId) {
+      return /databases/$(database)/documents/tickets/$(ticketId);
+    }
+
+    function canCreateTicket(propertyId) {
+      return isSuperAdmin()
+        || hasPropertyRole(propertyId, 'supportEngineer')
+        || hasPropertyRole(propertyId, 'requester');
+    }
+
+    function validTicketStatusTransition(fromStatus, toStatus) {
+      return (fromStatus == 'Pending' && toStatus in ['In Progress', 'Cancelled'])
+        || (fromStatus == 'In Progress' && toStatus in ['Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled'])
+        || (fromStatus == 'Monitoring' && toStatus in ['In Progress', 'Completed', 'Cancelled'])
+        || (fromStatus in ['Waiting for Vendor', 'Waiting for User'] && toStatus in ['In Progress', 'Cancelled']);
+    }
+
+    // Spark-only Ticket creation. This is intentionally narrow and does not
+    // claim to provide the trusted timestamps/SLA guarantees of a backend.
+    function validSparkTicketCreate(ticket) {
+      return ticket.keys().hasAll([
+          'schemaVersion', 'propertyId', 'propertyCode', 'requesterUid', 'requesterName',
+          'requesterEmail', 'department', 'issueArea', 'location', 'assetId', 'problemCategory',
+          'problemType', 'channel', 'priority', 'status', 'description', 'resolutionNotes',
+          'assignedEngineerUid', 'assignedAt', 'assignedByUid', 'createdAt', 'updatedAt', 'lastEventId'
+        ])
+        && ticket.keys().hasOnly([
+          'schemaVersion', 'propertyId', 'propertyCode', 'requesterUid', 'requesterName',
+          'requesterEmail', 'department', 'issueArea', 'location', 'assetId', 'problemCategory',
+          'problemType', 'channel', 'priority', 'status', 'description', 'resolutionNotes',
+          'assignedEngineerUid', 'assignedAt', 'assignedByUid', 'createdAt', 'updatedAt', 'lastEventId'
+        ])
+        && ticket.schemaVersion == 2
+        && ticket.propertyId is string && ticket.propertyId.size() > 0 && ticket.propertyId.size() <= 160
+        && ticket.propertyCode is string && ticket.propertyCode.size() > 0 && ticket.propertyCode.size() <= 40
+        && canUseProperty(ticket.propertyId, ticket.propertyCode)
+        && canCreateTicket(ticket.propertyId)
+        && ticket.requesterUid == request.auth.uid
+        && ticket.requesterName is string && ticket.requesterName.size() > 0 && ticket.requesterName.size() <= 120
+        && ticket.requesterEmail is string && ticket.requesterEmail.size() >= 6 && ticket.requesterEmail.size() <= 254
+        && ticket.requesterEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && ticket.department is string && ticket.department.size() <= 80
+        && validDepartment(ticket.propertyId, ticket.department)
+        && validTicketIssueArea(ticket.issueArea)
+        && ticket.location is string && ticket.location.size() > 0 && ticket.location.size() <= 160
+        && ticket.assetId is string && ticket.assetId.size() <= 160
+        && validProblemType(ticket.propertyId, ticket.problemCategory, ticket.problemType)
+        && validTicketChannel(ticket.propertyId, ticket.channel)
+        && ticket.priority in ['Low', 'Medium', 'High', 'Critical']
+        && ticket.status == 'Pending'
+        && ticket.description is string && ticket.description.size() >= 10 && ticket.description.size() <= 4000
+        && ticket.resolutionNotes == ''
+        && ticket.assignedEngineerUid == ''
+        && ticket.assignedAt == null
+        && ticket.assignedByUid == ''
+        && ticket.createdAt == request.time
+        && ticket.updatedAt == request.time
+        && ticket.lastEventId is string && ticket.lastEventId.size() > 0 && ticket.lastEventId.size() <= 150;
+    }
+
+    function validSparkStatusUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return canManageProperty(resource.data.propertyId)
+        && changed.hasOnly(['status', 'resolutionNotes', 'updatedAt', 'lastEventId'])
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.requesterUid == resource.data.requesterUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastEventId is string
+        && request.resource.data.lastEventId != resource.data.lastEventId
+        && request.resource.data.status in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled']
+        && validTicketStatusTransition(resource.data.status, request.resource.data.status)
+        && request.resource.data.assignedEngineerUid == resource.data.assignedEngineerUid
+        && (!resource.data.keys().hasAny(['assignedAt']) || request.resource.data.assignedAt == resource.data.assignedAt)
+        && (!resource.data.keys().hasAny(['assignedByUid']) || request.resource.data.assignedByUid == resource.data.assignedByUid)
+        && (request.resource.data.status == 'Completed'
+          ? request.resource.data.resolutionNotes is string && request.resource.data.resolutionNotes.size() >= 10 && request.resource.data.resolutionNotes.size() <= 4000
+          : (!resource.data.keys().hasAny(['resolutionNotes'])
+            ? !request.resource.data.keys().hasAny(['resolutionNotes'])
+            : request.resource.data.resolutionNotes == resource.data.resolutionNotes));
+    }
+
+    function validSparkAssignmentUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      let assignee = request.resource.data.assignedEngineerUid;
+      return canManageProperty(resource.data.propertyId)
+        && changed.hasOnly(['assignedEngineerUid', 'assignedAt', 'assignedByUid', 'updatedAt', 'lastEventId'])
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastEventId is string
+        && request.resource.data.lastEventId != resource.data.lastEventId
+        && assignee is string && assignee.size() <= 128
+        && (assignee == ''
+          ? request.resource.data.assignedAt == null && request.resource.data.assignedByUid == ''
+          : request.resource.data.assignedAt == request.time
+            && request.resource.data.assignedByUid == request.auth.uid
+            && exists(membershipPath(assignee, resource.data.propertyId))
+            && get(membershipPath(assignee, resource.data.propertyId)).data.role == 'supportEngineer'
+            && get(membershipPath(assignee, resource.data.propertyId)).data.active == true);
+    }
+
+    function validSparkTicketEvent(ticketId, event) {
+      return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
+        && event.keys().hasOnly([
+          'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'fromAssignedEngineerUid',
+          'toAssignedEngineerUid', 'correlationId', 'createdAt'
+        ])
+        && event.actorUid == request.auth.uid
+        && (event.fromStatus == null || event.fromStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled'])
+        && event.toStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled']
+        && event.note is string && event.note.size() <= 1000
+        && event.type in ['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned']
+        && (!event.keys().hasAny(['fromAssignedEngineerUid']) || (event.fromAssignedEngineerUid is string && event.fromAssignedEngineerUid.size() <= 128))
+        && (!event.keys().hasAny(['toAssignedEngineerUid']) || (event.toAssignedEngineerUid is string && event.toAssignedEngineerUid.size() <= 128))
+        && (!event.keys().hasAny(['correlationId']) || (event.correlationId is string && event.correlationId.size() > 0 && event.correlationId.size() <= 128))
+        && event.createdAt == request.time
+        && ((event.type == 'created' && event.fromStatus == null && event.toStatus == 'Pending'
+              && existsAfter(ticketPath(ticketId)) && canCreateTicket(getAfter(ticketPath(ticketId)).data.propertyId))
+          || (event.type != 'created' && exists(ticketPath(ticketId)) && canManageProperty(get(ticketPath(ticketId)).data.propertyId)));
+    }
+
+    function validSparkAuditEvent(audit) {
+      return audit.keys().hasAll([
+          'propertyId', 'propertyCode', 'entityType', 'entityId', 'sourceEventId', 'action', 'actorUid', 'summary', 'createdAt'
+        ])
+        && audit.keys().hasOnly([
+          'propertyId', 'propertyCode', 'entityType', 'entityId', 'sourceEventId', 'action', 'actorUid', 'summary', 'correlationId', 'createdAt'
+        ])
+        && audit.propertyId is string && audit.propertyId.size() > 0 && audit.propertyId.size() <= 160
+        && audit.propertyCode is string && audit.propertyCode.size() > 0 && audit.propertyCode.size() <= 40
+        && canUseProperty(audit.propertyId, audit.propertyCode)
+        && audit.entityType == 'ticket'
+        && audit.entityId is string && audit.entityId.size() > 0 && audit.entityId.size() <= 150
+        && audit.sourceEventId is string && audit.sourceEventId.size() > 0 && audit.sourceEventId.size() <= 150
+        && audit.action in ['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned']
+        && audit.actorUid == request.auth.uid
+        && audit.summary is string && audit.summary.size() <= 1000
+        && (!audit.keys().hasAny(['correlationId']) || (audit.correlationId is string && audit.correlationId.size() > 0 && audit.correlationId.size() <= 128))
+        && audit.createdAt == request.time
+        && ((audit.action == 'created' && canCreateTicket(audit.propertyId)) || (audit.action != 'created' && canManageProperty(audit.propertyId)));
+    }
+
+    function canReadTicket(ticket) {
+      return isSuperAdmin()
+        || (hasPropertyMembership(ticket.propertyId)
+          && (hasAnyPropertyRole(ticket.propertyId, ['supportEngineer', 'clientExecutive'])
+            || (hasPropertyRole(ticket.propertyId, 'requester')
+              && ticket.requesterUid == request.auth.uid)));
+    }
+
+    match /users/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || isSuperAdmin();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /memberships/{membershipId} {
+      allow get: if isSuperAdmin()
+        || (hasActiveProfile() && resource.data.userId == request.auth.uid);
+      allow list: if isSuperAdmin()
+        || (hasActiveProfile() && resource.data.userId == request.auth.uid)
+        || (hasActiveProfile() && resource.data.role == 'supportEngineer'
+          && resource.data.active == true
+          && hasPropertyRole(resource.data.propertyId, 'supportEngineer'));
+      allow create, update, delete: if false;
+    }
+
+    // Request User เป็นทะเบียนเตรียมข้อมูลเท่านั้น ไม่สามารถกำหนด Auth หรือ Membership ได้
+    match /requestUsers/{requestUserId} {
+      allow get: if isSuperAdmin()
+        || (resource == null && hasActiveProfile())
+        || hasPropertyRole(resource.data.propertyId, 'supportEngineer');
+      allow list: if isSuperAdmin() || hasPropertyRole(resource.data.propertyId, 'supportEngineer');
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validRequestUser(request.resource.data)
+        && request.resource.data.active == true
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.department == resource.data.department
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'updatedAt'])
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt']))
+        && validRequestUser(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /properties/{propertyId} {
+      allow get: if isSuperAdmin() || hasPropertyMembership(propertyId);
+      allow list: if isSuperAdmin();
+      allow create, delete: if false;
+      allow update: if isSuperAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cctvEnabled', 'updatedAt'])
+        && request.resource.data.cctvEnabled is bool
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    match /tickets/{ticketId} {
+      allow get, list: if canReadTicket(resource.data);
+      // Spark-only mode permits a narrow client mutation path. It is not a
+      // replacement for trusted backend authority; all fields remain bounded
+      // and role/property checked here.
+      allow create: if signedIn() && validSparkTicketCreate(request.resource.data);
+      allow update: if signedIn() && (validSparkStatusUpdate() || validSparkAssignmentUpdate());
+      allow delete: if false;
+
+      match /events/{eventId} {
+        allow get, list: if exists(ticketPath(ticketId)) && canReadTicket(get(ticketPath(ticketId)).data);
+        allow create: if signedIn() && validSparkTicketEvent(ticketId, request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+
+    match /auditEvents/{auditId} {
+      allow get, list: if isSuperAdmin() || hasPropertyRole(resource.data.propertyId, 'supportEngineer');
+      // Append-only client audit for Spark-only operation. It is useful for
+      // operational history but is not tamper-proof without a trusted writer.
+      allow create: if signedIn() && validSparkAuditEvent(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /assets/{assetId} {
+      allow get, list: if isSuperAdmin()
+        || hasPropertyRole(resource.data.propertyId, 'supportEngineer')
+        || (hasPropertyMembership(resource.data.propertyId) && resource.data.status == 'Under Repair');
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validAssetCategory(request.resource.data.propertyId, request.resource.data.category)
+        && validAsset(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && resource.data.propertyId == request.resource.data.propertyId
+        && resource.data.propertyCode == request.resource.data.propertyCode
+        && resource.data.createdBy == request.resource.data.createdBy
+        && resource.data.createdAt == request.resource.data.createdAt
+        && (request.resource.data.category == resource.data.category
+          || validAssetCategory(request.resource.data.propertyId, request.resource.data.category))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'assetTag', 'name', 'category', 'department', 'location', 'vendor', 'model',
+          'serialNumber', 'warrantyExpiresOn', 'status', 'serviceType', 'serviceVendor',
+          'spec', 'detail', 'usedBy',
+          'serviceSentOn', 'expectedReturnOn', 'serviceNotes', 'updatedAt'
+        ])
+        && validAsset(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Ticket เลือก Asset จากชุดข้อมูลขั้นต่ำที่ไม่เปิดเผย Serial, Warranty หรือประวัติซ่อม
+    match /ticketAssetOptions/{assetId} {
+      allow get: if isSuperAdmin()
+        || (resource == null && hasActiveProfile())
+        || hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'requester']);
+      allow list: if isSuperAdmin()
+        || hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'requester']);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validTicketAssetOption(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'propertyCode', 'assetTag', 'name', 'category', 'department', 'location', 'status', 'updatedAt'
+        ])
+        && validTicketAssetOption(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /cctvDailyChecks/{checkId} {
+      // Support/Super Admin บันทึกผลตรวจได้; Client Executive อ่านได้เฉพาะ Property ที่ได้รับมอบหมาย.
+      // อนุญาต get เอกสารที่ยังไม่มีให้ผู้ใช้ที่ active เพื่อให้ transaction ตรวจสอบก่อนสร้างได้
+      // โดยยังไม่เปิด list และไม่ได้เปิดอ่านเอกสารของ Property อื่น
+      allow get: if resource == null && hasActiveProfile()
+        || isSuperAdmin()
+        || (cctvEnabledForProperty(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow list: if isSuperAdmin()
+        || (cctvEnabledForProperty(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && cctvEnabledForProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validCctvDailyCheck(request.resource.data)
+        && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
+        && request.resource.data.checkedByUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && cctvEnabledForProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.checkedOn == resource.data.checkedOn
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validCctvDailyCheck(request.resource.data)
+        && request.resource.data.checkedByUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /cctvNvrInventory/{nvrId} {
+      // รายการทะเบียน NVR อ่านได้ตาม Property; แก้ไขได้เฉพาะ Super Admin/Support Engineer
+      allow get, list: if isSuperAdmin()
+        || (cctvEnabledForProperty(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow create: if cctvEnabledForProperty(request.resource.data.propertyId)
+        && canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validCctvNvrInventory(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if cctvEnabledForProperty(resource.data.propertyId)
+        && canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'location', 'cameraTotal', 'targetRetentionDays', 'active', 'updatedAt'
+        ])
+        && validCctvNvrInventory(request.resource.data);
+      allow delete: if false;
+    }
+
+    match /pmSchedules/{scheduleId} {
+      // Client Executives may view Property PM schedules; all PM writes remain Support/Super Admin only.
+      allow get, list: if isSuperAdmin() || hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validPmSchedule(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.lastRunOn == ''
+        && request.resource.data.lastRunId == ''
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && (validPmScheduleEdit() || validPmScheduleAdvance(scheduleId));
+      allow delete: if false;
+
+      match /runs/{runId} {
+        allow get, list: if exists(/databases/$(database)/documents/pmSchedules/$(scheduleId))
+          && (isSuperAdmin() || hasPropertyRole(get(/databases/$(database)/documents/pmSchedules/$(scheduleId)).data.propertyId, 'supportEngineer'));
+        allow create: if signedIn() && validPmRunCreate(scheduleId, runId, request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+
+    match /infrastructureIncidents/{incidentId} {
+      // Client Executive อ่านได้ตาม Property; การจัดการยังจำกัด Support Engineer/Super Admin.
+      allow get, list: if isSuperAdmin()
+        || hasPropertyRole(resource.data.propertyId, 'supportEngineer')
+        || hasPropertyRole(resource.data.propertyId, 'clientExecutive');
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validInfrastructureIncident(request.resource.data)
+        && request.resource.data.status == 'Open'
+        && request.resource.data.reportedByUid == request.auth.uid
+        && request.resource.data.startedAt == request.time
+        && request.resource.data.restoredAt == null
+        && request.resource.data.resolutionNotes == ''
+        && existsAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId))
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.actorUid == request.auth.uid
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.type == 'reported'
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.toStatus == 'Open';
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.location == resource.data.location
+        && request.resource.data.impact == resource.data.impact
+        && request.resource.data.description == resource.data.description
+        && request.resource.data.reportedByUid == resource.data.reportedByUid
+        && request.resource.data.startedAt == resource.data.startedAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'restoredAt', 'resolutionNotes', 'updatedAt', 'lastEventId'])
+        && validInfrastructureIncident(request.resource.data)
+        && validInfrastructureStatusTransition(resource.data.status, request.resource.data.status)
+        && ((request.resource.data.status == 'Restored'
+              && request.resource.data.restoredAt == request.time
+              && request.resource.data.resolutionNotes.size() >= 5)
+          || (request.resource.data.status != 'Restored'
+              && request.resource.data.restoredAt == null
+              && request.resource.data.resolutionNotes == resource.data.resolutionNotes))
+        && existsAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId))
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.actorUid == request.auth.uid
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.fromStatus == resource.data.status
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.toStatus == request.resource.data.status
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.type == 'statusChanged'
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.createdAt == request.time;
+      allow delete: if false;
+
+      match /events/{eventId} {
+        allow get, list: if exists(infrastructureIncidentPath(incidentId))
+          && (isSuperAdmin()
+            || hasPropertyRole(get(infrastructureIncidentPath(incidentId)).data.propertyId, 'supportEngineer')
+            || hasPropertyRole(get(infrastructureIncidentPath(incidentId)).data.propertyId, 'clientExecutive'));
+        allow create: if signedIn()
+          && validInfrastructureIncidentEvent(request.resource.data)
+          && (validInitialInfrastructureEvent(incidentId, eventId, request.resource.data)
+            || validStatusInfrastructureEvent(incidentId, eventId, request.resource.data));
+        allow update, delete: if false;
+      }
+    }
+
+    match /softwareLicenses/{licenseId} {
+      allow get, list: if isSuperAdmin()
+        || (hasPropertyMembership(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow create: if signedIn()
+        && canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validSoftwareLicense(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'productName', 'vendor', 'licenseType', 'expiresOn', 'quantity',
+          'renewalOwner', 'status', 'notes', 'updatedAt'
+        ])
+        && validSoftwareLicense(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /ticketCatalogs/{propertyId} {
+      allow get: if isSuperAdmin() || hasPropertyMembership(propertyId);
+      allow list: if false;
+      allow create: if canManageProperty(propertyId)
+        && request.resource.data.propertyId == propertyId
+        && canUseProperty(propertyId, request.resource.data.propertyCode)
+        && validTicketCatalog(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(propertyId)
+        && resource.data.propertyId == propertyId
+        && request.resource.data.propertyId == propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['problemTypes', 'departments', 'assetCategories', 'channels', 'todoCategories', 'updatedAt'])
+        && validTicketCatalog(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /operationalTodos/{todoId} {
+      allow get, list: if canReadOperationalTodos(resource.data.propertyId);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validOperationalTodo(request.resource.data)
+        && (request.resource.data.kind != 'Meeting Room' || meetingRoomCareIsEnabled(request.resource.data.propertyId))
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && canUseProperty(resource.data.propertyId, resource.data.propertyCode)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validOperationalTodoUpdate()
+        && validOperationalTodo(request.resource.data)
+        && (request.resource.data.kind != 'Meeting Room'
+          || resource.data.kind == 'Meeting Room'
+          || meetingRoomCareIsEnabled(resource.data.propertyId))
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /operationalTodoCompletions/{completionId} {
+      allow get, list: if canReadOperationalTodos(resource.data.propertyId);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && completionId == request.resource.data.taskId + '__' + request.resource.data.occurrenceDate
+        && operationalTodoMatchesCompletion(request.resource.data)
+        && validOperationalTodoCompletion(request.resource.data)
+        && request.resource.data.completed == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.taskId == resource.data.taskId
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.occurrenceDate == resource.data.occurrenceDate
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completed', 'completedByUid', 'completedAt', 'updatedAt'])
+        && validOperationalTodoCompletion(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /operationalTodoSettings/{propertyId} {
+      allow get: if isSuperAdmin() || hasPropertyRole(propertyId, 'supportEngineer') || hasPropertyRole(propertyId, 'clientExecutive');
+      allow list: if false;
+      allow create: if canManageProperty(propertyId)
+        && request.resource.data.propertyId == propertyId
+        && canUseProperty(propertyId, request.resource.data.propertyCode)
+        && request.resource.data.keys().hasAll(['propertyId', 'propertyCode', 'meetingRoomCareEnabled', 'updatedBy', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['propertyId', 'propertyCode', 'meetingRoomCareEnabled', 'updatedBy', 'createdAt', 'updatedAt'])
+        && request.resource.data.propertyCode is string
+        && request.resource.data.meetingRoomCareEnabled is bool
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(propertyId)
+        && resource.data.propertyId == propertyId
+        && request.resource.data.propertyId == propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly(['propertyId', 'propertyCode', 'meetingRoomCareEnabled', 'updatedBy', 'createdAt', 'updatedAt'])
+        && request.resource.data.meetingRoomCareEnabled is bool
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['meetingRoomCareEnabled', 'updatedBy', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Unmodeled collections stay denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

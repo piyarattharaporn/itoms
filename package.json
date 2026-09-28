@@ -1,0 +1,46 @@
+{
+  "name": "lotus-it-portal",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "server:dev": "ITOMS_ENV=emulator firebase emulators:exec --config firebase.server-test.json --project demo-lotus-it-portal-local --only auth,firestore \"tsx server/index.ts\"",
+    "server:build": "tsc -p tsconfig.server.json",
+    "check:production-config": "node scripts/check-production-config.mjs",
+    "test:server": "firebase emulators:exec --config firebase.server-test.json --project demo-lotus-it-portal-local --only auth,firestore \"tsx --test server/*.test.ts\"",
+    "test:rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-lotus-it-portal-local --only firestore \"node --test tests/firestore.rules.test.mjs\"",
+    "emulators": "firebase emulators:start --project demo-lotus-it-portal-local --only auth,firestore",
+    "emulators:seed": "node scripts/seed-local-emulator.mjs",
+    "emulators:import": "firebase emulators:start --project demo-lotus-it-portal-local --only auth,firestore --import=./emulator-data --export-on-exit=./emulator-data"
+  },
+  "dependencies": {
+    "firebase": "^11.10.0",
+    "firebase-admin": "^14.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "@tailwindcss/forms": "^0.5.10",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^4.6.0",
+    "autoprefixer": "^10.4.21",
+    "firebase-tools": "^15.31.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.15",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  },
+  "allowScripts": {
+    "@firebase/util@1.12.1": true,
+    "esbuild@0.25.12": true,
+    "protobufjs@7.6.6": true,
+    "re2@1.26.1": true
+  }
+}

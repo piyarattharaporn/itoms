@@ -1,0 +1,185 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --color-canvas: #F4F7F4;
+  --color-surface: #FFFFFF;
+  --color-ink: #26312C;
+  --color-muted: #69776F;
+  --color-border: #DCE5DE;
+  --color-brand: #47765C;
+  --color-brand-soft: #E8F1EB;
+  --color-message: #7552A2;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+
+button {
+  font: inherit;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  min-height: 2.75rem;
+  border-radius: 1rem;
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
+  padding: 0.65rem 0.9rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+/* Tailwind Forms gives .form-input/.form-select higher specificity than the
+   element rules above. Keep those shared controls rounded across every page. */
+input.form-input:not([type="checkbox"]):not([type="radio"]),
+select.form-select,
+textarea.form-input,
+textarea.form-textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background-color: var(--color-surface);
+  padding: 0.65rem 0.9rem;
+}
+
+select.form-select {
+  padding-right: 2.75rem;
+  background-position: right 0.9rem center;
+  background-size: 1rem 1rem;
+  text-overflow: ellipsis;
+}
+
+textarea.form-input,
+textarea.form-textarea {
+  min-height: 5.5rem;
+}
+
+input.form-input:not([type="checkbox"]):not([type="radio"]):focus,
+select.form-select:focus,
+textarea.form-input:focus,
+textarea.form-textarea:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 4px rgb(71 118 92 / 0.12);
+  outline: none;
+}
+
+textarea {
+  min-height: 5.5rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #89968E;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 4px rgb(71 118 92 / 0.12);
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgb(71 118 92 / 0.28);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-brand-soft);
+  color: #31543F;
+}
+
+/* Keep every control in the Add Ticket form consistently soft and rounded. */
+.ticket-create-form input:not([type="checkbox"]):not([type="radio"]),
+.ticket-create-form select,
+.ticket-create-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1.125rem;
+  background-color: var(--color-surface);
+  padding: 0.7rem 1rem;
+}
+
+.ticket-create-form :is(input, select, textarea)[aria-invalid="true"] {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 3px rgb(225 29 72 / 0.1);
+}
+
+.ticket-create-form textarea {
+  min-height: 8rem;
+  border-radius: 1.25rem;
+  line-height: 1.6;
+}
+
+.ticket-create-form select {
+  padding-right: 3.25rem;
+  background-position: right 1rem center;
+  background-size: 1rem 1rem;
+  text-overflow: ellipsis;
+}
+
+.ticket-create-form input:not([type="checkbox"]):not([type="radio"]):hover,
+.ticket-create-form select:hover,
+.ticket-create-form textarea:hover {
+  border-color: #B5CFBE;
+}
+
+.ticket-create-form input:not([type="checkbox"]):not([type="radio"]):focus,
+.ticket-create-form select:focus,
+.ticket-create-form textarea:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 4px rgb(71 118 92 / 0.12);
+  outline: none;
+}
+
+.ticket-create-form input:disabled,
+.ticket-create-form select:disabled,
+.ticket-create-form textarea:disabled {
+  background-color: #EDF2EE;
+  color: #69776F;
+  cursor: not-allowed;
+}
+
+select.catalog-property-select.form-select {
+  min-height: 3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1.125rem;
+  background-color: var(--color-surface);
+  background-position: right 0.9rem center;
+  padding: 0.7rem 2.75rem 0.7rem 1rem;
+}
+
+select.catalog-property-select.form-select:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 4px rgb(71 118 92 / 0.12);
+  outline: none;
+}
+
+select.property-switcher-select {
+  box-sizing: border-box;
+  width: 14rem;
+  max-width: min(14rem, 52vw);
+  padding-right: 3rem;
+  text-overflow: ellipsis;
+}

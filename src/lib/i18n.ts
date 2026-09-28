@@ -57,7 +57,6 @@ const english: Record<string, string> = {
   'เช่น CPU, RAM, Storage': 'e.g. CPU, RAM, storage', 'ชื่อผู้ใช้หรือ Email (ไม่บังคับ)': 'User name or email (optional)',
   'รายละเอียดเพิ่มเติม (ไม่บังคับ)': 'Additional details (optional)',
 }
-
 // คำแปลที่ใช้ในหน้า Feature ต่าง ๆ เพิ่มไว้ส่วนกลางเพื่อให้เปลี่ยนภาษาได้สม่ำเสมอทั้งระบบ
 const englishFeature: Record<string, string> = {
   'ประเภทปัญหา': 'Issue types',
@@ -178,7 +177,7 @@ const englishFeature: Record<string, string> = {
   'ค้นหา Task': 'Search tasks', 'ค้นหา Task…': 'Search tasks…', 'ค้นหาด้วยชื่อหรือรหัส': 'Search by name or code',
   'ค้นหาหัวข้อ สถานที่ หรือรายละเอียด…': 'Search title, location, or details…', 'ค้นหาอุปกรณ์เสียหาย': 'Search damaged assets',
   'งาน': 'Tasks', 'งาน Critical ที่ยังเปิด': 'Open critical tasks', 'งาน Task ที่ต้องดำเนินการ': 'Tasks requiring action',
-  'งานที่ต้องติดตาม': 'Needs follow-up', 'งานที่ยังเปิด': 'Open tasks', 'งานที่ยังเปิดอยู่': 'Open tasks', 'งานที่อยู่ในช่วงเวลานี้': 'Tasks in this period',
+  'งานที่ต้องติดตาม': 'Needs follow-up', 'งานที่ยังเปิด': 'Open tasks', 'งานที่ยังเปิดอยู่': 'Open tasks', 'งานที่อยู่ในช่วงเวลานี้': 'Tasks in this period', 'ข้อมูลล่าสุด': 'Latest data', 'ใกล้ครบกำหนด': 'SLA at risk', 'เรียงตามกำหนด SLA และความสำคัญ': 'Sorted by SLA due time and priority', 'ต้องติดตามทันที': 'Needs immediate follow-up', 'เสี่ยงเกิน SLA': 'At risk of breaching SLA', 'ดูรายการทั้งหมด': 'View all', 'ยังประเมินไม่ได้': 'Not enough data to evaluate',
   'จัดการ': 'Manage', 'จัดการในหน้า Assets': 'Manage in Assets', 'จัดตาราง Checklist และบันทึกผล PM ซ้ำตามรอบ': 'Schedule checklists and record recurring PM results.',
   'จำนวน Seats / สิทธิ์': 'Seats / licenses', 'จำนวนกล้องทั้งหมด': 'Total cameras', 'จุด / Asset ที่พบ Task บ่อย': 'Locations / assets with recurring tasks',
   'ข้อมูลผลิตภัณฑ์': 'Product details', 'ข้อมูลสิทธิ์และการต่ออายุ': 'License and renewal details', 'กรอกข้อมูลผลิตภัณฑ์ วันหมดอายุ และผู้ดูแลการต่ออายุ': 'Enter the product, expiry date, and renewal owner.',

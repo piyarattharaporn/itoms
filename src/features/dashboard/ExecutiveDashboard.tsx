@@ -1,4 +1,4 @@
-import { getLanguage, getLocale, t } from '../../lib/i18n'
+import { getLocale, t } from '../../lib/i18n'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { subscribeToTickets, type TicketAccess } from '../tickets/ticketService'
@@ -53,16 +53,6 @@ function bangkokStartOfDay(dateOnly: string) {
 
 function isActive(ticket: TicketRecord) {
   return ticket.status !== 'Completed' && ticket.status !== 'Cancelled'
-}
-
-function formatDuration(milliseconds: number | null) {
-  if (milliseconds === null || !Number.isFinite(milliseconds)) return '—'
-  const hours = Math.round(milliseconds / 3_600_000)
-  if (hours < 24) return getLanguage() === 'en' ? `${hours} hr` : `${hours} ชม.`
-  const days = Math.floor(hours / 24)
-  const remainder = hours % 24
-  if (getLanguage() === 'en') return remainder ? `${days} days ${remainder} hr` : `${days} days`
-  return remainder ? `${days} วัน ${remainder} ชม.` : `${days} วัน`
 }
 
 function BarList({
@@ -164,12 +154,16 @@ function Metric({
 }) {
   const color =
     tone === 'warning'
-      ? { surface: 'bg-amber-50/70', badge: 'bg-amber-100 text-amber-800', marker: 'bg-amber-400' }
+      ? { surface: 'border-amber-200 bg-amber-50/60', badge: 'bg-amber-100 text-amber-800', marker: 'bg-amber-500' }
       : tone === 'danger'
-        ? { surface: 'bg-rose-50/70', badge: 'bg-rose-100 text-rose-800', marker: 'bg-rose-400' }
+        ? { surface: 'border-rose-200 bg-rose-50/60', badge: 'bg-rose-100 text-rose-800', marker: 'bg-rose-600' }
         : tone === 'success'
-          ? { surface: 'bg-emerald-50/70', badge: 'bg-emerald-100 text-emerald-800', marker: 'bg-emerald-400' }
-          : { surface: 'bg-white', badge: 'bg-sky-100 text-sky-800', marker: 'bg-sky-400' }
+          ? {
+              surface: 'border-emerald-200 bg-emerald-50/60',
+              badge: 'bg-emerald-100 text-emerald-800',
+              marker: 'bg-emerald-600',
+            }
+          : { surface: 'border-slate-200 bg-white', badge: 'bg-lotus-100 text-lotus-800', marker: 'bg-lotus-600' }
   const watermarkColor =
     tone === 'warning'
       ? 'text-amber-800'
@@ -180,21 +174,19 @@ function Metric({
           : 'text-sky-800'
   return (
     <article
-      className={`relative overflow-hidden rounded-2xl border border-slate-200/70 p-4 shadow-sm shadow-slate-200/40 sm:p-5 ${color.surface}`}
+      className={`relative overflow-hidden rounded-2xl border-l-4 p-4 shadow-sm shadow-slate-200/30 sm:p-5 ${color.surface} ${color.marker.replace('bg-', 'border-l-')}`}
     >
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute bottom-3 right-4 h-9 w-9 opacity-[0.08] sm:bottom-4 sm:right-5 sm:h-10 sm:w-10 ${watermarkColor}`}
-      >
-        <MetricIcon name={icon} />
-      </span>
-      <span aria-hidden="true" className={`absolute inset-y-4 left-0 w-1 rounded-r-full ${color.marker}`} />
-      <div className="relative z-10 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-slate-600">{label}</p>
-        <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${color.marker}`} />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span aria-hidden="true" className={`h-7 w-7 shrink-0 ${watermarkColor}`}>
+            <MetricIcon name={icon} />
+          </span>
+          <p className="truncate text-sm font-medium text-slate-600">{label}</p>
+        </div>
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color.marker}`} aria-hidden="true" />
       </div>
-      <p className="relative z-10 mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{value}</p>
-      <p className="relative z-10 mt-1 pr-10 text-xs leading-5 text-slate-500">{note}</p>
+      <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{note}</p>
     </article>
   )
 }
@@ -219,79 +211,124 @@ function PendingTickets({
   onOpenTicket: (ticket: TicketRecord) => void
   onViewAll: () => void
 }) {
-  const active = tickets
-    .filter(isActive)
-    .sort(
-      (a, b) =>
-        priorityOrder[a.priority] - priorityOrder[b.priority] ||
-        (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
-    )
-    .slice(0, 8)
+  const groupForTicket = (ticket: TicketRecord) => {
+    const snapshot = getSlaSnapshot(ticket)
+    if (snapshot.state === 'breached') return { key: 'overdue', label: t('เลยกำหนด'), tone: 'danger' as const }
+    if (snapshot.state === 'dueSoon') return { key: 'risk', label: t('ใกล้ครบกำหนด'), tone: 'warning' as const }
+    if (ticket.priority === 'Critical') return { key: 'critical', label: t('Critical'), tone: 'critical' as const }
+    return null
+  }
+  const groups = (['overdue', 'risk', 'critical'] as const)
+    .map((key) => {
+      const groupTickets = tickets
+        .filter(isActive)
+        .filter((ticket) => groupForTicket(ticket)?.key === key)
+        .sort(
+          (a, b) =>
+            priorityOrder[a.priority] - priorityOrder[b.priority] ||
+            (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
+        )
+      return {
+        key,
+        label: key === 'overdue' ? t('เลยกำหนด') : key === 'risk' ? t('ใกล้ครบกำหนด') : t('Critical'),
+        tone: key === 'overdue' ? ('danger' as const) : key === 'risk' ? ('warning' as const) : ('critical' as const),
+        tickets: groupTickets,
+      }
+    })
+    .filter((group) => group.tickets.length > 0)
+  const visibleCount = groups.reduce((total, group) => total + Math.min(group.tickets.length, 3), 0)
+  const toneClasses = {
+    danger: 'bg-rose-50 text-rose-800',
+    warning: 'bg-amber-50 text-amber-800',
+    critical: 'bg-red-50 text-red-800',
+  }
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+    <section
+      aria-labelledby="dashboard-attention-heading"
+      className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Action queue</p>
-          <h2 className="mt-1 font-semibold text-slate-900">{t('งานที่ต้องติดตาม')}</h2>
-          <p className="mt-1 text-sm text-slate-500">{t('เรียงตามความเร่งด่วนและเวลาที่เปิดงาน')}</p>
+          <h2 className="font-semibold text-slate-900" id="dashboard-attention-heading">
+            {t('งานที่ต้องติดตาม')}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">{t('เรียงตามกำหนด SLA และความสำคัญ')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
             {t('เปิดอยู่')} {tickets.filter(isActive).length}
           </span>
           <button
-            className="rounded-full px-3 py-1.5 text-xs font-semibold text-lotus-700 hover:bg-lotus-50"
+            className="min-h-10 rounded-full px-3 py-1.5 text-xs font-semibold text-lotus-700 hover:bg-lotus-50 focus:outline-none focus:ring-2 focus:ring-lotus-300"
             onClick={onViewAll}
             type="button"
           >
-            {t('ดูรายการทั้งหมด →')}
+            {t('ดูรายการทั้งหมด')}
           </button>
         </div>
       </div>
-      {active.length === 0 ? (
-        <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
-          {t('ไม่มี Task ค้างในรายการที่โหลด')}
-        </p>
+      {groups.length === 0 ? (
+        <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
+          <p className="font-semibold">{t('ไม่มี Task ค้างในรายการที่โหลด')}</p>
+          <button className="mt-2 font-semibold underline underline-offset-4" onClick={onViewAll} type="button">
+            {t('ดูรายการทั้งหมด')}
+          </button>
+        </div>
       ) : (
-        <ul className="mt-4 divide-y divide-slate-100">
-          {active.slice(0, 5).map((ticket) => (
-            <li className="flex flex-wrap items-center justify-between gap-3 py-3.5" key={ticket.id}>
-              <button
-                aria-label={`${t('เปิด Task')} ${ticket.propertyCode}-${ticket.id.toUpperCase()} ${t('เพื่อดูและอัปเดต')}`}
-                className="min-w-0 flex-1 rounded-lg text-left hover:text-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-300"
-                onClick={() => onOpenTicket(ticket)}
-                type="button"
-              >
-                <p className="truncate text-sm font-semibold">
-                  {ticket.propertyCode}-{ticket.id.toUpperCase()}{' '}
-                  <span className="font-normal text-slate-700">
-                    · {formatTicketProblem(ticket.problemCategory, ticket.problemType)}
-                  </span>
-                </p>
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  {ticket.location || t('ไม่ระบุสถานที่')}
-                  {ticket.assetId ? ` · ${t('Asset')} ${ticket.assetId}` : ''} · {formatTicketChannel(ticket.channel)} ·{' '}
-                  {ticket.requesterName || ticket.requesterEmail || t('ไม่ระบุผู้แจ้ง')}
-                </p>
-              </button>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="rounded-full bg-slate-50 px-2 py-1 text-[11px] text-slate-500">
-                  {ticket.createdAt ? formatDuration(Date.now() - ticket.createdAt.getTime()) : '—'}
-                </span>
+        <div className="mt-4 space-y-5">
+          {groups.map((group) => (
+            <div key={group.key}>
+              <div className="mb-1 flex items-center gap-2">
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${ticket.priority === 'Critical' ? 'bg-rose-100 text-rose-800' : ticket.priority === 'High' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'}`}
-                >
-                  {t(ticket.priority)}
-                </span>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[ticket.status] ?? 'bg-slate-100 text-slate-700'}`}
-                >
-                  {t(ticket.status)}
-                </span>
+                  aria-hidden="true"
+                  className={`h-2.5 w-2.5 rounded-full ${group.tone === 'danger' ? 'bg-rose-600' : group.tone === 'warning' ? 'bg-amber-500' : 'bg-red-600'}`}
+                />
+                <h3 className="text-xs font-semibold text-slate-600">{group.label}</h3>
+                <span className="text-xs tabular-nums text-slate-400">{group.tickets.length}</span>
               </div>
-            </li>
+              <ul className="divide-y divide-slate-100">
+                {group.tickets.slice(0, 3).map((ticket) => (
+                  <li className="flex flex-wrap items-center justify-between gap-3 py-3" key={ticket.id}>
+                    <button
+                      aria-label={`${t('เปิด Task')} ${ticket.propertyCode}-${ticket.id.toUpperCase()} ${t('เพื่อดูและอัปเดต')}`}
+                      className="group min-w-0 flex-1 rounded-lg text-left hover:text-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-300"
+                      onClick={() => onOpenTicket(ticket)}
+                      type="button"
+                    >
+                      <p className="truncate text-sm font-semibold">
+                        {ticket.propertyCode}-{ticket.id.toUpperCase()}{' '}
+                        <span className="font-normal text-slate-700">
+                          · {formatTicketProblem(ticket.problemCategory, ticket.problemType)}
+                        </span>
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {ticket.location || t('ไม่ระบุสถานที่')}
+                        {ticket.assetId ? ` · ${t('Asset')} ${ticket.assetId}` : ''} ·{' '}
+                        {formatTicketChannel(ticket.channel)} ·{' '}
+                        {ticket.requesterName || ticket.requesterEmail || t('ไม่ระบุผู้แจ้ง')}
+                      </p>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClasses[group.tone]}`}>
+                        {group.label}
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[ticket.status] ?? 'bg-slate-100 text-slate-700'}`}
+                      >
+                        {t(ticket.status)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
+      )}
+      {groups.length > 0 && tickets.filter(isActive).length > visibleCount && (
+        <p className="mt-3 text-xs text-slate-400">
+          {t('และอีก')} {tickets.filter(isActive).length - visibleCount} {t('งานที่ยังเปิด')}
+        </p>
       )}
     </section>
   )
@@ -322,7 +359,11 @@ function StatusSnapshot({ rows }: { rows: Array<{ status: string; count: number 
           {rows.find((item) => item.status === 'Completed')?.count ?? 0} {t('ปิดแล้ว')}
         </span>
       </div>
-      <div aria-label={t('สัดส่วน Task ตามสถานะ')} className="mt-5 flex h-3 overflow-hidden rounded-full bg-slate-100">
+      <div
+        aria-label={t('สัดส่วน Task ตามสถานะ')}
+        className="mt-5 flex h-3 overflow-hidden rounded-full bg-slate-100"
+        role="img"
+      >
         {rows
           .filter((row) => row.count > 0)
           .map((row) => (
@@ -367,17 +408,16 @@ function SlaOperations({
     byProperty: Array<{ label: string; count: number }>
   }
 }) {
-  const metRate = summary.eligible ? Math.round((summary.met / summary.eligible) * 100) : 0
+  const metRate = summary.eligible ? `${Math.round((summary.met / summary.eligible) * 100)}%` : t('ยังประเมินไม่ได้')
   return (
     <section className="rounded-2xl border border-violet-100 bg-violet-50/50 p-5 shadow-sm shadow-slate-200/30 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">SLA operations</p>
           <h2 className="mt-1 font-semibold text-slate-900">{t('ติดตาม SLA')}</h2>
           <p className="mt-1 text-sm text-slate-600">{t('Response และ Resolution แยกกันตามข้อมูล Task ที่โหลดได้')}</p>
         </div>
         <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-violet-800">
-          {t('สำเร็จ')} {metRate}%
+          {t('สำเร็จ')} {metRate}
         </span>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -597,16 +637,23 @@ function TaskTrendChart({ buckets, grouping }: { buckets: TrendBucket[]; groupin
   )
 }
 
-function RepairAssets({ assets, onViewAll }: { assets: AssetRecord[]; onViewAll: () => void }) {
+function RepairAssets({
+  assets,
+  onViewAll,
+  compact = false,
+}: {
+  assets: AssetRecord[]
+  onViewAll: () => void
+  compact?: boolean
+}) {
   const underRepair = assets.filter((asset) => asset.status === 'Under Repair')
   const overdue = underRepair.filter(
     (asset) => asset.expectedReturnOn && asset.expectedReturnOn < bangkokToday(),
   ).length
   return (
-    <section className="flex min-w-0 flex-col rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/40 sm:p-5">
+    <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/30">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700">Asset Health</p>
           <h3 className="mt-1 font-semibold text-slate-900">{t('อุปกรณ์ที่ส่งซ่อม')}</h3>
           <p className="mt-1 text-sm text-slate-500">{t('ติดตามกำหนดรับคืนและผู้รับซ่อม')}</p>
         </div>
@@ -629,7 +676,7 @@ function RepairAssets({ assets, onViewAll }: { assets: AssetRecord[]; onViewAll:
       </p>
       {underRepair.length > 0 && (
         <ul className="mt-3 divide-y divide-slate-100">
-          {underRepair.slice(0, 2).map((asset) => (
+          {underRepair.slice(0, compact ? 1 : 2).map((asset) => (
             <li className="py-3" key={asset.id}>
               <p className="truncate text-sm font-semibold text-slate-800">
                 {asset.propertyCode} · {asset.assetTag} · {asset.name}
@@ -649,6 +696,7 @@ function RepairAssets({ assets, onViewAll }: { assets: AssetRecord[]; onViewAll:
 
 export function ExecutiveDashboard({
   selectedPropertyId,
+  onCreateTicket,
   onOpenCctv,
   onOpenTicket,
   onViewTickets,
@@ -658,6 +706,7 @@ export function ExecutiveDashboard({
   showCctv = true,
 }: {
   selectedPropertyId: string
+  onCreateTicket: () => void
   onOpenCctv: () => void
   onOpenTicket: (ticket: TicketRecord) => void
   onViewTickets: () => void
@@ -839,6 +888,8 @@ export function ExecutiveDashboard({
       filtered,
       active,
       completed,
+      overdue: active.filter((ticket) => getSlaSnapshot(ticket).state === 'breached').length,
+      slaRisk: active.filter((ticket) => getSlaSnapshot(ticket).state === 'dueSoon').length,
       critical: active.filter((ticket) => ticket.priority === 'Critical').length,
       averageCloseTime,
       properties,
@@ -857,33 +908,41 @@ export function ExecutiveDashboard({
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-lotus-100 bg-gradient-to-br from-white via-white to-lotus-50 p-5 shadow-sm shadow-slate-200/40 sm:p-7">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-5 -top-8 h-28 w-28 text-lotus-700 opacity-[0.045] sm:h-36 sm:w-36"
-        >
-          <MetricIcon name="clipboard" />
-        </span>
-        <div className="relative flex flex-wrap items-start justify-between gap-5">
+      <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-lotus-700">ITOMS · OPERATIONS PULSE</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
               {t('ภาพรวมงานบริการ IT')}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               {t('สแกนงานค้าง สุขภาพระบบ และรายการที่ควรติดตามในหน้าเดียว')}
             </p>
-          </div>
-          <div className="rounded-2xl border border-white/90 bg-white/90 px-4 py-3 text-left shadow-sm sm:text-right">
-            <p className="text-xs text-slate-500">{t('วันที่สรุป')}</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">
-              {new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }).format(
-                new Date(),
-              )}
+            <p className="mt-3 text-xs text-slate-500">
+              {t('ข้อมูลล่าสุด')} · {tickets.length} {t('งาน')} · {t('นับจาก Task ที่โหลดได้')}
             </p>
           </div>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-left">
+              <p className="text-xs text-slate-500">{t('วันที่สรุป')}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-800">
+                {new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }).format(
+                  new Date(),
+                )}
+              </p>
+            </div>
+            <button
+              className="min-h-11 rounded-full bg-lotus-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-400 focus:ring-offset-2"
+              onClick={onCreateTicket}
+              type="button"
+            >
+              {t('สร้าง Task')}
+            </button>
+          </div>
         </div>
-        <div className="relative mt-5 flex flex-wrap items-center gap-2" aria-label={t('เลือกช่วงเวลาสรุป')}>
+        <div
+          className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4"
+          aria-label={t('เลือกช่วงเวลาสรุป')}
+        >
           <span className="mr-1 text-xs font-medium text-slate-500">{t('ช่วงวันที่แจ้ง')}</span>
           {(
             [
@@ -896,7 +955,7 @@ export function ExecutiveDashboard({
           ).map(([value, label]) => (
             <button
               aria-pressed={period === value}
-              className={`min-h-10 rounded-full px-4 py-2 text-xs font-semibold transition ${period === value ? 'bg-lotus-800 text-white shadow-sm' : 'border border-slate-200 bg-white/90 text-slate-600 hover:border-lotus-200 hover:bg-lotus-50'}`}
+              className={`min-h-10 rounded-full px-4 py-2 text-xs font-semibold transition ${period === value ? 'bg-lotus-800 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:border-lotus-200 hover:bg-lotus-50'}`}
               key={value}
               onClick={() => setPeriod(value)}
               type="button"
@@ -955,17 +1014,18 @@ export function ExecutiveDashboard({
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Metric
-              icon="clipboard"
-              label={t('งานที่อยู่ในช่วงเวลานี้')}
-              value={data.filtered.length}
-              note={t('นับจาก Task ที่โหลดได้')}
+              icon="alert"
+              label={t('เลยกำหนด')}
+              value={data.overdue}
+              note={t('ต้องติดตามทันที')}
+              tone={data.overdue ? 'danger' : 'success'}
             />
             <Metric
-              icon="clock"
-              label={t('งานที่ยังเปิดอยู่')}
-              value={data.active.length}
-              note={t('ไม่รวม Completed และ Cancelled')}
-              tone={data.active.length ? 'warning' : 'success'}
+              icon="timer"
+              label={t('ใกล้ครบกำหนด')}
+              value={data.slaRisk}
+              note={t('เสี่ยงเกิน SLA')}
+              tone={data.slaRisk ? 'warning' : 'success'}
             />
             <Metric
               icon="alert"
@@ -975,69 +1035,71 @@ export function ExecutiveDashboard({
               tone={data.critical ? 'danger' : 'success'}
             />
             <Metric
-              icon="timer"
-              label={t('เวลาเฉลี่ยจนปิดงาน')}
-              value={formatDuration(data.averageCloseTime)}
-              note={
-                getLanguage() === 'en'
-                  ? `Estimated from ${data.completed.length} closed tasks`
-                  : `คำนวณจาก ${data.completed.length} งานที่ปิดแล้ว · ค่าประมาณ`
-              }
+              icon="clipboard"
+              label={t('งานที่ยังเปิดอยู่')}
+              value={data.active.length}
+              note={t('ไม่รวม Completed และ Cancelled')}
+              tone={data.active.length ? 'neutral' : 'success'}
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <PendingTickets onOpenTicket={onOpenTicket} onViewAll={onViewTickets} tickets={tickets} />
-            <StatusSnapshot rows={data.statusCounts} />
+            <SlaOperations summary={data.slaSummary} />
           </div>
 
           {canReadTodos && <TodoDashboardPreview onOpen={onViewTodo} selectedPropertyId={selectedPropertyId} />}
 
-          <TaskTrendChart buckets={data.trendBuckets} grouping={data.trendGrouping} />
-
-          <SlaOperations summary={data.slaSummary} />
-
-          <section>
-            <div className="mb-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Task insights</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">{t('รูปแบบการแจ้งและประเภทปัญหา')}</h2>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <IssueAreaBreakdown rows={data.issueAreas} />
-              <BarList accent="bg-violet-400" rows={data.problemCategories.slice(0, 6)} title={t('ตามหมวดปัญหา')} />
-              <ChannelBreakdown rows={data.channels} />
-            </div>
-            <div className="mb-3 mt-6">
-              <h3 className="font-semibold text-slate-800">{t('รายละเอียดที่พบใน Task')}</h3>
-              <p className="mt-1 text-sm text-slate-500">{t('ประเภทย่อย Property และจุด / Asset ที่มีรายการมาก')}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <BarList accent="bg-fuchsia-300" rows={data.problems.slice(0, 6)} title={t('ประเภทย่อยที่พบบ่อย')} />
-              <BarList accent="bg-sky-400" rows={data.properties} title={t('ตาม Property')} />
-              <BarList accent="bg-amber-400" rows={data.locations} title={t('จุด / Asset ที่พบ Task บ่อย')} />
-            </div>
-          </section>
-
-          {showCctv && <CctvOverview onOpenCctv={onOpenCctv} selectedPropertyId={selectedPropertyId} />}
-
-          {canReadPm && <PmOverviewSummary selectedPropertyId={selectedPropertyId} />}
-
-          {(canReadAssets || canReadLicenses) && (
-            <section>
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200/80 pb-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-lotus-700">Service Health</p>
-                  <h2 className="mt-1 text-lg font-semibold text-slate-900">{t('สุขภาพงานบริการและทรัพย์สิน')}</h2>
+          <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/20">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold text-slate-900 marker:hidden sm:px-6">
+              <span>{t('รายละเอียดเพิ่มเติม')}</span>
+              <span aria-hidden="true" className="text-xl text-slate-400 transition-transform group-open:rotate-45">
+                +
+              </span>
+            </summary>
+            <div className="space-y-4 border-t border-slate-100 p-5 sm:p-6">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <StatusSnapshot rows={data.statusCounts} />
+                <TaskTrendChart buckets={data.trendBuckets} grouping={data.trendGrouping} />
+              </div>
+              <section>
+                <div className="mb-3">
+                  <h2 className="mt-1 text-lg font-semibold text-slate-900">{t('รูปแบบการแจ้งและประเภทปัญหา')}</h2>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <IssueAreaBreakdown rows={data.issueAreas} />
+                  <BarList accent="bg-violet-400" rows={data.problemCategories.slice(0, 6)} title={t('ตามหมวดปัญหา')} />
+                  <ChannelBreakdown rows={data.channels} />
+                </div>
+                <div className="mb-3 mt-6">
+                  <h3 className="font-semibold text-slate-800">{t('รายละเอียดที่พบใน Task')}</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    {t('ติดตามอุปกรณ์ส่งซ่อม กำหนดรับคืน และ License ที่ใกล้หมดอายุ')}
+                    {t('ประเภทย่อย Property และจุด / Asset ที่มีรายการมาก')}
                   </p>
                 </div>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">
-                  Asset · License
-                </span>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <BarList accent="bg-fuchsia-300" rows={data.problems.slice(0, 6)} title={t('ประเภทย่อยที่พบบ่อย')} />
+                  <BarList accent="bg-sky-400" rows={data.properties} title={t('ตาม Property')} />
+                  <BarList accent="bg-amber-400" rows={data.locations} title={t('จุด / Asset ที่พบ Task บ่อย')} />
+                </div>
+              </section>
+            </div>
+          </details>
+
+          {(showCctv || canReadPm || canReadAssets || canReadLicenses) && (
+            <section aria-labelledby="dashboard-service-health-heading">
+              <div className="mb-3 border-b border-slate-200/80 pb-3">
+                <h2 className="text-lg font-semibold text-slate-900" id="dashboard-service-health-heading">
+                  {t('สุขภาพงานบริการและทรัพย์สิน')}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t('ติดตามสถานะ CCTV, PM, Asset และ License ในขอบเขตปัจจุบัน')}
+                </p>
               </div>
-              <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-                {canReadAssets && <RepairAssets assets={assets} onViewAll={onViewDamagedAssets} />}
+              <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {showCctv && <CctvOverview compact onOpenCctv={onOpenCctv} selectedPropertyId={selectedPropertyId} />}
+                {canReadPm && <PmOverviewSummary compact selectedPropertyId={selectedPropertyId} />}
+                {canReadAssets && <RepairAssets assets={assets} compact onViewAll={onViewDamagedAssets} />}
                 {canReadLicenses && (
                   <LicenseOverviewSummary
                     compact

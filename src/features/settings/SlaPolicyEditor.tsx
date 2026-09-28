@@ -58,58 +58,64 @@ export function SlaPolicyEditor({
         </div>
         <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-violet-800">24x7</span>
       </div>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[34rem] text-left text-xs">
-          <thead>
-            <tr className="border-b border-violet-100 text-slate-500">
-              <th className="px-2 py-2 font-medium">{t('Priority')}</th>
-              <th className="px-2 py-2 font-medium">{t('First Response (นาที)')}</th>
-              <th className="px-2 py-2 font-medium">{t('Resolution (นาที)')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {slaPriorities.map((priority) => (
-              <tr className="border-b border-violet-100/70 last:border-0" key={priority}>
-                <th className="px-2 py-2 font-semibold text-slate-700">{t(priority)}</th>
-                <td className="px-2 py-2">
-                  <label className="sr-only" htmlFor={`sla-response-${property.id}-${priority}`}>
-                    {`${t('First Response')} ${priority}`}
-                  </label>
-                  <input
-                    className="form-input min-w-28 py-2 text-sm"
-                    id={`sla-response-${property.id}-${priority}`}
-                    min="1"
-                    max="525600"
-                    onChange={(event) => updateTarget(priority, 'responseMinutes', event.target.value)}
-                    type="number"
-                    value={draft.targets[priority].responseMinutes}
-                  />
-                </td>
-                <td className="px-2 py-2">
-                  <label className="sr-only" htmlFor={`sla-resolution-${property.id}-${priority}`}>
-                    {`${t('Resolution')} ${priority}`}
-                  </label>
-                  <input
-                    className="form-input min-w-28 py-2 text-sm"
-                    id={`sla-resolution-${property.id}-${priority}`}
-                    min="1"
-                    max="525600"
-                    onChange={(event) => updateTarget(priority, 'resolutionMinutes', event.target.value)}
-                    type="number"
-                    value={draft.targets[priority].resolutionMinutes}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div aria-label={t('SLA Policy targets')} className="mt-3 space-y-2" role="group">
+        <div className="hidden grid-cols-[minmax(5rem,0.7fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 px-2 text-xs text-slate-500 sm:grid">
+          <span className="py-2 font-medium">{t('Priority')}</span>
+          <span className="py-2 font-medium">{t('First Response (นาที)')}</span>
+          <span className="py-2 font-medium">{t('Resolution (นาที)')}</span>
+        </div>
+        {slaPriorities.map((priority) => (
+          <div
+            className="grid gap-2 rounded-2xl border border-violet-100/80 bg-white/75 p-3 sm:grid-cols-[minmax(5rem,0.7fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-3"
+            key={priority}
+          >
+            <div className="flex items-center justify-between gap-2 sm:block">
+              <span className="text-sm font-semibold text-slate-700">{t(priority)}</span>
+              <span className="text-[11px] text-slate-500 sm:hidden">{t('SLA target')}</span>
+            </div>
+            <label
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-xs text-slate-600 sm:block"
+              htmlFor={`sla-response-${property.id}-${priority}`}
+            >
+              <span className="sm:sr-only">{`${t('First Response')} ${priority}`}</span>
+              <input
+                aria-label={`${t('First Response')} ${priority}`}
+                className="form-input w-full min-w-0 py-2 text-sm"
+                id={`sla-response-${property.id}-${priority}`}
+                min="1"
+                max="525600"
+                onChange={(event) => updateTarget(priority, 'responseMinutes', event.target.value)}
+                type="number"
+                value={draft.targets[priority].responseMinutes}
+              />
+              <span className="sm:hidden">{t('นาที')}</span>
+            </label>
+            <label
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-xs text-slate-600 sm:block"
+              htmlFor={`sla-resolution-${property.id}-${priority}`}
+            >
+              <span className="sm:sr-only">{`${t('Resolution')} ${priority}`}</span>
+              <input
+                aria-label={`${t('Resolution')} ${priority}`}
+                className="form-input w-full min-w-0 py-2 text-sm"
+                id={`sla-resolution-${property.id}-${priority}`}
+                min="1"
+                max="525600"
+                onChange={(event) => updateTarget(priority, 'resolutionMinutes', event.target.value)}
+                type="number"
+                value={draft.targets[priority].resolutionMinutes}
+              />
+              <span className="sm:hidden">{t('นาที')}</span>
+            </label>
+          </div>
+        ))}
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-xs leading-5 text-slate-500">
+      <div className="mt-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-xl text-xs leading-5 text-slate-600">
           {t('การบันทึกจะสร้าง Policy version ใหม่ และมีผลเฉพาะ Ticket ที่สร้างหลังจากนั้น')}
         </p>
         <button
-          className="shrink-0 rounded-full bg-violet-700 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-wait disabled:opacity-60"
+          className="shrink-0 rounded-full bg-violet-700 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-800 disabled:cursor-wait disabled:opacity-60 sm:self-auto"
           disabled={saving}
           onClick={() => void onSave({ ...draft, version: (property.slaPolicy?.version ?? 0) + 1 })}
           type="button"

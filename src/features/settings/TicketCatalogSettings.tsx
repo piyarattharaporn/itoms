@@ -685,54 +685,88 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
           <p className="mt-1 text-sm text-slate-500">{t('เพิ่ม Property หรือกำหนดสิทธิ์ Property ให้บัญชีนี้ก่อน')}</p>
         </div>
       ) : (
-        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-          <ProblemTypeEditor
-            values={catalog.problemTypes}
-            onAdd={(value) => addOption('problemTypes', value)}
-            onRename={(oldValue, value) => renameOption('problemTypes', oldValue, value)}
-            onRemove={removeOption}
-            onRenameGroup={renameGroup}
-            onRemoveGroup={removeGroup}
-            saving={saving}
-          />
-          <CatalogEditor
-            field="todoCategories"
-            title={t('หมวดงาน To-do')}
-            values={catalog.todoCategories}
-            onAdd={addOption}
-            onRename={renameOption}
-            saving={saving}
-          />
-          <CatalogEditor
-            field="departments"
-            title={t('แผนก')}
-            values={catalog.departments}
-            onAdd={addOption}
-            onRename={renameOption}
-            saving={saving}
-          />
-          <CatalogEditor
-            field="assetCategories"
-            title={t('ประเภท Asset')}
-            values={catalog.assetCategories}
-            onAdd={addOption}
-            onRename={renameOption}
-            saving={saving}
-          />
-          <CatalogEditor
-            field="channels"
-            title={t('ช่องทางการแจ้งปัญหา')}
-            values={catalog.channels}
-            onAdd={addOption}
-            onRename={renameOption}
-            saving={saving}
-          />
-          {isSuperAdmin && (
-            <div className="lg:col-span-2">
-              <SlaPolicyEditor property={property} saving={savingSla} onSave={saveSlaPolicy} />
+        <>
+          <nav
+            aria-label={t('ส่วนตั้งค่ารายการ')}
+            className="relative z-10 flex min-w-0 gap-2 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-sm shadow-slate-200/30 backdrop-blur lg:sticky lg:top-[4.75rem]"
+          >
+            <a
+              className="shrink-0 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-lotus-50 hover:text-lotus-800"
+              href="#catalog-problem-types"
+            >
+              {t('ประเภทปัญหา')}
+            </a>
+            <a
+              className="shrink-0 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-lotus-50 hover:text-lotus-800"
+              href="#catalog-options"
+            >
+              {t('รายการใช้งาน')}
+            </a>
+            {isSuperAdmin && (
+              <a
+                className="shrink-0 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-violet-50 hover:text-violet-800"
+                href="#catalog-sla"
+              >
+                SLA
+              </a>
+            )}
+          </nav>
+          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="scroll-mt-28 lg:col-span-2" id="catalog-problem-types">
+              <ProblemTypeEditor
+                values={catalog.problemTypes}
+                onAdd={(value) => addOption('problemTypes', value)}
+                onRename={(oldValue, value) => renameOption('problemTypes', oldValue, value)}
+                onRemove={removeOption}
+                onRenameGroup={renameGroup}
+                onRemoveGroup={removeGroup}
+                saving={saving}
+              />
             </div>
-          )}
-        </div>
+            <div
+              className="scroll-mt-28 grid min-w-0 grid-cols-1 gap-4 lg:col-span-2 lg:grid-cols-2"
+              id="catalog-options"
+            >
+              <CatalogEditor
+                field="todoCategories"
+                title={t('หมวดงาน To-do')}
+                values={catalog.todoCategories}
+                onAdd={addOption}
+                onRename={renameOption}
+                saving={saving}
+              />
+              <CatalogEditor
+                field="departments"
+                title={t('แผนก')}
+                values={catalog.departments}
+                onAdd={addOption}
+                onRename={renameOption}
+                saving={saving}
+              />
+              <CatalogEditor
+                field="assetCategories"
+                title={t('ประเภท Asset')}
+                values={catalog.assetCategories}
+                onAdd={addOption}
+                onRename={renameOption}
+                saving={saving}
+              />
+              <CatalogEditor
+                field="channels"
+                title={t('ช่องทางการแจ้งปัญหา')}
+                values={catalog.channels}
+                onAdd={addOption}
+                onRename={renameOption}
+                saving={saving}
+              />
+            </div>
+            {isSuperAdmin && (
+              <div className="scroll-mt-28 lg:col-span-2" id="catalog-sla">
+                <SlaPolicyEditor property={property} saving={savingSla} onSave={saveSlaPolicy} />
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   )

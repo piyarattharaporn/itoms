@@ -4,15 +4,24 @@
 
 :root {
   color-scheme: light;
-  --color-canvas: #F4F7F4;
-  --color-surface: #FFFFFF;
-  --color-ink: #26312C;
-  --color-muted: #69776F;
-  --color-border: #DCE5DE;
-  --color-brand: #47765C;
-  --color-brand-soft: #E8F1EB;
-  --color-message: #7552A2;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-canvas: #f4f7f4;
+  --color-surface: #ffffff;
+  --color-ink: #26312c;
+  --color-muted: #5d6b63;
+  --color-border: #dce5de;
+  --color-brand: #47765c;
+  --color-brand-soft: #e8f1eb;
+  --color-message: #7552a2;
+  font-family:
+    'Noto Sans Thai',
+    'IBM Plex Sans Thai',
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -30,10 +39,14 @@ body {
 
 button {
   font: inherit;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
-input:not([type="checkbox"]):not([type="radio"]),
+input:not([type='checkbox']):not([type='radio']),
 select,
 textarea {
   min-height: 2.75rem;
@@ -41,12 +54,15 @@ textarea {
   border-color: var(--color-border);
   background-color: var(--color-surface);
   padding: 0.65rem 0.9rem;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
 }
 
 /* Tailwind Forms gives .form-input/.form-select higher specificity than the
    element rules above. Keep those shared controls rounded across every page. */
-input.form-input:not([type="checkbox"]):not([type="radio"]),
+input.form-input:not([type='checkbox']):not([type='radio']),
 select.form-select,
 textarea.form-input,
 textarea.form-textarea {
@@ -71,7 +87,7 @@ textarea.form-textarea {
   min-height: 5.5rem;
 }
 
-input.form-input:not([type="checkbox"]):not([type="radio"]):focus,
+input.form-input:not([type='checkbox']):not([type='radio']):focus,
 select.form-select:focus,
 textarea.form-input:focus,
 textarea.form-textarea:focus {
@@ -86,10 +102,10 @@ textarea {
 
 input::placeholder,
 textarea::placeholder {
-  color: #89968E;
+  color: #69776f;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):focus,
+input:not([type='checkbox']):not([type='radio']):focus,
 select:focus,
 textarea:focus {
   border-color: var(--color-brand);
@@ -105,11 +121,11 @@ a:focus-visible {
 
 ::selection {
   background: var(--color-brand-soft);
-  color: #31543F;
+  color: #31543f;
 }
 
 /* Keep every control in the Add Ticket form consistently soft and rounded. */
-.ticket-create-form input:not([type="checkbox"]):not([type="radio"]),
+.ticket-create-form input:not([type='checkbox']):not([type='radio']),
 .ticket-create-form select,
 .ticket-create-form textarea {
   box-sizing: border-box;
@@ -121,7 +137,7 @@ a:focus-visible {
   padding: 0.7rem 1rem;
 }
 
-.ticket-create-form :is(input, select, textarea)[aria-invalid="true"] {
+.ticket-create-form :is(input, select, textarea)[aria-invalid='true'] {
   border-color: #e11d48;
   box-shadow: 0 0 0 3px rgb(225 29 72 / 0.1);
 }
@@ -139,13 +155,13 @@ a:focus-visible {
   text-overflow: ellipsis;
 }
 
-.ticket-create-form input:not([type="checkbox"]):not([type="radio"]):hover,
+.ticket-create-form input:not([type='checkbox']):not([type='radio']):hover,
 .ticket-create-form select:hover,
 .ticket-create-form textarea:hover {
-  border-color: #B5CFBE;
+  border-color: #b5cfbe;
 }
 
-.ticket-create-form input:not([type="checkbox"]):not([type="radio"]):focus,
+.ticket-create-form input:not([type='checkbox']):not([type='radio']):focus,
 .ticket-create-form select:focus,
 .ticket-create-form textarea:focus {
   border-color: var(--color-brand);
@@ -156,9 +172,20 @@ a:focus-visible {
 .ticket-create-form input:disabled,
 .ticket-create-form select:disabled,
 .ticket-create-form textarea:disabled {
-  background-color: #EDF2EE;
-  color: #69776F;
+  background-color: #edf2ee;
+  color: var(--color-muted);
   cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 select.catalog-property-select.form-select {

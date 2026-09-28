@@ -531,7 +531,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
       onInvalidCapture={() => setAttemptedSubmit(true)}
       onSubmit={handleSubmit}
     >
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-lotus-100 bg-gradient-to-r from-lotus-50 via-white to-emerald-50/60 px-5 py-5 sm:px-7 sm:py-6">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-canvas px-5 py-5 sm:px-7 sm:py-6">
         <div className="flex min-w-0 items-center gap-4">
           <span
             aria-hidden="true"
@@ -550,9 +550,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
             </svg>
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-lotus-700">
-              {t('IT SERVICE REQUEST')}
-            </p>
+            <p className="text-sm font-medium text-lotus-700">{t('IT SERVICE REQUEST')}</p>
             <h2 className="mt-1 text-xl font-semibold text-slate-900">{t('แจ้งงาน IT')}</h2>
             <p className="mt-1 text-sm text-slate-600">
               {t('กรอกข้อมูลที่จำเป็นเพื่อให้ทีม IT ตรวจสอบและติดตามงานได้')}
@@ -1151,10 +1149,10 @@ export function TicketBoard({
       ) : (
         <>
           <section className="overflow-hidden rounded-[1.75rem] border border-line bg-white shadow-sm shadow-slate-200/40">
-            <div className="border-b border-line bg-gradient-to-r from-lotus-50/80 via-white to-slate-50 px-5 py-5 sm:px-6">
+            <div className="border-b border-line bg-canvas px-5 py-5 sm:px-6">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-lotus-700">
+                  <p className="text-sm font-medium text-lotus-700">
                     {mode === 'update' ? t('Action queue') : t('Task management')}
                   </p>
                   <h2 className="mt-1 text-xl font-semibold tracking-tight text-ink">
@@ -1493,7 +1491,7 @@ export function TicketBoard({
             onSubmit={completeTask}
             role="dialog"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-lotus-700">{t('ปิดงาน')}</p>
+            <p className="text-sm font-medium text-lotus-700">{t('ปิดงาน')}</p>
             <h2 className="mt-2 text-xl font-semibold text-slate-900" id="task-completion-title">
               {t('กรอกวิธีแก้ไขก่อนตั้งเป็น Completed')}
             </h2>

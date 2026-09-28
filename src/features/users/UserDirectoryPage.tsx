@@ -122,7 +122,7 @@ export function UserDirectoryPage() {
     {error && <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{t(error)}</p>}
     {loading ? <p className="rounded-2xl border border-slate-200 bg-white py-12 text-center text-sm text-slate-500" role="status">{t('กำลังโหลดผู้ใช้…')}</p> : visibleUsers.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">{t('ไม่พบผู้ใช้ตามตัวกรอง')}</p> : <section aria-label={t('ผู้ใช้ทั้งหมด')} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-100/60">
       <div className="overflow-x-auto"><table className="w-full min-w-[900px] border-collapse text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>
+        <thead className="bg-slate-50 text-xs font-semibold text-slate-500"><tr>
           <th className="px-4 py-3 font-semibold">{t('ผู้ใช้')}</th><th className="px-4 py-3 font-semibold">{t('สิทธิ์ระบบ')}</th><th className="px-4 py-3 font-semibold">{t('Role ใน Property')}</th><th className="px-4 py-3 font-semibold">{t("Property")}</th><th className="px-4 py-3 font-semibold">{t('สถานะ')}</th>
         </tr></thead>
         <tbody className="divide-y divide-slate-100">{visibleUsers.flatMap((user) => {

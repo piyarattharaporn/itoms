@@ -120,7 +120,7 @@ export function TodoDashboardPreview({ selectedPropertyId, onOpen }: { selectedP
 
   if (!canRead) return null
   return <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">{t('ปฏิทินงาน')}</p><h2 className="mt-1 font-semibold text-slate-900">{t('งานที่ต้องทำ')}</h2><p className="mt-1 text-sm text-slate-500">{t('แยกงานตามสถานะ พร้อมแจ้งรายการเกินกำหนด')}</p></div><button className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-lotus-700 hover:bg-lotus-50" onClick={onOpen} type="button">{t('เปิดปฏิทิน')}</button></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-medium text-violet-700">{t('ปฏิทินงาน')}</p><h2 className="mt-1 font-semibold text-slate-900">{t('งานที่ต้องทำ')}</h2><p className="mt-1 text-sm text-slate-500">{t('แยกงานตามสถานะ พร้อมแจ้งรายการเกินกำหนด')}</p></div><button className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-lotus-700 hover:bg-lotus-50" onClick={onOpen} type="button">{t('เปิดปฏิทิน')}</button></div>
     {loading ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500" role="status">{t('กำลังโหลดรายการ')}</p>
       : loadError ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-800">{t('โหลดรายการไม่สำเร็จ กรุณาตรวจสอบสิทธิ์และ Firebase Emulator')}</p>
         : <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -138,7 +138,7 @@ export function TodoDashboardPreview({ selectedPropertyId, onOpen }: { selectedP
 function TodoPreviewGroup({ title, tone, children }: { title: string; tone: 'amber' | 'sky'; children: ReactNode }) {
   const color = tone === 'amber' ? 'text-amber-800' : 'text-sky-800'
   return <div className="mt-3 first:mt-1">
-    <h4 className={`mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] ${color}`}>
+    <h4 className={`mb-1 flex items-center gap-2 text-xs font-semibold ${color}`}>
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${tone === 'amber' ? 'bg-amber-500' : 'bg-sky-500'}`} />{title}
     </h4>
     <ul className="divide-y divide-slate-200/70">{children}</ul>
@@ -416,8 +416,8 @@ export function TodoCalendar({ selectedPropertyId, propertyCode, propertyName }:
   if (kind && !availableTodoCategories.includes(kind)) availableTodoCategories.push(kind)
 
   return <div className="mt-6 space-y-5">
-    <section className="rounded-3xl border border-violet-100 bg-gradient-to-r from-white to-violet-50/70 p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">{t('ปฏิทินงาน')}</p><h2 className="mt-1 text-xl font-semibold text-slate-900">{t('ปฏิทินงานดูแล')}</h2><p className="mt-1 text-sm text-slate-500">{propertyName} · {t('จัดตารางงานและติดตามผู้รับผิดชอบ')}</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-600">{openCount} {t('งานที่ยังไม่เสร็จ')}</span><button className="rounded-full bg-lotus-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-lotus-800 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canManage || (!selectedPropertyNeeded && !settingsLoaded)} onClick={() => { if (showForm) closeTodoForm(); else { setFormPropertyId(selectedPropertyNeeded ? '' : selectedPropertyId); setShowForm(true); setEditingTodo(null); setFormError('') } }} type="button">{showForm ? t('ปิดฟอร์ม') : `+ ${t('เพิ่มงาน To-do')}`}</button></div></div>
+    <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-medium text-violet-700">{t('ปฏิทินงาน')}</p><h2 className="mt-1 text-xl font-semibold text-slate-900">{t('ปฏิทินงานดูแล')}</h2><p className="mt-1 text-sm text-slate-500">{propertyName} · {t('จัดตารางงานและติดตามผู้รับผิดชอบ')}</p></div><div className="flex w-full flex-wrap items-center gap-2 sm:w-auto"><span className="rounded-full bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">{openCount} {t('งานที่ยังไม่เสร็จ')}</span><button className="rounded-full bg-lotus-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-lotus-800 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canManage || (!selectedPropertyNeeded && !settingsLoaded)} onClick={() => { if (showForm) closeTodoForm(); else { setFormPropertyId(selectedPropertyNeeded ? '' : selectedPropertyId); setShowForm(true); setEditingTodo(null); setFormError('') } }} type="button">{showForm ? t('ปิดฟอร์ม') : `+ ${t('เพิ่มงาน To-do')}`}</button></div></div>
       {loadError && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800">{t('โหลดรายการไม่สำเร็จ กรุณาตรวจสอบสิทธิ์และ Firebase Emulator')}</p>}
       {operationError && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert">{operationError}</p>}
     </section>
@@ -461,7 +461,7 @@ export function TodoCalendar({ selectedPropertyId, propertyCode, propertyName }:
         <p className="mt-4 text-xs text-slate-400">{t('เลือกวันที่เพื่อดูรายการ และกดวันที่อื่นเพื่อเปลี่ยนมุมมอง')}</p>
       </div>
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-violet-700">{t('กำหนดการ')}</p><h2 className="mt-1 font-semibold text-slate-900">{formatDay(selectedDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">{dayItems.length} {t('รายการ')}</span></div>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-violet-700">{t('กำหนดการ')}</p><h2 className="mt-1 font-semibold text-slate-900">{formatDay(selectedDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">{dayItems.length} {t('รายการ')}</span></div>
         {loading ? <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500" role="status">{t('กำลังโหลดรายการ')}</p> : dayItems.length === 0 ? <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">{t('ไม่มีงานในวันที่เลือก')}</div> : <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <TodoPreviewColumn title={t('เสร็จแล้ว')} count={completedDayItems.length} icon="check" tone="emerald" emptyLabel={t('ไม่มีงานที่เสร็จแล้ว')}>
             {completedDayItems.length > 0 && <ul className="divide-y divide-slate-200/70">{completedDayItems.map(renderDayOccurrence)}</ul>}

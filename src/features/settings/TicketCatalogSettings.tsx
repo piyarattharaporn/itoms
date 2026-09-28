@@ -622,9 +622,7 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
       <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-lotus-700">
-              {t('SYSTEM CONFIGURATION')}
-            </p>
+            <p className="text-sm font-medium text-lotus-700">{t('SYSTEM CONFIGURATION')}</p>
             <h2 className="mt-1 text-xl font-semibold text-slate-900">{t('ตั้งค่ารายการ')}</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
               {t('รายการแยกตาม Property ใช้ใน Dropdown ของ Task, To-do และ Asset')}

@@ -82,6 +82,36 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Create Task', exact: true })).toBeVisible()
 })
 
+test('task and calendar pages follow the ITOMS workspace hierarchy', async ({ page }) => {
+  await signInAsLocalAdmin(page)
+
+  await page.getByRole('button', { name: 'Create Task', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Create Task', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'แจ้งงาน IT', exact: true })).toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  const createDimensions = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+    bodyWidth: document.body.scrollWidth,
+  }))
+  expect(createDimensions.documentWidth).toBeLessThanOrEqual(createDimensions.viewportWidth + 1)
+  expect(createDimensions.bodyWidth).toBeLessThanOrEqual(createDimensions.viewportWidth + 1)
+
+  await page.getByRole('button', { name: 'เมนูหลัก', exact: true }).click()
+  await page.getByRole('button', { name: 'ปฏิทินงาน', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'ปฏิทินงาน', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'ปฏิทินงานดูแล', exact: true })).toBeVisible()
+
+  const calendarDimensions = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+    bodyWidth: document.body.scrollWidth,
+  }))
+  expect(calendarDimensions.documentWidth).toBeLessThanOrEqual(calendarDimensions.viewportWidth + 1)
+  expect(calendarDimensions.bodyWidth).toBeLessThanOrEqual(calendarDimensions.viewportWidth + 1)
+})
+
 test('dashboard keeps every visible element inside a desktop viewport', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await signInAsLocalAdmin(page)

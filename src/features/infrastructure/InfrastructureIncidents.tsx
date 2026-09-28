@@ -183,7 +183,7 @@ export function InfrastructureIncidents({ selectedPropertyId }: { selectedProper
     <section aria-labelledby="incident-page-heading" className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
       <div className="px-5 py-6 sm:px-7">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-lotus-700">IT Operations</p><h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900" id="incident-page-heading">Incident Log</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">{t("ติดตามเหตุ CCTV, Network, ISP, Power และระบบสำคัญ พร้อมดูประวัติแยกตามวัน")}</p></div>
+          <div><p className="text-sm font-medium text-lotus-700">IT Operations</p><h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900" id="incident-page-heading">Incident Log</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">{t("ติดตามเหตุ CCTV, Network, ISP, Power และระบบสำคัญ พร้อมดูประวัติแยกตามวัน")}</p></div>
           {canManage && <button className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-full bg-lotus-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-400 focus:ring-offset-2 lg:self-auto" onClick={() => setShowCreate((value) => !value)} type="button"><span aria-hidden="true" className="text-lg leading-none">{showCreate ? '−' : '+'}</span>{showCreate ? t("ปิดฟอร์ม") : t("บันทึกเหตุขัดข้อง")}</button>}
         </div>
         <div className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">

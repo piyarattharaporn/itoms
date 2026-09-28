@@ -172,6 +172,25 @@ describe('Ticket, Asset, and PM access', () => {
     await assertFails(requesterUpdate.commit())
   })
 
+  it('requires the initial Ticket event to match lastEventId', async () => {
+    const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
+    const ticketRef = doc(requesterDb, 'tickets/mismatched-event-ticket')
+    const eventRef = doc(requesterDb, 'tickets/mismatched-event-ticket/events/actual-event')
+    const batch = writeBatch(requesterDb)
+    batch.set(ticketRef, {
+      schemaVersion: 2,
+      propertyId: 'PROP-1', propertyCode: 'P1', requesterUid: 'requester-1', requesterName: 'Requester',
+      requesterEmail: 'requester@example.test', department: 'IT', issueArea: 'Other', location: 'Office',
+      assetId: '', problemCategory: 'Network', problemType: 'WiFi Connections', channel: 'Line', priority: 'Medium', status: 'Pending',
+      description: 'Network access is unavailable', resolutionNotes: '', assignedEngineerUid: '', assignedAt: null, assignedByUid: '',
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastEventId: 'different-event',
+    })
+    batch.set(eventRef, {
+      actorUid: 'requester-1', fromStatus: null, toStatus: 'Pending', note: 'Created', type: 'created', createdAt: serverTimestamp(),
+    })
+    await assertFails(batch.commit())
+  })
+
   it('rejects malformed Ticket fields, unauthorized assignment changes, and protected deletes', async () => {
     const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
     const malformedTicketRef = doc(requesterDb, 'tickets/malformed-ticket')
@@ -223,6 +242,28 @@ describe('Ticket, Asset, and PM access', () => {
     }))
     await assertFails(updateDoc(auditRef, { summary: 'tampered' }))
     await assertFails(deleteDoc(auditRef))
+  })
+
+  it('binds Spark events and audits to the Ticket mutation and keeps asset option property identity immutable', async () => {
+    const supportDb = testEnv.authenticatedContext('support-1').firestore()
+
+    await assertFails(setDoc(doc(supportDb, 'tickets/ticket-to-update/events/forged-event'), {
+      actorUid: 'support-1', fromStatus: 'Pending', toStatus: 'Completed', note: 'Forged history',
+      type: 'statusChanged', createdAt: serverTimestamp(),
+    }))
+
+    await assertFails(setDoc(doc(supportDb, 'auditEvents/forged-audit'), {
+      propertyId: 'PROP-1', propertyCode: 'P1', entityType: 'ticket', entityId: 'ticket-to-update',
+      sourceEventId: 'missing-event', action: 'statusChanged', actorUid: 'support-1',
+      summary: 'Forged audit', createdAt: serverTimestamp(),
+    }))
+
+    const optionRef = doc(supportDb, 'ticketAssetOptions/option-1')
+    await assertSucceeds(setDoc(optionRef, {
+      propertyId: 'PROP-1', propertyCode: 'P1', assetTag: 'IT-001', name: 'Office PC', category: 'Computer',
+      department: 'IT', location: 'Office', status: 'In Service', createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    }))
+    await assertFails(updateDoc(optionRef, { propertyCode: 'P2', updatedAt: serverTimestamp() }))
   })
 
   it('denies cross-Property assignment and cross-Property audit reads', async () => {

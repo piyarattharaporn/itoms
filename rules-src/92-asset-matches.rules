@@ -41,9 +41,10 @@
         && request.resource.data.updatedAt == request.time;
       allow update: if canManageProperty(resource.data.propertyId)
         && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'propertyCode', 'assetTag', 'name', 'category', 'department', 'location', 'status', 'updatedAt'
+          'assetTag', 'name', 'category', 'department', 'location', 'status', 'updatedAt'
         ])
         && validTicketAssetOption(request.resource.data)
         && request.resource.data.updatedAt == request.time;

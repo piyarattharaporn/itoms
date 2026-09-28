@@ -9,7 +9,7 @@
 
       match /events/{eventId} {
         allow get, list: if exists(ticketPath(ticketId)) && canReadTicket(get(ticketPath(ticketId)).data);
-        allow create: if signedIn() && validSparkTicketEvent(ticketId, request.resource.data);
+        allow create: if signedIn() && validSparkTicketEvent(ticketId, eventId, request.resource.data);
         allow update, delete: if false;
       }
     }

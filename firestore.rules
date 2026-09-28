@@ -611,6 +611,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/tickets/$(ticketId);
     }
 
+    function ticketEventPath(ticketId, eventId) {
+      return /databases/$(database)/documents/tickets/$(ticketId)/events/$(eventId);
+    }
+
     function canCreateTicket(propertyId) {
       return isSuperAdmin()
         || hasPropertyRole(propertyId, 'supportEngineer')
@@ -709,7 +713,7 @@ service cloud.firestore {
             && get(membershipPath(assignee, resource.data.propertyId)).data.active == true);
     }
 
-    function validSparkTicketEvent(ticketId, event) {
+    function validSparkTicketEvent(ticketId, eventId, event) {
       return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
         && event.keys().hasOnly([
           'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'fromAssignedEngineerUid',
@@ -725,8 +729,31 @@ service cloud.firestore {
         && (!event.keys().hasAny(['correlationId']) || (event.correlationId is string && event.correlationId.size() > 0 && event.correlationId.size() <= 128))
         && event.createdAt == request.time
         && ((event.type == 'created' && event.fromStatus == null && event.toStatus == 'Pending'
-              && existsAfter(ticketPath(ticketId)) && canCreateTicket(getAfter(ticketPath(ticketId)).data.propertyId))
-          || (event.type != 'created' && exists(ticketPath(ticketId)) && canManageProperty(get(ticketPath(ticketId)).data.propertyId)));
+              && !exists(ticketPath(ticketId))
+              && existsAfter(ticketPath(ticketId))
+              && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
+              && getAfter(ticketPath(ticketId)).data.status == 'Pending'
+              && getAfter(ticketPath(ticketId)).data.requesterUid == request.auth.uid
+              && canCreateTicket(getAfter(ticketPath(ticketId)).data.propertyId))
+          || (event.type == 'statusChanged'
+              && exists(ticketPath(ticketId))
+              && existsAfter(ticketPath(ticketId))
+              && get(ticketPath(ticketId)).data.status == event.fromStatus
+              && getAfter(ticketPath(ticketId)).data.status == event.toStatus
+              && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
+              && canManageProperty(getAfter(ticketPath(ticketId)).data.propertyId))
+          || (event.type in ['assigned', 'reassigned', 'unassigned']
+              && event.keys().hasAll(['fromAssignedEngineerUid', 'toAssignedEngineerUid'])
+              && exists(ticketPath(ticketId))
+              && existsAfter(ticketPath(ticketId))
+              && get(ticketPath(ticketId)).data.status == getAfter(ticketPath(ticketId)).data.status
+              && get(ticketPath(ticketId)).data.assignedEngineerUid == event.fromAssignedEngineerUid
+              && getAfter(ticketPath(ticketId)).data.assignedEngineerUid == event.toAssignedEngineerUid
+              && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
+              && ((event.type == 'assigned' && event.fromAssignedEngineerUid == '' && event.toAssignedEngineerUid != '')
+                || (event.type == 'reassigned' && event.fromAssignedEngineerUid != '' && event.toAssignedEngineerUid != '')
+                || (event.type == 'unassigned' && event.fromAssignedEngineerUid != '' && event.toAssignedEngineerUid == ''))
+              && canManageProperty(getAfter(ticketPath(ticketId)).data.propertyId)));
     }
 
     function validSparkAuditEvent(audit) {
@@ -747,6 +774,16 @@ service cloud.firestore {
         && audit.summary is string && audit.summary.size() <= 1000
         && (!audit.keys().hasAny(['correlationId']) || (audit.correlationId is string && audit.correlationId.size() > 0 && audit.correlationId.size() <= 128))
         && audit.createdAt == request.time
+        && existsAfter(ticketPath(audit.entityId))
+        && existsAfter(ticketEventPath(audit.entityId, audit.sourceEventId))
+        && getAfter(ticketPath(audit.entityId)).data.propertyId == audit.propertyId
+        && getAfter(ticketPath(audit.entityId)).data.propertyCode == audit.propertyCode
+        && getAfter(ticketPath(audit.entityId)).data.lastEventId == audit.sourceEventId
+        && getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.actorUid == audit.actorUid
+        && getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.type == audit.action
+        && (!audit.keys().hasAny(['correlationId'])
+          || (getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.keys().hasAny(['correlationId'])
+            && audit.correlationId == getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.correlationId))
         && ((audit.action == 'created' && canCreateTicket(audit.propertyId)) || (audit.action != 'created' && canManageProperty(audit.propertyId)));
     }
 
@@ -823,7 +860,7 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow get, list: if exists(ticketPath(ticketId)) && canReadTicket(get(ticketPath(ticketId)).data);
-        allow create: if signedIn() && validSparkTicketEvent(ticketId, request.resource.data);
+        allow create: if signedIn() && validSparkTicketEvent(ticketId, eventId, request.resource.data);
         allow update, delete: if false;
       }
     }
@@ -879,9 +916,10 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
       allow update: if canManageProperty(resource.data.propertyId)
         && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'propertyCode', 'assetTag', 'name', 'category', 'department', 'location', 'status', 'updatedAt'
+          'assetTag', 'name', 'category', 'department', 'location', 'status', 'updatedAt'
         ])
         && validTicketAssetOption(request.resource.data)
         && request.resource.data.updatedAt == request.time;

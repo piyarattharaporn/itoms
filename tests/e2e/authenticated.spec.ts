@@ -81,3 +81,39 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
   await page.getByRole('button', { name: 'สร้าง Task', exact: true }).first().click()
   await expect(page.getByRole('heading', { name: 'Create Task', exact: true })).toBeVisible()
 })
+
+test('dashboard keeps every visible element inside a desktop viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await signInAsLocalAdmin(page)
+
+  const overflow = await page.evaluate(() => {
+    const rightEdge = window.innerWidth
+    return [...document.querySelectorAll<HTMLElement>('*')]
+      .map((element) => {
+        const rect = element.getBoundingClientRect()
+        return {
+          tag: element.tagName.toLowerCase(),
+          className: element.className,
+          text: (element.innerText || '').trim().replace(/\s+/g, ' ').slice(0, 100),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+        }
+      })
+      .filter((item) => item.width > 0 && (item.left < 0 || item.right > rightEdge + 1))
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 20)
+  })
+
+  console.log(JSON.stringify({ viewport: await page.evaluate(() => window.innerWidth), overflow }))
+  await expect(overflow, JSON.stringify(overflow, null, 2)).toEqual([])
+
+  const licenseCard = page.locator('section').filter({ hasText: 'License ที่ใกล้หมดอายุ / หมดอายุแล้ว' }).first()
+  const licenseAction = page.getByRole('button', { name: 'ดูรายละเอียดใน Asset & Licence', exact: true })
+  const cardBox = await licenseCard.boundingBox()
+  const actionBox = await licenseAction.boundingBox()
+  expect(cardBox).not.toBeNull()
+  expect(actionBox).not.toBeNull()
+  expect(actionBox!.x).toBeGreaterThanOrEqual(cardBox!.x)
+  expect(actionBox!.x + actionBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width)
+})

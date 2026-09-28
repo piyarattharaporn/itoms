@@ -63,6 +63,9 @@ function readMembership(id: string, data: DocumentData): PropertyMembership | nu
   return {
     id,
     userId: data.userId,
+    ...(typeof data.displayName === 'string' && data.displayName.trim()
+      ? { displayName: data.displayName.trim() }
+      : {}),
     propertyId: data.propertyId,
     propertyCode: data.propertyCode,
     propertyName: data.propertyName,

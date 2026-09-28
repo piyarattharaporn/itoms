@@ -42,6 +42,7 @@ await db.doc('properties/LOCAL').set({
 
 await db.doc(`memberships/${user.uid}__LOCAL`).set({
   userId: user.uid,
+  displayName,
   propertyId: 'LOCAL',
   propertyCode: 'LOCAL',
   propertyName: 'Local Test Property',

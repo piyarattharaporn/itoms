@@ -15,6 +15,7 @@ export interface DirectoryUser {
 export interface DirectoryMembership {
   id: string
   userId: string
+  displayName?: string
   propertyId: string
   propertyCode: string
   propertyName: string
@@ -43,6 +44,9 @@ function parseMembership(id: string, data: DocumentData): DirectoryMembership | 
   return {
     id,
     userId: data.userId,
+    ...(typeof data.displayName === 'string' && data.displayName.trim()
+      ? { displayName: data.displayName.trim() }
+      : {}),
     propertyId: data.propertyId,
     propertyCode: data.propertyCode,
     propertyName: data.propertyName,

@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import {
   getAssignableEngineers,
+  formatAssignableEngineerLabel,
   getTicketPage,
   subscribeToTicketEvents,
+  type AssignableEngineer,
   type TicketAccess,
   type TicketPageCursor,
 } from './ticketService'
@@ -115,13 +117,14 @@ function TicketCard({
   canUpdate: boolean
   onStatusChange: (ticket: TicketRecord, status: TicketStatus) => Promise<void>
   onAssign: (ticket: TicketRecord, engineerUid: string) => Promise<void>
-  engineers: Array<{ uid: string; propertyName: string }>
+  engineers: AssignableEngineer[]
 }) {
   const [showHistory, setShowHistory] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [assignmentSaving, setAssignmentSaving] = useState(false)
   const sla = getSlaSnapshot(ticket)
+  const assignedEngineer = engineers.find((engineer) => engineer.uid === ticket.assignedEngineerUid)
 
   async function updateStatus(status: TicketStatus) {
     setSaving(true)
@@ -215,7 +218,13 @@ function TicketCard({
         </div>
         <div>
           <dt className="inline">{t('ผู้รับผิดชอบ:')} </dt>
-          <dd className="inline break-all text-slate-700">{ticket.assignedEngineerUid || t('ยังไม่มอบหมาย')}</dd>
+          <dd className="inline break-all text-slate-700">
+            {ticket.assignedEngineerUid
+              ? assignedEngineer
+                ? formatAssignableEngineerLabel(assignedEngineer)
+                : ticket.assignedEngineerUid
+              : t('ยังไม่มอบหมาย')}
+          </dd>
         </div>
         <div>
           <dt className="inline">{t('Response SLA:')} </dt>
@@ -271,7 +280,7 @@ function TicketCard({
               <option value="">{t('ยังไม่มอบหมาย')}</option>
               {engineers.map((engineer) => (
                 <option key={engineer.uid} value={engineer.uid}>
-                  {engineer.uid}
+                  {formatAssignableEngineerLabel(engineer)}
                 </option>
               ))}
             </select>
@@ -957,7 +966,7 @@ export function TicketBoard({
   const [completionError, setCompletionError] = useState<string | null>(null)
   const [nextCursor, setNextCursor] = useState<TicketPageCursor>(null)
   const [hasMore, setHasMore] = useState(false)
-  const [engineers, setEngineers] = useState<Array<{ uid: string; propertyName: string }>>([])
+  const [engineers, setEngineers] = useState<AssignableEngineer[]>([])
 
   const isSuperAdmin = profile?.globalRole === 'superAdmin'
   const selectedMembership = memberships.find((membership) => membership.propertyId === selectedPropertyId)

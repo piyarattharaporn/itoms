@@ -15,6 +15,8 @@ export interface UserProfile {
 export interface PropertyMembership {
   id: string
   userId: string
+  /** Snapshot used for scoped operational pickers without exposing other user profiles. */
+  displayName?: string
   propertyId: string
   propertyCode: string
   propertyName: string

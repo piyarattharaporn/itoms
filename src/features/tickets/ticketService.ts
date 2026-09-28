@@ -32,6 +32,15 @@ export interface TicketAccess {
   allProperties: boolean
 }
 
+export interface AssignableEngineer {
+  uid: string
+  displayName: string
+}
+
+export function formatAssignableEngineerLabel(engineer: AssignableEngineer): string {
+  return engineer.displayName || engineer.uid
+}
+
 function requiredFirestore() {
   if (!db) throw new Error('Firestore ยังไม่ได้เชื่อมต่อ กรุณาเปิด Firebase Emulator')
   return db
@@ -267,6 +276,9 @@ export async function getAssignableEngineers(propertyId: string) {
   )
   return snapshot.docs.map((item) => ({
     uid: item.data().userId as string,
-    propertyName: item.data().propertyName as string,
+    displayName:
+      typeof item.data().displayName === 'string' && item.data().displayName.trim()
+        ? item.data().displayName.trim()
+        : (item.data().userId as string),
   }))
 }

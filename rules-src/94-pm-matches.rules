@@ -1,0 +1,22 @@
+    match /pmSchedules/{scheduleId} {
+      // Client Executives may view Property PM schedules; all PM writes remain Support/Super Admin only.
+      allow get, list: if isSuperAdmin() || hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validPmSchedule(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.lastRunOn == ''
+        && request.resource.data.lastRunId == ''
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && (validPmScheduleEdit() || validPmScheduleAdvance(scheduleId));
+      allow delete: if false;
+
+      match /runs/{runId} {
+        allow get, list: if exists(/databases/$(database)/documents/pmSchedules/$(scheduleId))
+          && (isSuperAdmin() || hasPropertyRole(get(/databases/$(database)/documents/pmSchedules/$(scheduleId)).data.propertyId, 'supportEngineer'));
+        allow create: if signedIn() && validPmRunCreate(scheduleId, runId, request.resource.data);
+        allow update, delete: if false;
+      }
+    }

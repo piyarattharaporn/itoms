@@ -1,0 +1,48 @@
+    function validAsset(asset) {
+      return asset.keys().hasAll([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'vendor', 'model', 'serialNumber', 'warrantyExpiresOn', 'status',
+          'ownershipType', 'lessorName', 'leaseContractNumber', 'leaseStartDate', 'leaseEndDate', 'monthlyRentalCost',
+          'spec', 'detail', 'usedBy',
+          'serviceType', 'serviceVendor', 'serviceSentOn', 'expectedReturnOn', 'serviceNotes',
+          'createdBy', 'createdAt', 'updatedAt'
+      ])
+        && asset.keys().hasOnly([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'vendor', 'model', 'serialNumber', 'warrantyExpiresOn', 'status',
+          'ownershipType', 'lessorName', 'leaseContractNumber', 'leaseStartDate', 'leaseEndDate', 'monthlyRentalCost',
+          'spec', 'detail', 'usedBy',
+          'serviceType', 'serviceVendor', 'serviceSentOn', 'expectedReturnOn', 'serviceNotes',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && asset.propertyId is string
+        && asset.propertyCode is string
+        && asset.assetTag is string && asset.assetTag.size() > 0 && asset.assetTag.size() <= 80
+        && asset.name is string && asset.name.size() > 0 && asset.name.size() <= 160
+        && asset.category is string && asset.category.size() > 0 && asset.category.size() <= 100
+        && asset.department is string && asset.department.size() > 0 && asset.department.size() <= 80
+        && validDepartment(asset.propertyId, asset.department)
+        && asset.location is string && asset.location.size() > 0 && asset.location.size() <= 160
+        && asset.vendor is string && asset.vendor.size() <= 160
+        && asset.model is string && asset.model.size() <= 160
+        && asset.spec is string && asset.spec.size() <= 1000
+        && asset.detail is string && asset.detail.size() <= 2000
+        && asset.usedBy is string && asset.usedBy.size() <= 160
+        && asset.serialNumber is string && asset.serialNumber.size() <= 160
+        && validOptionalIsoDate(asset.warrantyExpiresOn)
+        && asset.ownershipType in ['Owned', 'Leased']
+        && asset.lessorName is string && asset.lessorName.size() <= 160
+        && asset.leaseContractNumber is string && asset.leaseContractNumber.size() <= 120
+        && validOptionalIsoDate(asset.leaseStartDate)
+        && validOptionalIsoDate(asset.leaseEndDate)
+        && (asset.monthlyRentalCost == null || (asset.monthlyRentalCost is number
+          && asset.monthlyRentalCost >= 0 && asset.monthlyRentalCost <= 1000000000))
+        && (asset.ownershipType != 'Leased' || asset.lessorName.size() > 0)
+        && asset.status in ['In Service', 'Under Repair', 'Retired']
+        && asset.serviceType in ['', 'Internal Repair', 'Warranty Claim', 'Vendor Repair']
+        && asset.serviceVendor is string && asset.serviceVendor.size() <= 160
+        && validOptionalIsoDate(asset.serviceSentOn)
+        && validOptionalIsoDate(asset.expectedReturnOn)
+        && asset.serviceNotes is string && asset.serviceNotes.size() <= 500
+        && asset.createdBy is string;
+    }

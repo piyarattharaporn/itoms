@@ -11,7 +11,8 @@
     "server:build": "tsc -p tsconfig.server.json",
     "check:production-config": "node scripts/check-production-config.mjs",
     "test:server": "firebase emulators:exec --config firebase.server-test.json --project demo-lotus-it-portal-local --only auth,firestore \"tsx --test server/*.test.ts\"",
-    "test:rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-lotus-it-portal-local --only firestore \"node --test tests/firestore.rules.test.mjs\"",
+    "rules:assemble": "node scripts/assemble-firestore-rules.mjs",
+    "test:rules": "npm run rules:assemble && firebase emulators:exec --config firebase.rules-test.json --project demo-lotus-it-portal-local --only firestore \"node --test tests/firestore.rules.test.mjs\"",
     "emulators": "firebase emulators:start --project demo-lotus-it-portal-local --only auth,firestore",
     "emulators:seed": "node scripts/seed-local-emulator.mjs",
     "emulators:import": "firebase emulators:start --project demo-lotus-it-portal-local --only auth,firestore --import=./emulator-data --export-on-exit=./emulator-data"

@@ -1,0 +1,85 @@
+    function validTicketCatalog(catalog) {
+      return catalog.keys().hasAll([
+          'propertyId', 'propertyCode', 'problemTypes', 'departments', 'assetCategories', 'channels', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && catalog.keys().hasOnly([
+          'propertyId', 'propertyCode', 'problemTypes', 'departments', 'assetCategories', 'channels', 'todoCategories', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && catalog.propertyId is string
+        && catalog.propertyCode is string
+        && catalog.problemTypes is list && catalog.problemTypes.size() <= 100
+        && catalog.departments is list && catalog.departments.size() <= 100
+        && catalog.departments.hasAll([
+          'Front Office', 'Housekeeping', 'Food & Beverage', 'Kitchen', 'Engineering',
+          'Finance & Accounting', 'Human Resources', 'Sales & Marketing', 'Security', 'Spa', 'IT', 'Other'
+        ])
+        && catalog.assetCategories is list && catalog.assetCategories.size() <= 100
+        && catalog.assetCategories.hasAll([
+          'Computer', 'POS Terminal', 'CCTV DVR', 'CCTV Camera', 'Network Switch',
+          'Access Point', 'Door Lock Encoder', 'Printer', 'UPS', 'Server', 'Other'
+        ])
+        && catalog.channels is list && catalog.channels.size() <= 100
+        && catalog.channels.hasAll(['Line', 'Message Box', 'Personal Call', 'Other'])
+        && (!catalog.keys().hasAny(['todoCategories']) || (catalog.todoCategories is list && catalog.todoCategories.size() <= 100 && catalog.todoCategories.hasAll(['General', 'Meeting Room'])))
+        && catalog.createdBy is string;
+    }
+
+    function validTicketAssetOption(option) {
+      return option.keys().hasAll([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && option.keys().hasOnly([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && option.propertyId is string
+        && option.propertyCode is string
+        && option.assetTag is string && option.assetTag.size() > 0 && option.assetTag.size() <= 80
+        && option.name is string && option.name.size() > 0 && option.name.size() <= 160
+        && validAssetCategory(option.propertyId, option.category)
+        && option.department is string && option.department.size() <= 80
+        && (option.department == '' || validDepartment(option.propertyId, option.department))
+        && option.location is string && option.location.size() > 0 && option.location.size() <= 160
+        && option.status in ['In Service', 'Under Repair', 'Retired'];
+    }
+
+    function validRequestUser(user) {
+      return user.keys().hasAll([
+          'propertyId', 'propertyCode', 'email', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && user.keys().hasOnly([
+          'propertyId', 'propertyCode', 'email', 'name', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && user.propertyId is string
+        && user.propertyCode is string
+        && user.email is string && user.email.size() >= 6 && user.email.size() <= 254
+        && user.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && (!user.keys().hasAny(['name']) || user.name == null || (user.name is string && user.name.size() <= 120))
+        && user.department is string && user.department.size() > 0 && user.department.size() <= 80
+        && validDepartment(user.propertyId, user.department)
+        && user.active is bool
+        && user.createdBy is string;
+    }
+
+    function validSoftwareLicense(license) {
+      return license.keys().hasAll([
+          'propertyId', 'propertyCode', 'productName', 'vendor', 'licenseType', 'expiresOn',
+          'quantity', 'renewalOwner', 'status', 'notes', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && license.keys().hasOnly([
+          'propertyId', 'propertyCode', 'productName', 'vendor', 'licenseType', 'expiresOn',
+          'quantity', 'renewalOwner', 'status', 'notes', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && license.propertyId is string
+        && license.propertyCode is string
+        && license.productName is string && license.productName.size() > 0 && license.productName.size() <= 160
+        && license.vendor is string && license.vendor.size() > 0 && license.vendor.size() <= 160
+        && license.licenseType in ['Subscription', 'Maintenance', 'Support', 'Perpetual']
+        && validIsoDate(license.expiresOn)
+        && license.quantity is int && license.quantity >= 1 && license.quantity <= 100000
+        && license.renewalOwner is string && license.renewalOwner.size() <= 160
+        && license.status in ['Active', 'Renewal In Progress', 'Not Renewing']
+        && license.notes is string && license.notes.size() <= 1000
+        && license.createdBy is string;
+    }

@@ -1,0 +1,150 @@
+    function validCctvNvrDetail(detail) {
+      return detail is map
+        && detail.keys().hasAll(['nvrId', 'online', 'cameraTotal', 'cameraOnline', 'retentionDays', 'notes'])
+        && detail.keys().hasOnly([
+          'nvrId', 'nvrName', 'location', 'online', 'cameraTotal', 'cameraOnline',
+          'retentionDays', 'oldestFootageOn', 'targetRetentionDays', 'notes'
+        ])
+        && detail.nvrId is string && detail.nvrId.size() > 0 && detail.nvrId.size() <= 80
+        && (!detail.keys().hasAny(['nvrName']) || (detail.nvrName is string && detail.nvrName.size() <= 100))
+        && (!detail.keys().hasAny(['location']) || (detail.location is string && detail.location.size() <= 160))
+        && detail.online is bool
+        && detail.cameraTotal is int && detail.cameraTotal >= 0 && detail.cameraTotal <= 20000
+        && detail.cameraOnline is int && detail.cameraOnline >= 0 && detail.cameraOnline <= detail.cameraTotal
+        && detail.retentionDays is int && detail.retentionDays >= 0 && detail.retentionDays <= 3650
+        && (!detail.keys().hasAny(['oldestFootageOn']) || detail.oldestFootageOn == null || validIsoDate(detail.oldestFootageOn))
+        && (!detail.keys().hasAny(['targetRetentionDays']) || detail.targetRetentionDays == null
+          || (detail.targetRetentionDays is int && detail.targetRetentionDays >= 0 && detail.targetRetentionDays <= 3650))
+        && detail.notes is string && detail.notes.size() <= 500;
+    }
+
+    function validCctvNvrDetails(details) {
+      return details is list
+        && details.size() <= 5
+        && (details.size() <= 0 || validCctvNvrDetail(details[0]))
+        && (details.size() <= 1 || validCctvNvrDetail(details[1]))
+        && (details.size() <= 2 || validCctvNvrDetail(details[2]))
+        && (details.size() <= 3 || validCctvNvrDetail(details[3]))
+        && (details.size() <= 4 || validCctvNvrDetail(details[4]))
+        && (details.size() <= 4 || validCctvNvrDetail(details[4]));
+    }
+
+    function validCctvDailyCheck(check) {
+      return check.keys().hasAll([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.keys().hasOnly([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
+        && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
+        && validIsoDate(check.checkedOn)
+        && check.nvrTotal is int && check.nvrTotal >= 0 && check.nvrTotal <= 20000
+        && check.nvrOnline is int && check.nvrOnline >= 0 && check.nvrOnline <= check.nvrTotal
+        && check.cameraTotal is int && check.cameraTotal >= 0 && check.cameraTotal <= 20000
+        && check.cameraOnline is int && check.cameraOnline >= 0 && check.cameraOnline <= check.cameraTotal
+        && validCctvNvrDetails(check.nvrDetails)
+        && check.notes is string && check.notes.size() <= 1000
+        && check.checkedByUid == request.auth.uid
+        && check.checkedAt == request.time
+        && check.createdAt is timestamp
+        && check.updatedAt == request.time;
+    }
+
+    function validCctvNvrInventory(nvr) {
+      return nvr.keys().hasAll([
+          'propertyId', 'propertyCode', 'name', 'location', 'cameraTotal',
+          'targetRetentionDays', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && nvr.keys().hasOnly([
+          'propertyId', 'propertyCode', 'name', 'location', 'cameraTotal',
+          'targetRetentionDays', 'active', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && nvr.propertyId is string && nvr.propertyId.size() > 0 && nvr.propertyId.size() <= 100
+        && nvr.propertyCode is string && nvr.propertyCode.size() > 0 && nvr.propertyCode.size() <= 40
+        && nvr.name is string && nvr.name.size() > 0 && nvr.name.size() <= 100
+        && nvr.location is string && nvr.location.size() <= 160
+        && nvr.cameraTotal is int && nvr.cameraTotal > 0 && nvr.cameraTotal <= 20000
+        && nvr.targetRetentionDays is int && nvr.targetRetentionDays >= 0 && nvr.targetRetentionDays <= 3650
+        && nvr.active is bool
+        && nvr.createdBy is string && nvr.createdBy.size() > 0
+        && nvr.createdAt is timestamp
+        && nvr.updatedAt == request.time;
+    }
+
+    function infrastructureIncidentPath(incidentId) {
+      return /databases/$(database)/documents/infrastructureIncidents/$(incidentId);
+    }
+
+    function infrastructureIncidentEventPath(incidentId, eventId) {
+      return /databases/$(database)/documents/infrastructureIncidents/$(incidentId)/events/$(eventId);
+    }
+
+    function validInfrastructureIncident(incident) {
+      return incident.keys().hasAll([
+          'propertyId', 'propertyCode', 'type', 'title', 'location', 'impact', 'description',
+          'status', 'reportedByUid', 'startedAt', 'restoredAt', 'resolutionNotes', 'updatedAt', 'lastEventId'
+        ])
+        && incident.keys().hasOnly([
+          'propertyId', 'propertyCode', 'type', 'title', 'location', 'impact', 'description',
+          'status', 'reportedByUid', 'startedAt', 'restoredAt', 'resolutionNotes', 'updatedAt', 'lastEventId'
+        ])
+        && incident.propertyId is string && incident.propertyId.size() > 0 && incident.propertyId.size() <= 100
+        && incident.propertyCode is string && incident.propertyCode.size() > 0 && incident.propertyCode.size() <= 40
+        && incident.type in ['CCTV', 'Network', 'ISP', 'Power', 'WiFi', 'Server', 'Update', 'Maintenance', 'Other']
+        && incident.title is string && incident.title.size() > 0 && incident.title.size() <= 160
+        && incident.location is string && incident.location.size() > 0 && incident.location.size() <= 160
+        && incident.impact in ['Low', 'Medium', 'High', 'Critical']
+        && incident.description is string && incident.description.size() >= 10 && incident.description.size() <= 3000
+        && incident.status in ['Open', 'Monitoring', 'Restored']
+        && incident.reportedByUid is string && incident.reportedByUid.size() > 0
+        && incident.startedAt is timestamp
+        && (incident.restoredAt == null || incident.restoredAt is timestamp)
+        && incident.resolutionNotes is string && incident.resolutionNotes.size() <= 1000
+        && incident.updatedAt == request.time
+        && incident.lastEventId is string && incident.lastEventId.size() > 0 && incident.lastEventId.size() <= 150;
+    }
+
+    function validInfrastructureIncidentEvent(event) {
+      return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
+        && event.keys().hasOnly(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
+        && event.actorUid == request.auth.uid
+        && (event.fromStatus == null || event.fromStatus in ['Open', 'Monitoring', 'Restored'])
+        && event.toStatus in ['Open', 'Monitoring', 'Restored']
+        && event.note is string && event.note.size() <= 1000
+        && event.type in ['reported', 'statusChanged']
+        && event.createdAt == request.time;
+    }
+
+    function validInfrastructureStatusTransition(fromStatus, toStatus) {
+      return (fromStatus == 'Open' && toStatus in ['Monitoring', 'Restored'])
+        || (fromStatus == 'Monitoring' && toStatus in ['Open', 'Restored']);
+    }
+
+    function validInitialInfrastructureEvent(incidentId, eventId, event) {
+      let incidentAfter = getAfter(infrastructureIncidentPath(incidentId)).data;
+      return !exists(infrastructureIncidentPath(incidentId))
+        && existsAfter(infrastructureIncidentPath(incidentId))
+        && incidentAfter.lastEventId == eventId
+        && incidentAfter.status == 'Open'
+        && incidentAfter.reportedByUid == request.auth.uid
+        && event.actorUid == request.auth.uid
+        && event.fromStatus == null
+        && event.toStatus == 'Open'
+        && event.type == 'reported';
+    }
+
+    function validStatusInfrastructureEvent(incidentId, eventId, event) {
+      let incidentBefore = get(infrastructureIncidentPath(incidentId)).data;
+      let incidentAfter = getAfter(infrastructureIncidentPath(incidentId)).data;
+      return exists(infrastructureIncidentPath(incidentId))
+        && existsAfter(infrastructureIncidentPath(incidentId))
+        && incidentAfter.lastEventId == eventId
+        && canManageProperty(incidentBefore.propertyId)
+        && event.fromStatus == incidentBefore.status
+        && event.toStatus == incidentAfter.status
+        && validInfrastructureStatusTransition(event.fromStatus, event.toStatus)
+        && event.type == 'statusChanged';
+    }

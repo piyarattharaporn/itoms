@@ -1,0 +1,53 @@
+    match /users/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || isSuperAdmin();
+      allow list: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /memberships/{membershipId} {
+      allow get: if isSuperAdmin()
+        || (hasActiveProfile() && resource.data.userId == request.auth.uid);
+      allow list: if isSuperAdmin()
+        || (hasActiveProfile() && resource.data.userId == request.auth.uid)
+        || (hasActiveProfile() && resource.data.role == 'supportEngineer'
+          && resource.data.active == true
+          && hasPropertyRole(resource.data.propertyId, 'supportEngineer'));
+      allow create, update, delete: if false;
+    }
+
+    // Request User เป็นทะเบียนเตรียมข้อมูลเท่านั้น ไม่สามารถกำหนด Auth หรือ Membership ได้
+    match /requestUsers/{requestUserId} {
+      allow get: if isSuperAdmin()
+        || (resource == null && hasActiveProfile())
+        || hasPropertyRole(resource.data.propertyId, 'supportEngineer');
+      allow list: if isSuperAdmin() || hasPropertyRole(resource.data.propertyId, 'supportEngineer');
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validRequestUser(request.resource.data)
+        && request.resource.data.active == true
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.department == resource.data.department
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'updatedAt'])
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt']))
+        && validRequestUser(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /properties/{propertyId} {
+      allow get: if isSuperAdmin() || hasPropertyMembership(propertyId);
+      allow list: if isSuperAdmin();
+      allow create, delete: if false;
+      allow update: if isSuperAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cctvEnabled', 'updatedAt'])
+        && request.resource.data.cctvEnabled is bool
+        && request.resource.data.updatedAt == request.time;
+    }

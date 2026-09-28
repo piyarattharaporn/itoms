@@ -1,0 +1,23 @@
+    match /tickets/{ticketId} {
+      allow get, list: if canReadTicket(resource.data);
+      // Spark-only mode permits a narrow client mutation path. It is not a
+      // replacement for trusted backend authority; all fields remain bounded
+      // and role/property checked here.
+      allow create: if signedIn() && validSparkTicketCreate(request.resource.data);
+      allow update: if signedIn() && (validSparkStatusUpdate() || validSparkAssignmentUpdate());
+      allow delete: if false;
+
+      match /events/{eventId} {
+        allow get, list: if exists(ticketPath(ticketId)) && canReadTicket(get(ticketPath(ticketId)).data);
+        allow create: if signedIn() && validSparkTicketEvent(ticketId, request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+
+    match /auditEvents/{auditId} {
+      allow get, list: if isSuperAdmin() || hasPropertyRole(resource.data.propertyId, 'supportEngineer');
+      // Append-only client audit for Spark-only operation. It is useful for
+      // operational history but is not tamper-proof without a trusted writer.
+      allow create: if signedIn() && validSparkAuditEvent(request.resource.data);
+      allow update, delete: if false;
+    }

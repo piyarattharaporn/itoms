@@ -1,0 +1,123 @@
+    function validPmChecklistItem(item) {
+      return item is string && item.size() > 0 && item.size() <= 200;
+    }
+
+    function validPmChecklistItems(items) {
+      return items is list
+        && items.size() >= 1
+        && items.size() <= 10
+        && (items.size() <= 0 || validPmChecklistItem(items[0]))
+        && (items.size() <= 1 || validPmChecklistItem(items[1]))
+        && (items.size() <= 2 || validPmChecklistItem(items[2]))
+        && (items.size() <= 3 || validPmChecklistItem(items[3]))
+        && (items.size() <= 4 || validPmChecklistItem(items[4]))
+        && (items.size() <= 5 || validPmChecklistItem(items[5]))
+        && (items.size() <= 6 || validPmChecklistItem(items[6]))
+        && (items.size() <= 7 || validPmChecklistItem(items[7]))
+        && (items.size() <= 8 || validPmChecklistItem(items[8]))
+        && (items.size() <= 9 || validPmChecklistItem(items[9]))
+        && (items.size() <= 9 || validPmChecklistItem(items[9]));
+    }
+
+    function validPmSchedule(schedule) {
+      return schedule.keys().hasAll([
+          'propertyId', 'propertyCode', 'title', 'location', 'frequency', 'checklistItems',
+          'nextDueOn', 'active', 'createdBy', 'createdAt', 'updatedAt', 'lastRunOn', 'lastRunId'
+        ])
+        && schedule.keys().hasOnly([
+          'propertyId', 'propertyCode', 'title', 'location', 'frequency', 'checklistItems',
+          'nextDueOn', 'active', 'createdBy', 'createdAt', 'updatedAt', 'lastRunOn', 'lastRunId'
+        ])
+        && schedule.propertyId is string
+        && schedule.propertyCode is string
+        && schedule.title is string && schedule.title.size() > 0 && schedule.title.size() <= 160
+        && schedule.location is string && schedule.location.size() <= 160
+        && schedule.frequency in ['Weekly', 'Monthly', 'Quarterly']
+        && validPmChecklistItems(schedule.checklistItems)
+        && validIsoDate(schedule.nextDueOn)
+        && schedule.active is bool
+        && schedule.createdBy is string
+        && schedule.lastRunOn is string
+        && (schedule.lastRunOn == '' || validIsoDate(schedule.lastRunOn))
+        && schedule.lastRunId is string && schedule.lastRunId.size() <= 150;
+    }
+
+    function pmRunPath(scheduleId, runId) {
+      return /databases/$(database)/documents/pmSchedules/$(scheduleId)/runs/$(runId);
+    }
+
+    function validPmScheduleEdit() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly([
+          'title', 'location', 'frequency', 'checklistItems', 'nextDueOn', 'active', 'updatedAt'
+        ])
+        && after.lastRunOn == before.lastRunOn
+        && after.lastRunId == before.lastRunId
+        && after.createdBy == before.createdBy
+        && after.createdAt == before.createdAt
+        && after.propertyId == before.propertyId
+        && after.propertyCode == before.propertyCode
+        && after.updatedAt == request.time
+        && validPmSchedule(after);
+    }
+
+    function validPmScheduleAdvance(scheduleId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let runPath = pmRunPath(scheduleId, after.lastRunId);
+      return after.diff(before).affectedKeys().hasOnly(['nextDueOn', 'lastRunOn', 'lastRunId', 'updatedAt'])
+        && before.active == true
+        && after.active == true
+        && after.lastRunOn == before.nextDueOn
+        && after.nextDueOn is string
+        && after.nextDueOn > before.nextDueOn
+        && after.lastRunId is string
+        && after.updatedAt == request.time
+        && existsAfter(runPath)
+        && getAfter(runPath).data.performedBy == request.auth.uid
+        && getAfter(runPath).data.dueOn == before.nextDueOn
+        && getAfter(runPath).data.propertyId == before.propertyId
+        && getAfter(runPath).data.checklistItems == before.checklistItems
+        && getAfter(runPath).data.checklistResults is list
+        && getAfter(runPath).data.checklistResults.size() == before.checklistItems.size()
+        && getAfter(runPath).data.checklistResults.hasOnly([true, false])
+        && ((getAfter(runPath).data.outcome == 'Completed'
+              && getAfter(runPath).data.checklistResults.hasOnly([true]))
+          || (getAfter(runPath).data.outcome == 'Needs Attention'
+              && getAfter(runPath).data.checklistResults.hasAny([false])));
+    }
+
+    function validPmRunCreate(scheduleId, runId, run) {
+      let parentPath = /databases/$(database)/documents/pmSchedules/$(scheduleId);
+      let before = get(parentPath).data;
+      let after = getAfter(parentPath).data;
+      return exists(parentPath)
+        && canManageProperty(before.propertyId)
+        && before.active == true
+        && run.keys().hasAll([
+          'propertyId', 'propertyCode', 'scheduleTitle', 'dueOn', 'checklistItems', 'performedBy',
+          'completedOn', 'outcome', 'checklistResults', 'notes'
+        ])
+        && run.keys().hasOnly([
+          'propertyId', 'propertyCode', 'scheduleTitle', 'dueOn', 'checklistItems', 'performedBy',
+          'completedOn', 'outcome', 'checklistResults', 'notes'
+        ])
+        && run.propertyId == before.propertyId
+        && run.propertyCode == before.propertyCode
+        && run.scheduleTitle == before.title
+        && run.dueOn == before.nextDueOn
+        && run.checklistItems == before.checklistItems
+        && run.performedBy == request.auth.uid
+        && run.completedOn == request.time
+        && run.outcome in ['Completed', 'Needs Attention']
+        && run.checklistResults is list
+        && run.checklistResults.size() == before.checklistItems.size()
+        && run.checklistResults.hasOnly([true, false])
+        && ((run.outcome == 'Completed' && run.checklistResults.hasOnly([true]))
+          || (run.outcome == 'Needs Attention' && run.checklistResults.hasAny([false])))
+        && run.notes is string && run.notes.size() <= 2000
+        && after.lastRunId == runId
+        && after.lastRunOn == before.nextDueOn
+        && after.nextDueOn > before.nextDueOn;
+    }

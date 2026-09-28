@@ -1,0 +1,52 @@
+    match /cctvDailyChecks/{checkId} {
+      // Support/Super Admin บันทึกผลตรวจได้; Client Executive อ่านได้เฉพาะ Property ที่ได้รับมอบหมาย.
+      // อนุญาต get เอกสารที่ยังไม่มีให้ผู้ใช้ที่ active เพื่อให้ transaction ตรวจสอบก่อนสร้างได้
+      // โดยยังไม่เปิด list และไม่ได้เปิดอ่านเอกสารของ Property อื่น
+      allow get: if resource == null && hasActiveProfile()
+        || isSuperAdmin()
+        || (cctvEnabledForProperty(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow list: if isSuperAdmin()
+        || (cctvEnabledForProperty(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && cctvEnabledForProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validCctvDailyCheck(request.resource.data)
+        && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
+        && request.resource.data.checkedByUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && cctvEnabledForProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.checkedOn == resource.data.checkedOn
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validCctvDailyCheck(request.resource.data)
+        && request.resource.data.checkedByUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /cctvNvrInventory/{nvrId} {
+      // รายการทะเบียน NVR อ่านได้ตาม Property; แก้ไขได้เฉพาะ Super Admin/Support Engineer
+      allow get, list: if isSuperAdmin()
+        || (cctvEnabledForProperty(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow create: if cctvEnabledForProperty(request.resource.data.propertyId)
+        && canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validCctvNvrInventory(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if cctvEnabledForProperty(resource.data.propertyId)
+        && canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'location', 'cameraTotal', 'targetRetentionDays', 'active', 'updatedAt'
+        ])
+        && validCctvNvrInventory(request.resource.data);
+      allow delete: if false;
+    }

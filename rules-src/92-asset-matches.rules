@@ -1,0 +1,51 @@
+    match /assets/{assetId} {
+      allow get, list: if isSuperAdmin()
+        || hasPropertyRole(resource.data.propertyId, 'supportEngineer')
+        || (hasPropertyMembership(resource.data.propertyId) && resource.data.status == 'Under Repair');
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validAssetCategory(request.resource.data.propertyId, request.resource.data.category)
+        && validAsset(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && resource.data.propertyId == request.resource.data.propertyId
+        && resource.data.propertyCode == request.resource.data.propertyCode
+        && resource.data.createdBy == request.resource.data.createdBy
+        && resource.data.createdAt == request.resource.data.createdAt
+        && (request.resource.data.category == resource.data.category
+          || validAssetCategory(request.resource.data.propertyId, request.resource.data.category))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'assetTag', 'name', 'category', 'department', 'location', 'vendor', 'model',
+          'serialNumber', 'warrantyExpiresOn', 'status', 'serviceType', 'serviceVendor',
+          'spec', 'detail', 'usedBy',
+          'serviceSentOn', 'expectedReturnOn', 'serviceNotes', 'updatedAt'
+        ])
+        && validAsset(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Ticket เลือก Asset จากชุดข้อมูลขั้นต่ำที่ไม่เปิดเผย Serial, Warranty หรือประวัติซ่อม
+    match /ticketAssetOptions/{assetId} {
+      allow get: if isSuperAdmin()
+        || (resource == null && hasActiveProfile())
+        || hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'requester']);
+      allow list: if isSuperAdmin()
+        || hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'requester']);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validTicketAssetOption(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'propertyCode', 'assetTag', 'name', 'category', 'department', 'location', 'status', 'updatedAt'
+        ])
+        && validTicketAssetOption(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }

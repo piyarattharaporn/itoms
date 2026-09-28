@@ -1,0 +1,150 @@
+    function ticketPath(ticketId) {
+      return /databases/$(database)/documents/tickets/$(ticketId);
+    }
+
+    function canCreateTicket(propertyId) {
+      return isSuperAdmin()
+        || hasPropertyRole(propertyId, 'supportEngineer')
+        || hasPropertyRole(propertyId, 'requester');
+    }
+
+    function validTicketStatusTransition(fromStatus, toStatus) {
+      return (fromStatus == 'Pending' && toStatus in ['In Progress', 'Cancelled'])
+        || (fromStatus == 'In Progress' && toStatus in ['Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled'])
+        || (fromStatus == 'Monitoring' && toStatus in ['In Progress', 'Completed', 'Cancelled'])
+        || (fromStatus in ['Waiting for Vendor', 'Waiting for User'] && toStatus in ['In Progress', 'Cancelled']);
+    }
+
+    // Spark-only Ticket creation. This is intentionally narrow and does not
+    // claim to provide the trusted timestamps/SLA guarantees of a backend.
+    function validSparkTicketCreate(ticket) {
+      return ticket.keys().hasAll([
+          'schemaVersion', 'propertyId', 'propertyCode', 'requesterUid', 'requesterName',
+          'requesterEmail', 'department', 'issueArea', 'location', 'assetId', 'problemCategory',
+          'problemType', 'channel', 'priority', 'status', 'description', 'resolutionNotes',
+          'assignedEngineerUid', 'assignedAt', 'assignedByUid', 'createdAt', 'updatedAt', 'lastEventId'
+        ])
+        && ticket.keys().hasOnly([
+          'schemaVersion', 'propertyId', 'propertyCode', 'requesterUid', 'requesterName',
+          'requesterEmail', 'department', 'issueArea', 'location', 'assetId', 'problemCategory',
+          'problemType', 'channel', 'priority', 'status', 'description', 'resolutionNotes',
+          'assignedEngineerUid', 'assignedAt', 'assignedByUid', 'createdAt', 'updatedAt', 'lastEventId'
+        ])
+        && ticket.schemaVersion == 2
+        && ticket.propertyId is string && ticket.propertyId.size() > 0 && ticket.propertyId.size() <= 160
+        && ticket.propertyCode is string && ticket.propertyCode.size() > 0 && ticket.propertyCode.size() <= 40
+        && canUseProperty(ticket.propertyId, ticket.propertyCode)
+        && canCreateTicket(ticket.propertyId)
+        && ticket.requesterUid == request.auth.uid
+        && ticket.requesterName is string && ticket.requesterName.size() > 0 && ticket.requesterName.size() <= 120
+        && ticket.requesterEmail is string && ticket.requesterEmail.size() >= 6 && ticket.requesterEmail.size() <= 254
+        && ticket.requesterEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && ticket.department is string && ticket.department.size() <= 80
+        && validDepartment(ticket.propertyId, ticket.department)
+        && validTicketIssueArea(ticket.issueArea)
+        && ticket.location is string && ticket.location.size() > 0 && ticket.location.size() <= 160
+        && ticket.assetId is string && ticket.assetId.size() <= 160
+        && validProblemType(ticket.propertyId, ticket.problemCategory, ticket.problemType)
+        && validTicketChannel(ticket.propertyId, ticket.channel)
+        && ticket.priority in ['Low', 'Medium', 'High', 'Critical']
+        && ticket.status == 'Pending'
+        && ticket.description is string && ticket.description.size() >= 10 && ticket.description.size() <= 4000
+        && ticket.resolutionNotes == ''
+        && ticket.assignedEngineerUid == ''
+        && ticket.assignedAt == null
+        && ticket.assignedByUid == ''
+        && ticket.createdAt == request.time
+        && ticket.updatedAt == request.time
+        && ticket.lastEventId is string && ticket.lastEventId.size() > 0 && ticket.lastEventId.size() <= 150;
+    }
+
+    function validSparkStatusUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return canManageProperty(resource.data.propertyId)
+        && changed.hasOnly(['status', 'resolutionNotes', 'updatedAt', 'lastEventId'])
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.requesterUid == resource.data.requesterUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastEventId is string
+        && request.resource.data.lastEventId != resource.data.lastEventId
+        && request.resource.data.status in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled']
+        && validTicketStatusTransition(resource.data.status, request.resource.data.status)
+        && request.resource.data.assignedEngineerUid == resource.data.assignedEngineerUid
+        && (!resource.data.keys().hasAny(['assignedAt']) || request.resource.data.assignedAt == resource.data.assignedAt)
+        && (!resource.data.keys().hasAny(['assignedByUid']) || request.resource.data.assignedByUid == resource.data.assignedByUid)
+        && (request.resource.data.status == 'Completed'
+          ? request.resource.data.resolutionNotes is string && request.resource.data.resolutionNotes.size() >= 10 && request.resource.data.resolutionNotes.size() <= 4000
+          : (!resource.data.keys().hasAny(['resolutionNotes'])
+            ? !request.resource.data.keys().hasAny(['resolutionNotes'])
+            : request.resource.data.resolutionNotes == resource.data.resolutionNotes));
+    }
+
+    function validSparkAssignmentUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      let assignee = request.resource.data.assignedEngineerUid;
+      return canManageProperty(resource.data.propertyId)
+        && changed.hasOnly(['assignedEngineerUid', 'assignedAt', 'assignedByUid', 'updatedAt', 'lastEventId'])
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastEventId is string
+        && request.resource.data.lastEventId != resource.data.lastEventId
+        && assignee is string && assignee.size() <= 128
+        && (assignee == ''
+          ? request.resource.data.assignedAt == null && request.resource.data.assignedByUid == ''
+          : request.resource.data.assignedAt == request.time
+            && request.resource.data.assignedByUid == request.auth.uid
+            && exists(membershipPath(assignee, resource.data.propertyId))
+            && get(membershipPath(assignee, resource.data.propertyId)).data.role == 'supportEngineer'
+            && get(membershipPath(assignee, resource.data.propertyId)).data.active == true);
+    }
+
+    function validSparkTicketEvent(ticketId, event) {
+      return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
+        && event.keys().hasOnly([
+          'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'fromAssignedEngineerUid',
+          'toAssignedEngineerUid', 'correlationId', 'createdAt'
+        ])
+        && event.actorUid == request.auth.uid
+        && (event.fromStatus == null || event.fromStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled'])
+        && event.toStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled']
+        && event.note is string && event.note.size() <= 1000
+        && event.type in ['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned']
+        && (!event.keys().hasAny(['fromAssignedEngineerUid']) || (event.fromAssignedEngineerUid is string && event.fromAssignedEngineerUid.size() <= 128))
+        && (!event.keys().hasAny(['toAssignedEngineerUid']) || (event.toAssignedEngineerUid is string && event.toAssignedEngineerUid.size() <= 128))
+        && (!event.keys().hasAny(['correlationId']) || (event.correlationId is string && event.correlationId.size() > 0 && event.correlationId.size() <= 128))
+        && event.createdAt == request.time
+        && ((event.type == 'created' && event.fromStatus == null && event.toStatus == 'Pending'
+              && existsAfter(ticketPath(ticketId)) && canCreateTicket(getAfter(ticketPath(ticketId)).data.propertyId))
+          || (event.type != 'created' && exists(ticketPath(ticketId)) && canManageProperty(get(ticketPath(ticketId)).data.propertyId)));
+    }
+
+    function validSparkAuditEvent(audit) {
+      return audit.keys().hasAll([
+          'propertyId', 'propertyCode', 'entityType', 'entityId', 'sourceEventId', 'action', 'actorUid', 'summary', 'createdAt'
+        ])
+        && audit.keys().hasOnly([
+          'propertyId', 'propertyCode', 'entityType', 'entityId', 'sourceEventId', 'action', 'actorUid', 'summary', 'correlationId', 'createdAt'
+        ])
+        && audit.propertyId is string && audit.propertyId.size() > 0 && audit.propertyId.size() <= 160
+        && audit.propertyCode is string && audit.propertyCode.size() > 0 && audit.propertyCode.size() <= 40
+        && canUseProperty(audit.propertyId, audit.propertyCode)
+        && audit.entityType == 'ticket'
+        && audit.entityId is string && audit.entityId.size() > 0 && audit.entityId.size() <= 150
+        && audit.sourceEventId is string && audit.sourceEventId.size() > 0 && audit.sourceEventId.size() <= 150
+        && audit.action in ['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned']
+        && audit.actorUid == request.auth.uid
+        && audit.summary is string && audit.summary.size() <= 1000
+        && (!audit.keys().hasAny(['correlationId']) || (audit.correlationId is string && audit.correlationId.size() > 0 && audit.correlationId.size() <= 128))
+        && audit.createdAt == request.time
+        && ((audit.action == 'created' && canCreateTicket(audit.propertyId)) || (audit.action != 'created' && canManageProperty(audit.propertyId)));
+    }
+
+    function canReadTicket(ticket) {
+      return isSuperAdmin()
+        || (hasPropertyMembership(ticket.propertyId)
+          && (hasAnyPropertyRole(ticket.propertyId, ['supportEngineer', 'clientExecutive'])
+            || (hasPropertyRole(ticket.propertyId, 'requester')
+              && ticket.requesterUid == request.auth.uid)));
+    }

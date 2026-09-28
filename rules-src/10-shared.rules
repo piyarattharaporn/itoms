@@ -1,0 +1,115 @@
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function hasActiveProfile() {
+      return signedIn()
+        && exists(profilePath(request.auth.uid))
+        && get(profilePath(request.auth.uid)).data.active == true;
+    }
+
+    function isSuperAdmin() {
+      return hasActiveProfile()
+        && get(profilePath(request.auth.uid)).data.globalRole == 'superAdmin';
+    }
+
+    function membershipPath(uid, propertyId) {
+      return /databases/$(database)/documents/memberships/$(uid + '__' + propertyId);
+    }
+
+    function hasPropertyMembership(propertyId) {
+      let path = membershipPath(request.auth.uid, propertyId);
+      return hasActiveProfile()
+        && exists(path)
+        && get(path).data.userId == request.auth.uid
+        && get(path).data.propertyId == propertyId
+        && get(path).data.active == true;
+    }
+
+    function hasPropertyRole(propertyId, role) {
+      let path = membershipPath(request.auth.uid, propertyId);
+      return hasPropertyMembership(propertyId) && get(path).data.role == role;
+    }
+
+    function hasAnyPropertyRole(propertyId, roles) {
+      let path = membershipPath(request.auth.uid, propertyId);
+      return hasPropertyMembership(propertyId) && get(path).data.role in roles;
+    }
+
+    function canUseProperty(propertyId, propertyCode) {
+      let propertyPath = /databases/$(database)/documents/properties/$(propertyId);
+      let membership = membershipPath(request.auth.uid, propertyId);
+      return (isSuperAdmin()
+          && exists(propertyPath)
+          && get(propertyPath).data.active == true
+          && get(propertyPath).data.code == propertyCode)
+        || (hasPropertyMembership(propertyId)
+          && get(membership).data.propertyCode == propertyCode);
+    }
+
+    function validIsoDate(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function validOptionalIsoDate(value) {
+      return value is string && (value == '' || validIsoDate(value));
+    }
+
+    function validTicketIssueArea(value) {
+      return value in ['Guest Property Problem', 'BOH (Back of House)', 'Office / Corporate', 'Other'];
+    }
+
+    function validTicketChannel(propertyId, value) {
+      let path = ticketCatalogPath(propertyId);
+      return value in ['Line', 'Message Box', 'Personal Call', 'Other']
+        || (exists(path) && value in get(path).data.channels);
+    }
+
+    function ticketCatalogPath(propertyId) {
+      return /databases/$(database)/documents/ticketCatalogs/$(propertyId);
+    }
+
+    function validProblemType(propertyId, category, value) {
+      let path = ticketCatalogPath(propertyId);
+      let defaults = [
+          'Hardware / Computer PC', 'Hardware / Computer Laptop', 'Hardware / Office Printer',
+          'Hardware / POS Printer', 'Hardware / Network Equipments', 'Hardware / Server',
+          'Hardware / NAS', 'Hardware / CCTV Equipments', 'Hardware / Door Lock Equipments',
+          'Software / OPERA Cloud', 'Software / Symphony Cloud', 'Software / Sun Cloud',
+          'Software / Interface Communications', 'Network / WiFi Connections',
+          'Network / Network Configurations', 'Helpdesk / Helpdesk'
+        ];
+      let legacyDefaults = [
+          'Hardware', 'OPERA Cloud', 'Simphony Cloud', 'CCTV System', 'Door Lock System',
+          'Network', 'Printer/POS', 'Interface Communications', 'Software', 'Other'
+        ];
+      let selected = category + ' / ' + value;
+      return category is string && category.size() > 0 && category.size() <= 80
+        && value is string && value.size() > 0 && value.size() <= 80
+        && ((exists(path) && (selected in get(path).data.problemTypes
+              || (get(path).data.problemTypes.hasAll(legacyDefaults)
+                && (selected in defaults || value in get(path).data.problemTypes))))
+          || (!exists(path) && selected in defaults));
+    }
+
+    function validDepartment(propertyId, value) {
+      let path = ticketCatalogPath(propertyId);
+      return value == '' || value in [
+          'Front Office', 'Housekeeping', 'Food & Beverage', 'Kitchen', 'Engineering',
+          'Finance & Accounting', 'Human Resources', 'Sales & Marketing', 'Security', 'Spa', 'IT', 'Other'
+        ]
+        || (exists(path) && value in get(path).data.departments);
+    }
+
+    function validAssetCategory(propertyId, value) {
+      let path = ticketCatalogPath(propertyId);
+      return value in [
+          'Computer', 'POS Terminal', 'CCTV DVR', 'CCTV Camera', 'Network Switch',
+          'Access Point', 'Door Lock Encoder', 'Printer', 'UPS', 'Server', 'Other'
+        ]
+        || (exists(path) && value in get(path).data.assetCategories);
+    }

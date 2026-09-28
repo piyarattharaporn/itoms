@@ -1,0 +1,56 @@
+    match /infrastructureIncidents/{incidentId} {
+      // Client Executive อ่านได้ตาม Property; การจัดการยังจำกัด Support Engineer/Super Admin.
+      allow get, list: if isSuperAdmin()
+        || hasPropertyRole(resource.data.propertyId, 'supportEngineer')
+        || hasPropertyRole(resource.data.propertyId, 'clientExecutive');
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validInfrastructureIncident(request.resource.data)
+        && request.resource.data.status == 'Open'
+        && request.resource.data.reportedByUid == request.auth.uid
+        && request.resource.data.startedAt == request.time
+        && request.resource.data.restoredAt == null
+        && request.resource.data.resolutionNotes == ''
+        && existsAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId))
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.actorUid == request.auth.uid
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.type == 'reported'
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.toStatus == 'Open';
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.location == resource.data.location
+        && request.resource.data.impact == resource.data.impact
+        && request.resource.data.description == resource.data.description
+        && request.resource.data.reportedByUid == resource.data.reportedByUid
+        && request.resource.data.startedAt == resource.data.startedAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'restoredAt', 'resolutionNotes', 'updatedAt', 'lastEventId'])
+        && validInfrastructureIncident(request.resource.data)
+        && validInfrastructureStatusTransition(resource.data.status, request.resource.data.status)
+        && ((request.resource.data.status == 'Restored'
+              && request.resource.data.restoredAt == request.time
+              && request.resource.data.resolutionNotes.size() >= 5)
+          || (request.resource.data.status != 'Restored'
+              && request.resource.data.restoredAt == null
+              && request.resource.data.resolutionNotes == resource.data.resolutionNotes))
+        && existsAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId))
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.actorUid == request.auth.uid
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.fromStatus == resource.data.status
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.toStatus == request.resource.data.status
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.type == 'statusChanged'
+        && getAfter(infrastructureIncidentEventPath(incidentId, request.resource.data.lastEventId)).data.createdAt == request.time;
+      allow delete: if false;
+
+      match /events/{eventId} {
+        allow get, list: if exists(infrastructureIncidentPath(incidentId))
+          && (isSuperAdmin()
+            || hasPropertyRole(get(infrastructureIncidentPath(incidentId)).data.propertyId, 'supportEngineer')
+            || hasPropertyRole(get(infrastructureIncidentPath(incidentId)).data.propertyId, 'clientExecutive'));
+        allow create: if signedIn()
+          && validInfrastructureIncidentEvent(request.resource.data)
+          && (validInitialInfrastructureEvent(incidentId, eventId, request.resource.data)
+            || validStatusInfrastructureEvent(incidentId, eventId, request.resource.data));
+        allow update, delete: if false;
+      }
+    }

@@ -1,0 +1,46 @@
+    match /softwareLicenses/{licenseId} {
+      allow get, list: if isSuperAdmin()
+        || (hasPropertyMembership(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow create: if signedIn()
+        && canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validSoftwareLicense(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'productName', 'vendor', 'licenseType', 'expiresOn', 'quantity',
+          'renewalOwner', 'status', 'notes', 'updatedAt'
+        ])
+        && validSoftwareLicense(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /ticketCatalogs/{propertyId} {
+      allow get: if isSuperAdmin() || hasPropertyMembership(propertyId);
+      allow list: if false;
+      allow create: if canManageProperty(propertyId)
+        && request.resource.data.propertyId == propertyId
+        && canUseProperty(propertyId, request.resource.data.propertyCode)
+        && validTicketCatalog(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(propertyId)
+        && resource.data.propertyId == propertyId
+        && request.resource.data.propertyId == propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['problemTypes', 'departments', 'assetCategories', 'channels', 'todoCategories', 'updatedAt'])
+        && validTicketCatalog(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }

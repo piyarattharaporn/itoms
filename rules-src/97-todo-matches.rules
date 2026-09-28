@@ -1,0 +1,71 @@
+    match /operationalTodos/{todoId} {
+      allow get, list: if canReadOperationalTodos(resource.data.propertyId);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validOperationalTodo(request.resource.data)
+        && (request.resource.data.kind != 'Meeting Room' || meetingRoomCareIsEnabled(request.resource.data.propertyId))
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && canUseProperty(resource.data.propertyId, resource.data.propertyCode)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validOperationalTodoUpdate()
+        && validOperationalTodo(request.resource.data)
+        && (request.resource.data.kind != 'Meeting Room'
+          || resource.data.kind == 'Meeting Room'
+          || meetingRoomCareIsEnabled(resource.data.propertyId))
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /operationalTodoCompletions/{completionId} {
+      allow get, list: if canReadOperationalTodos(resource.data.propertyId);
+      allow create: if canManageProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && completionId == request.resource.data.taskId + '__' + request.resource.data.occurrenceDate
+        && operationalTodoMatchesCompletion(request.resource.data)
+        && validOperationalTodoCompletion(request.resource.data)
+        && request.resource.data.completed == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(resource.data.propertyId)
+        && request.resource.data.taskId == resource.data.taskId
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.occurrenceDate == resource.data.occurrenceDate
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completed', 'completedByUid', 'completedAt', 'updatedAt'])
+        && validOperationalTodoCompletion(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /operationalTodoSettings/{propertyId} {
+      allow get: if isSuperAdmin() || hasPropertyRole(propertyId, 'supportEngineer') || hasPropertyRole(propertyId, 'clientExecutive');
+      allow list: if false;
+      allow create: if canManageProperty(propertyId)
+        && request.resource.data.propertyId == propertyId
+        && canUseProperty(propertyId, request.resource.data.propertyCode)
+        && request.resource.data.keys().hasAll(['propertyId', 'propertyCode', 'meetingRoomCareEnabled', 'updatedBy', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['propertyId', 'propertyCode', 'meetingRoomCareEnabled', 'updatedBy', 'createdAt', 'updatedAt'])
+        && request.resource.data.propertyCode is string
+        && request.resource.data.meetingRoomCareEnabled is bool
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if canManageProperty(propertyId)
+        && resource.data.propertyId == propertyId
+        && request.resource.data.propertyId == propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly(['propertyId', 'propertyCode', 'meetingRoomCareEnabled', 'updatedBy', 'createdAt', 'updatedAt'])
+        && request.resource.data.meetingRoomCareEnabled is bool
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['meetingRoomCareEnabled', 'updatedBy', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }

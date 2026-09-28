@@ -1,0 +1,4 @@
+    // Unmodeled collections stay denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }

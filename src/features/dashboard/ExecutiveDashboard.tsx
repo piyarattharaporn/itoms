@@ -921,7 +921,7 @@ export function ExecutiveDashboard({
               {t('ข้อมูลล่าสุด')} · {tickets.length} {t('งาน')} · {t('นับจาก Task ที่โหลดได้')}
             </p>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-48">
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-left">
               <p className="text-xs text-slate-500">{t('วันที่สรุป')}</p>
               <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -931,7 +931,7 @@ export function ExecutiveDashboard({
               </p>
             </div>
             <button
-              className="min-h-11 rounded-full bg-lotus-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-400 focus:ring-offset-2"
+              className="min-h-11 w-full rounded-full bg-lotus-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-400 focus:ring-offset-2"
               onClick={onCreateTicket}
               type="button"
             >
@@ -1050,7 +1050,7 @@ export function ExecutiveDashboard({
 
           {canReadTodos && <TodoDashboardPreview onOpen={onViewTodo} selectedPropertyId={selectedPropertyId} />}
 
-          <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/20">
+          <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/20" open>
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold text-slate-900 marker:hidden sm:px-6">
               <span>{t('รายละเอียดเพิ่มเติม')}</span>
               <span aria-hidden="true" className="text-xl text-slate-400 transition-transform group-open:rotate-45">
@@ -1058,7 +1058,7 @@ export function ExecutiveDashboard({
               </span>
             </summary>
             <div className="space-y-4 border-t border-slate-100 p-5 sm:p-6">
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.85fr_1.15fr]">
                 <StatusSnapshot rows={data.statusCounts} />
                 <TaskTrendChart buckets={data.trendBuckets} grouping={data.trendGrouping} />
               </div>

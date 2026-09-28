@@ -84,7 +84,7 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'ภาพรวมงานบริการ IT', exact: true })).toBeVisible()
   const kpiRail = page.locator('main').locator('div.grid').filter({ hasText: 'งานที่ยังเปิดอยู่' }).first()
-  await expect(kpiRail.getByText('เลยกำหนด', { exact: true })).toBeVisible()
+  await expect(kpiRail.getByText('เลยกำหนด', { exact: true }).first()).toBeVisible()
   await expect(kpiRail.getByText('ใกล้ครบกำหนด', { exact: true }).first()).toBeVisible()
   await expect(kpiRail.getByText('งาน Critical ที่ยังเปิด', { exact: true })).toBeVisible()
   await expect(kpiRail.getByText('งานที่ยังเปิดอยู่', { exact: true })).toBeVisible()
@@ -93,9 +93,29 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
   await expect(page.getByText(/ยังประเมินไม่ได้|Not enough data to evaluate/, { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'สุขภาพงานบริการและทรัพย์สิน', exact: true })).toBeVisible()
 
+  const summaryDate = page.getByText('วันที่สรุป', { exact: true }).locator('..')
+  const createTaskButton = page.getByRole('button', { name: 'สร้าง Task', exact: true }).first()
+  const summaryDateBox = await summaryDate.boundingBox()
+  const createTaskButtonBox = await createTaskButton.boundingBox()
+  expect(summaryDateBox).not.toBeNull()
+  expect(createTaskButtonBox).not.toBeNull()
+  expect(createTaskButtonBox!.y).toBeGreaterThan(summaryDateBox!.y + summaryDateBox!.height)
+
   const details = page.locator('details').filter({ hasText: 'รายละเอียดเพิ่มเติม' })
   await expect(details).toBeVisible()
   await expect(details.locator('summary')).toBeVisible()
+  await expect(details).toHaveAttribute('open', '')
+
+  const statusSnapshot = details.locator('section').filter({ hasText: 'สถานะงาน' }).first()
+  const taskTrend = details.locator('section').filter({ hasText: 'งานที่สร้างตามช่วงเวลา' }).first()
+  const statusSnapshotBox = await statusSnapshot.boundingBox()
+  const taskTrendBox = await taskTrend.boundingBox()
+  expect(statusSnapshotBox).not.toBeNull()
+  expect(taskTrendBox).not.toBeNull()
+  expect(taskTrendBox!.width).toBeGreaterThan(statusSnapshotBox!.width)
+
+  await details.locator('summary').click()
+  await expect(details).not.toHaveAttribute('open', '')
   await details.locator('summary').click()
   await expect(details).toHaveAttribute('open', '')
 

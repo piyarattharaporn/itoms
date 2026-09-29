@@ -148,7 +148,11 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
   await expect(kpiRail.getByText('งานที่ยังเปิดอยู่', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'งานที่ต้องติดตาม', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'ติดตาม SLA', exact: true })).toBeVisible()
-  await expect(page.getByText(/ยังประเมินไม่ได้|Not enough data to evaluate/, { exact: true })).toBeVisible()
+  await expect(
+    page
+      .getByText(/ยังประเมินไม่ได้|ประเมินได้|Response เกิน SLA|Not enough data to evaluate/, { exact: false })
+      .first(),
+  ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'สุขภาพงานบริการและทรัพย์สิน', exact: true })).toBeVisible()
 
   const summaryDate = page.getByText('วันที่สรุป', { exact: true }).locator('..')

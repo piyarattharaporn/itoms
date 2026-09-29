@@ -693,7 +693,7 @@ export function TodoCalendar({
                 </span>
               )}
               {item.todo.propertyCode && selectedPropertyNeeded && (
-                <span className="text-[10px] text-slate-400">{item.todo.propertyCode}</span>
+                <span className="text-[10px] text-slate-600">{item.todo.propertyCode}</span>
               )}
             </div>
             <p className={`mt-1.5 text-base font-semibold ${item.done ? 'text-slate-500' : 'text-slate-800'}`}>
@@ -726,7 +726,7 @@ export function TodoCalendar({
                   {t('แก้ไข')}
                 </button>
               ) : (
-                <span className="px-1 py-1.5 text-xs text-slate-400 md:text-center">{t('เลยเวลาแก้ไขแล้ว')}</span>
+                <span className="px-1 py-1.5 text-xs text-slate-600 md:text-center">{t('เลยเวลาแก้ไขแล้ว')}</span>
               )}
               <button
                 className="rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
@@ -1102,9 +1102,7 @@ export function TodoCalendar({
                 tone="emerald"
                 emptyLabel={t('ไม่มีงานที่เสร็จแล้ว')}
               >
-                {completedDayItems.length > 0 && (
-                  <ul className="divide-y divide-slate-200/70">{completedDayItems.map(renderDayOccurrence)}</ul>
-                )}
+                {completedDayItems.length > 0 && completedDayItems.map(renderDayOccurrence)}
               </TodoPreviewColumn>
               <TodoPreviewColumn
                 title={t('ยังไม่เสร็จ')}
@@ -1113,9 +1111,7 @@ export function TodoCalendar({
                 tone="slate"
                 emptyLabel={t('ไม่มีงานที่ยังไม่เสร็จ')}
               >
-                {openDayItems.length > 0 && (
-                  <ul className="divide-y divide-slate-200/70">{openDayItems.map(renderDayOccurrence)}</ul>
-                )}
+                {openDayItems.length > 0 && openDayItems.map(renderDayOccurrence)}
               </TodoPreviewColumn>
             </div>
           )}

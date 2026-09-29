@@ -43,6 +43,16 @@ export interface TicketAssignmentCommand {
   idempotencyKey: string
 }
 
+export interface TicketEditCommand {
+  location: string
+  department: string
+  assetId: string
+  description: string
+  priority: Priority
+  reason: string
+  idempotencyKey: string
+}
+
 export interface ContractIssue {
   field: string
   code: 'required' | 'type' | 'format' | 'length' | 'unknown_field'
@@ -127,4 +137,20 @@ export function validateTicketAssignmentCommand(input: unknown) {
   const engineerUid = requiredString(record, 'engineerUid', 0, 128, issues)
   const key = idempotencyKey(record, issues)
   return result({ engineerUid, idempotencyKey: key }, issues)
+}
+
+export function validateTicketEditCommand(input: unknown) {
+  const record = asRecord(input)
+  if (!record) return { ok: false as const, issues: [{ field: 'body', code: 'type' as const }] }
+  const allowed = ['location', 'department', 'assetId', 'description', 'priority', 'reason', 'idempotencyKey'] as const
+  const issues = onlyKeys(record, allowed)
+  const location = requiredString(record, 'location', 1, 160, issues)
+  const department = requiredString(record, 'department', 0, 80, issues)
+  const assetId = requiredString(record, 'assetId', 0, 160, issues)
+  const description = requiredString(record, 'description', 10, 4000, issues)
+  const priority = record.priority
+  if (!priorities.includes(priority as Priority)) issues.push({ field: 'priority', code: 'format' })
+  const reason = requiredString(record, 'reason', 3, 500, issues)
+  const key = idempotencyKey(record, issues)
+  return result({ location, department, assetId, description, priority: priority as Priority, reason, idempotencyKey: key }, issues)
 }

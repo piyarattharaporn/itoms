@@ -370,6 +370,180 @@ describe('Ticket, Asset, and PM access', () => {
     await assertFails(requesterUpdate.commit())
   })
 
+  it('allows Support Engineers to perform controlled edits with a paired edited event and audit record', async () => {
+    const db = testEnv.authenticatedContext('support-1').firestore()
+    const ticketRef = doc(db, 'tickets/ticket-to-update')
+    const eventRef = doc(db, 'tickets/ticket-to-update/events/edit-event')
+    const auditRef = doc(db, 'auditEvents/edit-audit')
+    const batch = writeBatch(db)
+    batch.update(ticketRef, {
+      location: 'Front Office',
+      priority: 'High',
+      updatedAt: serverTimestamp(),
+      lastEventId: eventRef.id,
+    })
+    batch.set(eventRef, {
+      actorUid: 'support-1',
+      fromStatus: 'Pending',
+      toStatus: 'Pending',
+      note: 'Corrected work area and priority after site verification',
+      type: 'edited',
+      changedFields: ['location', 'priority'],
+      correlationId: 'edit-correlation-1',
+      createdAt: serverTimestamp(),
+    })
+    batch.set(auditRef, {
+      propertyId: 'PROP-1',
+      propertyCode: 'P1',
+      entityType: 'ticket',
+      entityId: 'ticket-to-update',
+      sourceEventId: eventRef.id,
+      action: 'edited',
+      actorUid: 'support-1',
+      summary: 'Edited work area and priority',
+      correlationId: 'edit-correlation-1',
+      createdAt: serverTimestamp(),
+    })
+    await assertSucceeds(batch.commit())
+    const updated = await assertSucceeds(getDoc(ticketRef))
+    assert.equal(updated.data().location, 'Front Office')
+    assert.equal(updated.data().priority, 'High')
+    await assertSucceeds(getDoc(eventRef))
+    await assertSucceeds(getDoc(auditRef))
+  })
+
+  it('allows a controlled correction on a Completed Ticket but denies requester and Cancelled edits', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'tickets/ticket-completed'), {
+        propertyId: 'PROP-1',
+        propertyCode: 'P1',
+        requesterUid: 'requester-1',
+        status: 'Completed',
+        location: 'Office',
+        department: 'IT',
+        assetId: '',
+        description: 'Completed ticket description',
+        priority: 'Medium',
+        assignedEngineerUid: '',
+        createdAt: new Date('2026-09-24T00:00:00.000Z'),
+        updatedAt: new Date('2026-09-24T00:00:00.000Z'),
+        lastEventId: 'completed-old-event',
+      })
+      await setDoc(doc(db, 'tickets/ticket-cancelled'), {
+        propertyId: 'PROP-1',
+        propertyCode: 'P1',
+        requesterUid: 'requester-1',
+        status: 'Cancelled',
+        location: 'Office',
+        department: 'IT',
+        assetId: '',
+        description: 'Cancelled ticket description',
+        priority: 'Medium',
+        assignedEngineerUid: '',
+        createdAt: new Date('2026-09-24T00:00:00.000Z'),
+        updatedAt: new Date('2026-09-24T00:00:00.000Z'),
+        lastEventId: 'cancelled-old-event',
+      })
+    })
+
+    const supportDb = testEnv.authenticatedContext('support-1').firestore()
+    const completedEvent = doc(supportDb, 'tickets/ticket-completed/events/correction-event')
+    const completedBatch = writeBatch(supportDb)
+    completedBatch.update(doc(supportDb, 'tickets/ticket-completed'), {
+      location: 'Front Office',
+      updatedAt: serverTimestamp(),
+      lastEventId: completedEvent.id,
+    })
+    completedBatch.set(completedEvent, {
+      actorUid: 'support-1',
+      fromStatus: 'Completed',
+      toStatus: 'Completed',
+      note: 'Corrected completed record',
+      type: 'edited',
+      changedFields: ['location'],
+      createdAt: serverTimestamp(),
+    })
+    completedBatch.set(doc(supportDb, 'auditEvents/completed-correction-audit'), {
+      propertyId: 'PROP-1',
+      propertyCode: 'P1',
+      entityType: 'ticket',
+      entityId: 'ticket-completed',
+      sourceEventId: completedEvent.id,
+      action: 'edited',
+      actorUid: 'support-1',
+      summary: 'Corrected completed record',
+      createdAt: serverTimestamp(),
+    })
+    await assertSucceeds(completedBatch.commit())
+
+    const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
+    await assertFails(
+      updateDoc(doc(requesterDb, 'tickets/ticket-completed'), {
+        location: 'Requester edit',
+        updatedAt: serverTimestamp(),
+        lastEventId: 'requester-edit',
+      }),
+    )
+    await assertFails(
+      updateDoc(doc(supportDb, 'tickets/ticket-cancelled'), {
+        location: 'Should be denied',
+        updatedAt: serverTimestamp(),
+        lastEventId: 'cancelled-edit',
+      }),
+    )
+  })
+
+  it('denies injected fields and malformed edit events, while documenting the Spark audit limitation', async () => {
+    const db = testEnv.authenticatedContext('support-1').firestore()
+    await assertFails(
+      updateDoc(doc(db, 'tickets/ticket-to-update'), {
+        location: 'Front Office',
+        injectedField: true,
+        updatedAt: serverTimestamp(),
+        lastEventId: 'injected-edit',
+      }),
+    )
+
+    const malformedEvent = doc(db, 'tickets/ticket-to-update/events/malformed-edit-event')
+    const malformedBatch = writeBatch(db)
+    malformedBatch.update(doc(db, 'tickets/ticket-to-update'), {
+      location: 'Front Office',
+      updatedAt: serverTimestamp(),
+      lastEventId: malformedEvent.id,
+    })
+    malformedBatch.set(malformedEvent, {
+      actorUid: 'support-1',
+      fromStatus: 'Pending',
+      toStatus: 'Pending',
+      note: 'Missing changedFields',
+      type: 'edited',
+      createdAt: serverTimestamp(),
+    })
+    await assertFails(malformedBatch.commit())
+
+    const noAuditEvent = doc(db, 'tickets/ticket-to-update/events/no-audit-edit-event')
+    const noAuditBatch = writeBatch(db)
+    noAuditBatch.update(doc(db, 'tickets/ticket-to-update'), {
+      location: 'Back Office',
+      updatedAt: serverTimestamp(),
+      lastEventId: noAuditEvent.id,
+    })
+    noAuditBatch.set(noAuditEvent, {
+      actorUid: 'support-1',
+      fromStatus: 'Pending',
+      toStatus: 'Pending',
+      note: 'No audit record',
+      type: 'edited',
+      changedFields: ['location'],
+      createdAt: serverTimestamp(),
+    })
+    // Firestore Rules cannot require an unrelated audit document in the same
+    // client write without exceeding the expression limit. The app mutation
+    // service still writes the audit record in the same transaction path.
+    await assertSucceeds(noAuditBatch.commit())
+  })
+
   it('requires the initial Ticket event to match lastEventId', async () => {
     const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
     const ticketRef = doc(requesterDb, 'tickets/mismatched-event-ticket')

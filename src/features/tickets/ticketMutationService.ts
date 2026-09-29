@@ -8,7 +8,12 @@ import {
 } from 'firebase/firestore'
 import type { User } from 'firebase/auth'
 import { db } from '../../lib/firebase'
-import { validateCreateTicketCommand, validateTicketAssignmentCommand, validateTicketStatusCommand } from '../../../shared/ticket-contracts'
+import {
+  validateCreateTicketCommand,
+  validateTicketAssignmentCommand,
+  validateTicketEditCommand,
+  validateTicketStatusCommand,
+} from '../../../shared/ticket-contracts'
 import type { TicketRecord, TicketStatus } from './types'
 import { statusTransitions } from './types'
 
@@ -196,4 +201,71 @@ export async function assignTicketWithFirebase(user: User, ticket: TicketRecord,
     return action
   })
   return { ticketId: ticket.id, eventId: eventRef.id, action }
+}
+
+export interface TicketEditValues {
+  location: string
+  department: string
+  assetId: string
+  description: string
+  priority: TicketRecord['priority']
+  reason: string
+}
+
+export async function editTicketWithFirebase(user: User, ticket: TicketRecord, input: TicketEditValues) {
+  const firestore = requiredFirestore()
+  const parsed = validateTicketEditCommand({ ...input, idempotencyKey: randomKey() })
+  assertValid(parsed)
+  const next = parsed.value
+  const editableFields = ['location', 'department', 'assetId', 'description', 'priority'] as const
+  const changedFields = editableFields.filter((field) => next[field] !== ticket[field])
+  if (changedFields.length === 0) throw new Error('ไม่มีข้อมูลที่เปลี่ยนแปลง')
+  if (ticket.status === 'Cancelled') throw new Error('ไม่สามารถแก้ไข Task ที่ยกเลิกแล้ว')
+
+  const ticketRef = doc(firestore, 'tickets', ticket.id)
+  const eventRef = doc(collection(ticketRef, 'events'))
+  const auditRef = doc(collection(firestore, 'auditEvents'))
+  const correlationId = randomKey()
+
+  await runTransaction(firestore, async (transaction) => {
+    const snapshot = await transaction.get(ticketRef)
+    if (!snapshot.exists()) throw new Error('ไม่พบ Task นี้')
+    const current = snapshot.data() as DocumentData
+    if (current.propertyId !== ticket.propertyId) throw new Error('Task อยู่คนละ Property')
+    if (current.status === 'Cancelled') throw new Error('ไม่สามารถแก้ไข Task ที่ยกเลิกแล้ว')
+
+    transaction.update(ticketRef, {
+      location: next.location,
+      department: next.department,
+      assetId: next.assetId,
+      description: next.description,
+      priority: next.priority,
+      updatedAt: serverTimestamp(),
+      lastEventId: eventRef.id,
+    })
+    transaction.set(eventRef, {
+      actorUid: user.uid,
+      fromStatus: current.status,
+      toStatus: current.status,
+      note: next.reason,
+      type: 'edited',
+      changedFields,
+      correlationId,
+      createdAt: serverTimestamp(),
+    })
+    transaction.set(auditRef, {
+      propertyId: current.propertyId,
+      propertyCode: current.propertyCode,
+      entityType: 'ticket',
+      entityId: ticket.id,
+      sourceEventId: eventRef.id,
+      action: 'edited',
+      actorUid: user.uid,
+      summary: `แก้ไข Task: ${changedFields.join(', ')} · ${next.reason}`,
+      correlationId,
+      createdAt: serverTimestamp(),
+    })
+  })
+
+  return { ticketId: ticket.id, eventId: eventRef.id, action: 'edited' as const, changedFields }
 }

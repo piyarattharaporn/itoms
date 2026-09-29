@@ -167,7 +167,7 @@ function parseEvent(id: string, data: DocumentData): TicketEvent | null {
     !isTicketStatus(data.toStatus) ||
     !(data.fromStatus === null || isTicketStatus(data.fromStatus)) ||
     typeof data.note !== 'string' ||
-    !['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned'].includes(data.type)
+    !['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned', 'edited'].includes(data.type)
   )
     return null
 
@@ -183,6 +183,9 @@ function parseEvent(id: string, data: DocumentData): TicketEvent | null {
       ? { fromAssignedEngineerUid: data.fromAssignedEngineerUid }
       : {}),
     ...(typeof data.toAssignedEngineerUid === 'string' ? { toAssignedEngineerUid: data.toAssignedEngineerUid } : {}),
+    ...(Array.isArray(data.changedFields)
+      ? { changedFields: data.changedFields.filter((value): value is string => typeof value === 'string') }
+      : {}),
   }
 }
 

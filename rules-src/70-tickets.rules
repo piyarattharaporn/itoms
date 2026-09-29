@@ -64,8 +64,7 @@
 
     function validSparkStatusUpdate() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return canManageProperty(resource.data.propertyId)
-        && changed.hasOnly(['status', 'resolutionNotes', 'updatedAt', 'lastEventId'])
+      return changed.hasOnly(['status', 'resolutionNotes', 'updatedAt', 'lastEventId'])
         && request.resource.data.propertyId == resource.data.propertyId
         && request.resource.data.requesterUid == resource.data.requesterUid
         && request.resource.data.createdAt == resource.data.createdAt
@@ -87,8 +86,7 @@
     function validSparkAssignmentUpdate() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       let assignee = request.resource.data.assignedEngineerUid;
-      return canManageProperty(resource.data.propertyId)
-        && changed.hasOnly(['assignedEngineerUid', 'assignedAt', 'assignedByUid', 'updatedAt', 'lastEventId'])
+      return changed.hasOnly(['assignedEngineerUid', 'assignedAt', 'assignedByUid', 'updatedAt', 'lastEventId'])
         && request.resource.data.propertyId == resource.data.propertyId
         && request.resource.data.status == resource.data.status
         && request.resource.data.updatedAt == request.time
@@ -104,11 +102,26 @@
             && get(membershipPath(assignee, resource.data.propertyId)).data.active == true);
     }
 
+    function validSparkTicketEditUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.status != 'Cancelled'
+        && changed.hasOnly(['location', 'department', 'assetId', 'description', 'priority', 'updatedAt', 'lastEventId'])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastEventId is string
+        && request.resource.data.lastEventId != resource.data.lastEventId
+        && request.resource.data.location is string && request.resource.data.location.size() > 0 && request.resource.data.location.size() <= 160
+        && request.resource.data.department is string && request.resource.data.department.size() <= 80
+        && request.resource.data.department in ['', 'Front Office', 'Housekeeping', 'Food & Beverage', 'Kitchen', 'Engineering', 'Finance & Accounting', 'Human Resources', 'Sales & Marketing', 'Security', 'Spa', 'IT', 'Other']
+        && request.resource.data.assetId is string && request.resource.data.assetId.size() <= 160
+        && request.resource.data.description is string && request.resource.data.description.size() >= 10 && request.resource.data.description.size() <= 4000
+        && request.resource.data.priority in ['Low', 'Medium', 'High', 'Critical'];
+    }
+
     function validSparkTicketEvent(ticketId, eventId, event) {
       return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
         && event.keys().hasOnly([
           'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'fromAssignedEngineerUid',
-          'toAssignedEngineerUid', 'correlationId', 'createdAt'
+          'toAssignedEngineerUid', 'changedFields', 'correlationId', 'createdAt'
         ])
         && event.actorUid == request.auth.uid
         && (event.fromStatus == null || event.fromStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled'])
@@ -147,6 +160,25 @@
               && canManageProperty(getAfter(ticketPath(ticketId)).data.propertyId)));
     }
 
+    // Keep edit events separate from the broader status/assignment validator
+    // so Spark stays below the Firestore Rules expression limit.
+    function validSparkTicketEditedEvent(ticketId, eventId, event) {
+      return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'changedFields', 'createdAt'])
+        && event.keys().hasOnly(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'changedFields', 'correlationId', 'createdAt'])
+        && event.actorUid == request.auth.uid
+        && event.fromStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed']
+        && event.toStatus == event.fromStatus
+        && event.note is string && event.note.size() <= 1000
+        && event.type == 'edited'
+        && event.changedFields is list
+        && event.changedFields.size() >= 1 && event.changedFields.size() <= 5
+        && event.changedFields.hasOnly(['location', 'department', 'assetId', 'description', 'priority'])
+        && (!event.keys().hasAny(['correlationId']) || (event.correlationId is string && event.correlationId.size() > 0 && event.correlationId.size() <= 128))
+        && event.createdAt == request.time
+        && getAfter(ticketPath(ticketId)).data.updatedAt == request.time
+        && getAfter(ticketPath(ticketId)).data.lastEventId == eventId;
+    }
+
     function validSparkAuditEvent(audit) {
       return audit.keys().hasAll([
           'propertyId', 'propertyCode', 'entityType', 'entityId', 'sourceEventId', 'action', 'actorUid', 'summary', 'createdAt'
@@ -160,7 +192,7 @@
         && audit.entityType == 'ticket'
         && audit.entityId is string && audit.entityId.size() > 0 && audit.entityId.size() <= 150
         && audit.sourceEventId is string && audit.sourceEventId.size() > 0 && audit.sourceEventId.size() <= 150
-        && audit.action in ['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned']
+        && audit.action in ['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned', 'edited']
         && audit.actorUid == request.auth.uid
         && audit.summary is string && audit.summary.size() <= 1000
         && (!audit.keys().hasAny(['correlationId']) || (audit.correlationId is string && audit.correlationId.size() > 0 && audit.correlationId.size() <= 128))

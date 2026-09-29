@@ -4,12 +4,16 @@
       // replacement for trusted backend authority; all fields remain bounded
       // and role/property checked here.
       allow create: if signedIn() && validSparkTicketCreate(request.resource.data);
-      allow update: if signedIn() && (validSparkStatusUpdate() || validSparkAssignmentUpdate());
+      allow update: if signedIn()
+        && canManageProperty(resource.data.propertyId)
+        && (validSparkStatusUpdate() || validSparkAssignmentUpdate() || validSparkTicketEditUpdate());
       allow delete: if false;
 
       match /events/{eventId} {
         allow get, list: if exists(ticketPath(ticketId)) && canReadTicket(get(ticketPath(ticketId)).data);
-        allow create: if signedIn() && validSparkTicketEvent(ticketId, eventId, request.resource.data);
+        allow create: if signedIn()
+          && ((request.resource.data.type == 'edited' && validSparkTicketEditedEvent(ticketId, eventId, request.resource.data))
+            || (request.resource.data.type != 'edited' && validSparkTicketEvent(ticketId, eventId, request.resource.data)));
         allow update, delete: if false;
       }
     }

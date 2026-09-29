@@ -75,9 +75,10 @@ export interface TicketEvent {
   toStatus: TicketStatus
   note: string
   createdAt: Date | null
-  type: 'created' | 'statusChanged' | 'assigned' | 'reassigned' | 'unassigned'
+  type: 'created' | 'statusChanged' | 'assigned' | 'reassigned' | 'unassigned' | 'edited'
   fromAssignedEngineerUid?: string
   toAssignedEngineerUid?: string
+  changedFields?: string[]
 }
 
 export interface CreateTicketInput {

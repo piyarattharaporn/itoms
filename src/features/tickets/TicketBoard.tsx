@@ -27,6 +27,8 @@ import {
   assignTicketWithFirebase,
   changeTicketStatusWithFirebase,
   createTicketWithFirebase,
+  editTicketWithFirebase,
+  type TicketEditValues,
 } from './ticketMutationService'
 
 const kanbanStatuses: TicketStatus[] = ['Completed', ...ticketStatuses.filter((status) => status !== 'Completed')]
@@ -109,14 +111,18 @@ function TicketHistory({ ticketId }: { ticketId: string }) {
 function TicketCard({
   ticket,
   canUpdate,
+  canEdit,
   onStatusChange,
   onAssign,
+  onEdit,
   engineers,
 }: {
   ticket: TicketRecord
   canUpdate: boolean
+  canEdit: boolean
   onStatusChange: (ticket: TicketRecord, status: TicketStatus) => Promise<void>
   onAssign: (ticket: TicketRecord, engineerUid: string) => Promise<void>
+  onEdit: (ticket: TicketRecord) => void
   engineers: AssignableEngineer[]
 }) {
   const [showHistory, setShowHistory] = useState(false)
@@ -261,6 +267,16 @@ function TicketCard({
       </dl>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+        {canEdit && (
+          <button
+            aria-label={`${t('แก้ไข Task')} ${ticketDisplayId(ticket)}`}
+            className="rounded-xl border border-lotus-200 bg-white px-3 py-2 text-sm font-semibold text-lotus-700 transition hover:bg-lotus-50 focus:outline-none focus:ring-2 focus:ring-lotus-300"
+            onClick={() => onEdit(ticket)}
+            type="button"
+          >
+            {t('แก้ไข Task')}
+          </button>
+        )}
         {canUpdate && (
           <label className="flex min-w-64 items-center gap-2 text-xs text-slate-500">
             {t('มอบหมายให้')}
@@ -322,6 +338,190 @@ function TicketCard({
       </button>
       {showHistory && <TicketHistory ticketId={ticket.id} />}
     </article>
+  )
+}
+
+function TicketEditDialog({
+  ticket,
+  onClose,
+  onSave,
+}: {
+  ticket: TicketRecord
+  onClose: () => void
+  onSave: (ticket: TicketRecord, values: TicketEditValues) => Promise<void>
+}) {
+  const [location, setLocation] = useState(ticket.location)
+  const [department, setDepartment] = useState(ticket.department)
+  const [assetId, setAssetId] = useState(ticket.assetId)
+  const [description, setDescription] = useState(ticket.description)
+  const [priority, setPriority] = useState(ticket.priority)
+  const [reason, setReason] = useState('')
+  const [catalog, setCatalog] = useState<TicketCatalog>({
+    propertyId: ticket.propertyId,
+    propertyCode: ticket.propertyCode,
+    problemTypes: defaultProblemTypes,
+    departments: defaultDepartments,
+    assetCategories: defaultAssetCategories,
+    channels: [...defaultTicketChannels],
+    todoCategories: [...defaultTodoCategories],
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    return subscribeToTicketCatalog(ticket.propertyId, setCatalog, () => undefined)
+  }, [ticket.propertyId])
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    setSaving(true)
+    try {
+      await onSave(ticket, { location, department, assetId, description, priority, reason })
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'แก้ไข Task ไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !saving) onClose()
+      }}
+    >
+      <form
+        aria-labelledby="ticket-edit-title"
+        aria-modal="true"
+        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7"
+        onSubmit={handleSubmit}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-lotus-700">{t('Controlled Edit')}</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink" id="ticket-edit-title">
+              {t('แก้ไข Task')} · {ticketDisplayId(ticket)}
+            </h2>
+            <p className="mt-1 text-sm text-muted">{t('แก้ไขเฉพาะข้อมูลปฏิบัติงาน พร้อมบันทึกเหตุผลและ Audit')}</p>
+          </div>
+          <button
+            aria-label={t('ปิด')}
+            className="rounded-full border border-line px-3 py-1.5 text-sm text-muted hover:bg-canvas"
+            onClick={onClose}
+            type="button"
+          >
+            {t('ปิด')}
+          </button>
+        </div>
+
+        {ticket.status === 'Completed' && (
+          <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {t('Task นี้เสร็จสิ้นแล้ว การแก้ไขจะถูกบันทึกเป็น correction พร้อม Audit')}
+          </p>
+        )}
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-ink">
+            {t('พื้นที่ทำงาน')} *
+            <input
+              className="form-input mt-1.5 w-full"
+              maxLength={160}
+              onChange={(event) => setLocation(event.target.value)}
+              required
+              value={location}
+            />
+          </label>
+          <label className="text-sm font-medium text-ink">
+            {t('แผนก')}
+            <select
+              className="form-select mt-1.5 w-full"
+              onChange={(event) => setDepartment(event.target.value)}
+              value={department}
+            >
+              <option value="">{t('ไม่ระบุ')}</option>
+              {catalog.departments.map((value) => (
+                <option key={value} value={value}>
+                  {t(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-medium text-ink">
+            {t('Asset Tag / ID')}
+            <input
+              className="form-input mt-1.5 w-full"
+              maxLength={160}
+              onChange={(event) => setAssetId(event.target.value)}
+              placeholder={t('ไม่ระบุ Asset')}
+              value={assetId}
+            />
+          </label>
+          <label className="text-sm font-medium text-ink">
+            {t('ความสำคัญ')}
+            <select
+              className="form-select mt-1.5 w-full"
+              onChange={(event) => setPriority(event.target.value as TicketRecord['priority'])}
+              value={priority}
+            >
+              {priorities.map((value) => (
+                <option key={value} value={value}>
+                  {t(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="mt-4 block text-sm font-medium text-ink">
+          {t('รายละเอียดปัญหา')} *
+          <textarea
+            className="form-input mt-1.5 min-h-28 w-full resize-y"
+            maxLength={4000}
+            minLength={10}
+            onChange={(event) => setDescription(event.target.value)}
+            required
+            value={description}
+          />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-ink">
+          {t('เหตุผลการแก้ไข')} *
+          <textarea
+            className="form-input mt-1.5 min-h-24 w-full resize-y"
+            maxLength={500}
+            minLength={3}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder={t('เช่น แก้ไขพื้นที่ทำงานให้ตรงกับหน้างานจริง')}
+            required
+            value={reason}
+          />
+        </label>
+
+        {error && (
+          <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
+            {t(error)}
+          </p>
+        )}
+        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
+          <button
+            className="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-muted hover:bg-canvas"
+            disabled={saving}
+            onClick={onClose}
+            type="button"
+          >
+            {t('ยกเลิก')}
+          </button>
+          <button
+            className="rounded-xl bg-lotus-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-lotus-800 disabled:opacity-50"
+            disabled={saving}
+            type="submit"
+          >
+            {saving ? t('กำลังบันทึก…') : t('บันทึกการแก้ไข')}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }
 
@@ -1000,6 +1200,7 @@ export function TicketBoard({
   const [resolutionNotes, setResolutionNotes] = useState('')
   const [completionSaving, setCompletionSaving] = useState(false)
   const [completionError, setCompletionError] = useState<string | null>(null)
+  const [editingTicket, setEditingTicket] = useState<TicketRecord | null>(null)
   const [nextCursor, setNextCursor] = useState<TicketPageCursor>(null)
   const [hasMore, setHasMore] = useState(false)
   const [engineers, setEngineers] = useState<AssignableEngineer[]>([])
@@ -1132,6 +1333,17 @@ export function TicketBoard({
           : item,
       ),
     )
+  }
+
+  async function updateDetails(ticket: TicketRecord, values: TicketEditValues) {
+    if (!firebaseUser || !canMutate) throw new Error(t('ไม่มีสิทธิ์แก้ไข Task'))
+    if (trustedBackendEnabled) throw new Error(t('Controlled Edit ต้องเปิด Trusted Backend ก่อนใช้งาน'))
+    await editTicketWithFirebase(firebaseUser, ticket, values)
+    setTickets((current) =>
+      current.map((item) => (item.id === ticket.id ? { ...item, ...values, updatedAt: new Date() } : item)),
+    )
+    setEditingTicket(null)
+    setError(null)
   }
 
   async function loadMoreTickets() {
@@ -1311,9 +1523,11 @@ export function TicketBoard({
                   {visibleTickets.map((ticket) => (
                     <TicketCard
                       canUpdate={mode === 'update' && canMutate}
+                      canEdit={canMutate && ticket.status !== 'Cancelled'}
                       engineers={engineers.filter((engineer) => engineer.propertyId === ticket.propertyId)}
                       key={ticket.id}
                       onAssign={updateAssignment}
+                      onEdit={setEditingTicket}
                       onStatusChange={updateStatus}
                       ticket={ticket}
                     />
@@ -1331,6 +1545,7 @@ export function TicketBoard({
                         <th className="px-4 py-3">{t('ความสำคัญ')}</th>
                         <th className="px-4 py-3">{t('สถานะ')}</th>
                         <th className="px-4 py-3">{t('Asset:')}</th>
+                        {canMutate && <th className="px-4 py-3">{t('การจัดการ')}</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line bg-white">
@@ -1426,6 +1641,20 @@ export function TicketBoard({
                               )}
                             </td>
                             <td className="px-4 py-3 text-xs text-muted">{ticket.assetId || t('ไม่ระบุ Asset')}</td>
+                            {canMutate && (
+                              <td className="px-4 py-3">
+                                {ticket.status !== 'Cancelled' && (
+                                  <button
+                                    aria-label={`${t('แก้ไข Task')} ${ticketDisplayId(ticket)}`}
+                                    className="rounded-xl border border-lotus-200 px-3 py-2 text-xs font-semibold text-lotus-700 hover:bg-lotus-50"
+                                    onClick={() => setEditingTicket(ticket)}
+                                    type="button"
+                                  >
+                                    {t('แก้ไข Task')}
+                                  </button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         )
                       })}
@@ -1518,6 +1747,16 @@ export function TicketBoard({
                                 <p className="font-semibold text-emerald-900">{t('วิธีแก้ไขปัญหา')}</p>
                                 <p className="mt-1 whitespace-pre-wrap text-emerald-950">{ticket.resolutionNotes}</p>
                               </div>
+                            )}
+                            {canMutate && ticket.status !== 'Cancelled' && (
+                              <button
+                                aria-label={`${t('แก้ไข Task')} ${ticketDisplayId(ticket)}`}
+                                className="mt-3 rounded-xl border border-lotus-200 px-3 py-2 text-xs font-semibold text-lotus-700 hover:bg-lotus-50"
+                                onClick={() => setEditingTicket(ticket)}
+                                type="button"
+                              >
+                                {t('แก้ไข Task')}
+                              </button>
                             )}
                             {mode === 'update' && canMutate && statusTransitions(ticket.status).length > 0 && (
                               <label className="mt-3 block text-xs font-medium text-slate-600">
@@ -1622,6 +1861,16 @@ export function TicketBoard({
                                     </p>
                                   </div>
                                 )}
+                                {canMutate && ticket.status !== 'Cancelled' && (
+                                  <button
+                                    aria-label={`${t('แก้ไข Task')} ${ticketDisplayId(ticket)}`}
+                                    className="mt-2 rounded-lg border border-lotus-200 px-2 py-1 text-[11px] font-semibold text-lotus-700 hover:bg-lotus-50"
+                                    onClick={() => setEditingTicket(ticket)}
+                                    type="button"
+                                  >
+                                    {t('แก้ไข Task')}
+                                  </button>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -1710,6 +1959,9 @@ export function TicketBoard({
             </div>
           </form>
         </div>
+      )}
+      {editingTicket && (
+        <TicketEditDialog ticket={editingTicket} onClose={() => setEditingTicket(null)} onSave={updateDetails} />
       )}
     </div>
   )

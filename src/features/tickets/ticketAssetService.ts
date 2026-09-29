@@ -19,7 +19,7 @@ export interface TicketAssetOption {
   category: string
   department: string
   location: string
-  status: 'In Service' | 'Under Repair' | 'Retired'
+  status: 'In Service' | 'Damaged' | 'Under Repair' | 'Retired'
 }
 
 const categoryMap: Record<string, string[]> = {
@@ -70,7 +70,7 @@ function parseOption(id: string, data: DocumentData): TicketAssetOption | null {
     typeof data.name !== 'string' ||
     typeof data.category !== 'string' ||
     typeof data.location !== 'string' ||
-    !['In Service', 'Under Repair', 'Retired'].includes(data.status)
+    !['In Service', 'Damaged', 'Under Repair', 'Retired'].includes(data.status)
   )
     return null
   return {

@@ -202,7 +202,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
     () =>
       assetOptions.filter(
         (asset) =>
-          asset.propertyId === targetPropertyId && asset.department === department && asset.status !== 'Retired',
+          asset.propertyId === targetPropertyId && asset.department === department && !['Damaged', 'Retired'].includes(asset.status),
       ),
     [assetOptions, department, targetPropertyId],
   )
@@ -210,7 +210,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
   function assetsForUser(user: RequestUserRecord) {
     return assetOptions.filter(
       (asset) =>
-        asset.propertyId === user.propertyId && asset.department === user.department && asset.status !== 'Retired',
+        asset.propertyId === user.propertyId && asset.department === user.department && !['Damaged', 'Retired'].includes(asset.status),
     )
   }
 

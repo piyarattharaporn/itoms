@@ -473,13 +473,18 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
     )
     if (!department) return []
     return assetOptions.filter(
-      (asset) => asset.status !== 'Retired' && asset.department === department && categories.includes(asset.category),
+      (asset) =>
+        !['Damaged', 'Retired'].includes(asset.status) &&
+        asset.department === department &&
+        categories.includes(asset.category),
     )
   }, [assetOptions, problemCategory, problemType, catalog.assetCategories, department])
 
   const selectableAssets = useMemo(() => {
     const linkedAsset = selectedRequestUser?.assetId
-      ? assetOptions.find((asset) => asset.id === selectedRequestUser.assetId && asset.status !== 'Retired')
+      ? assetOptions.find(
+          (asset) => asset.id === selectedRequestUser.assetId && !['Damaged', 'Retired'].includes(asset.status),
+        )
       : undefined
     if (!linkedAsset || relevantAssets.some((asset) => asset.id === linkedAsset.id)) return relevantAssets
     return [linkedAsset, ...relevantAssets]
@@ -488,7 +493,9 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
   useEffect(() => {
     if (!selectedRequestUserId || autoAppliedRequestUserId === selectedRequestUserId) return
     const linkedAsset = selectedRequestUser?.assetId
-      ? assetOptions.find((asset) => asset.id === selectedRequestUser.assetId && asset.status !== 'Retired')
+      ? assetOptions.find(
+          (asset) => asset.id === selectedRequestUser.assetId && !['Damaged', 'Retired'].includes(asset.status),
+        )
       : undefined
     setAssetId(linkedAsset?.id ?? '')
     setManualAssetId(false)

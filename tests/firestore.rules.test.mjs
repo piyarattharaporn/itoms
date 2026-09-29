@@ -99,6 +99,8 @@ beforeEach(async () => {
       }),
       setDoc(doc(db, 'assets/asset-1'), { propertyId: 'PROP-1' }),
       setDoc(doc(db, 'assets/damaged-asset'), { propertyId: 'PROP-1', status: 'Under Repair', updatedAt: new Date() }),
+      setDoc(doc(db, 'assets/damaged-state'), { propertyId: 'PROP-1', status: 'Damaged', updatedAt: new Date() }),
+      setDoc(doc(db, 'assets/retired-state'), { propertyId: 'PROP-1', status: 'Retired', updatedAt: new Date() }),
       setDoc(doc(db, 'ticketAssetOptions/asset-1'), {
         propertyId: 'PROP-1',
         propertyCode: 'P1',
@@ -247,21 +249,21 @@ describe('Request User asset links', () => {
 })
 
 describe('Ticket, Asset, and PM access', () => {
-  it('allows Property members to query only damaged Assets in their own Property', async () => {
+  it('allows Property members to query damaged, repair, and retired Assets in their own Property', async () => {
     const executiveDb = testEnv.authenticatedContext('executive-1').firestore()
     const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
-    const damagedOnlyQuery = (db) =>
+    const damagedAssetsQuery = (db) =>
       query(
         collection(db, 'assets'),
         where('propertyId', '==', 'PROP-1'),
-        where('status', '==', 'Under Repair'),
+        where('status', 'in', ['Damaged', 'Under Repair', 'Retired']),
         orderBy('updatedAt', 'desc'),
         limit(100),
       )
 
-    const executiveAssets = await assertSucceeds(getDocs(damagedOnlyQuery(executiveDb)))
-    assert.equal(executiveAssets.size, 1)
-    await assertSucceeds(getDocs(damagedOnlyQuery(requesterDb)))
+    const executiveAssets = await assertSucceeds(getDocs(damagedAssetsQuery(executiveDb)))
+    assert.equal(executiveAssets.size, 3)
+    await assertSucceeds(getDocs(damagedAssetsQuery(requesterDb)))
     await assertFails(
       getDocs(
         query(
@@ -277,7 +279,7 @@ describe('Ticket, Asset, and PM access', () => {
         query(
           collection(executiveDb, 'assets'),
           where('propertyId', '==', 'PROP-2'),
-          where('status', '==', 'Under Repair'),
+          where('status', 'in', ['Damaged', 'Under Repair', 'Retired']),
           orderBy('updatedAt', 'desc'),
           limit(100),
         ),
@@ -693,6 +695,60 @@ describe('Ticket, Asset, and PM access', () => {
     await assertFails(getDoc(doc(executiveDb, 'pmSchedules/pm-1/runs/run-1')))
     await assertFails(getDoc(doc(requesterDb, 'assets/asset-1')))
     await assertFails(getDoc(doc(requesterDb, 'pmSchedules/pm-1')))
+  })
+
+  it('allows a Support Engineer to create a full Asset and its Task option atomically', async () => {
+    const db = testEnv.authenticatedContext('support-1').firestore()
+    const assetRef = doc(db, 'assets/cctv-south-wing-floor-3-1')
+    const optionRef = doc(db, 'ticketAssetOptions/cctv-south-wing-floor-3-1')
+    const asset = {
+      propertyId: 'PROP-1',
+      propertyCode: 'P1',
+      assetTag: 'CCTV-SOUTH-WING-FLOO3_1',
+      name: 'CCTV South Wing Floo3_1',
+      category: 'CCTV Camera',
+      department: 'Front Office',
+      location: 'South Wing',
+      vendor: 'Lotus Technology',
+      model: 'DS-2CE56C0T-IRMF',
+      serialNumber: 'C16131066',
+      warrantyExpiresOn: '2026-09-29',
+      status: 'Retired',
+      ownershipType: 'Owned',
+      lessorName: '',
+      leaseContractNumber: '',
+      leaseStartDate: '',
+      leaseEndDate: '',
+      monthlyRentalCost: null,
+      spec: '',
+      detail: '',
+      usedBy: '',
+      serviceType: '',
+      serviceVendor: '',
+      serviceSentOn: '',
+      expectedReturnOn: '',
+      serviceNotes: '',
+      createdBy: 'support-1',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+    const batch = writeBatch(db)
+    batch.set(assetRef, asset)
+    batch.set(optionRef, {
+      propertyId: asset.propertyId,
+      propertyCode: asset.propertyCode,
+      assetTag: asset.assetTag,
+      name: asset.name,
+      category: asset.category,
+      department: asset.department,
+      location: asset.location,
+      status: asset.status,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    await assertSucceeds(batch.commit())
+    await assertSucceeds(getDoc(assetRef))
+    await assertSucceeds(getDoc(optionRef))
   })
 
   it('accepts a well-formed PM run and rejects mismatched checklist data', async () => {

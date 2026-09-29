@@ -41,7 +41,30 @@
         && option.department is string && option.department.size() <= 80
         && (option.department == '' || validDepartment(option.propertyId, option.department))
         && option.location is string && option.location.size() > 0 && option.location.size() <= 160
-        && option.status in ['In Service', 'Under Repair', 'Retired'];
+        && option.status in ['In Service', 'Damaged', 'Under Repair', 'Retired'];
+    }
+
+    // Create-time option validation is intentionally shape-only. The source
+    // Asset is validated by the /assets rule and the option is required to
+    // match that Asset in the same write via getAfter(). This avoids running
+    // the catalog/property lookups twice for one atomic Asset registration.
+    function validTicketAssetOptionShape(option) {
+      return option.keys().hasAll([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && option.keys().hasOnly([
+          'propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'department', 'location',
+          'status', 'createdAt', 'updatedAt'
+        ])
+        && option.propertyId is string
+        && option.propertyCode is string
+        && option.assetTag is string && option.assetTag.size() > 0 && option.assetTag.size() <= 80
+        && option.name is string && option.name.size() > 0 && option.name.size() <= 160
+        && option.category is string && option.category.size() > 0 && option.category.size() <= 100
+        && option.department is string && option.department.size() <= 80
+        && option.location is string && option.location.size() > 0 && option.location.size() <= 160
+        && option.status in ['In Service', 'Damaged', 'Under Repair', 'Retired'];
     }
 
     function validRequestUser(user) {
@@ -63,7 +86,7 @@
           && exists(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId))
           && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.propertyId == user.propertyId
           && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.department == user.department
-          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.status != 'Retired'
+          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.status in ['In Service', 'Under Repair']
         ))
         && user.active is bool
         && user.createdBy is string;

@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, where, writeBatch, type DocumentData, type QueryConstraint } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 
-export type AssetStatus = 'In Service' | 'Under Repair' | 'Retired'
+export type AssetStatus = 'In Service' | 'Damaged' | 'Under Repair' | 'Retired'
 export type AssetOwnership = 'Owned' | 'Leased'
 export type ServiceType = '' | 'Internal Repair' | 'Warranty Claim' | 'Vendor Repair'
 
@@ -78,7 +78,7 @@ function dateFrom(value: unknown): Date | null {
 
 function parseAsset(id: string, data: DocumentData): AssetRecord | null {
   const stringFields = ['propertyId', 'propertyCode', 'assetTag', 'name', 'category', 'location', 'createdBy'] as const
-  if (!stringFields.every((key) => typeof data[key] === 'string') || !['In Service', 'Under Repair', 'Retired'].includes(data.status)) return null
+  if (!stringFields.every((key) => typeof data[key] === 'string') || !['In Service', 'Damaged', 'Under Repair', 'Retired'].includes(data.status)) return null
   const optionalText = (key: string) => typeof data[key] === 'string' ? data[key] as string : ''
   return {
     id,
@@ -126,7 +126,7 @@ export function subscribeToAssets(propertyId: string, allProperties: boolean, on
 export function subscribeToDamagedAssets(propertyId: string, allProperties: boolean, onAssets: (assets: AssetRecord[]) => void, onError: () => void) {
   const constraints: QueryConstraint[] = []
   if (!allProperties) constraints.push(where('propertyId', '==', propertyId))
-  constraints.push(where('status', '==', 'Under Repair'), orderBy('updatedAt', 'desc'), limit(100))
+  constraints.push(where('status', 'in', ['Damaged', 'Under Repair', 'Retired']), orderBy('updatedAt', 'desc'), limit(100))
   return onSnapshot(query(collection(firestore(), 'assets'), ...constraints), (snapshot) => {
     onAssets(snapshot.docs.map((item) => parseAsset(item.id, item.data())).filter((item): item is AssetRecord => item !== null))
   }, onError)

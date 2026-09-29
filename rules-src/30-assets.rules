@@ -38,7 +38,7 @@
         && (asset.monthlyRentalCost == null || (asset.monthlyRentalCost is number
           && asset.monthlyRentalCost >= 0 && asset.monthlyRentalCost <= 1000000000))
         && (asset.ownershipType != 'Leased' || asset.lessorName.size() > 0)
-        && asset.status in ['In Service', 'Under Repair', 'Retired']
+        && asset.status in ['In Service', 'Damaged', 'Under Repair', 'Retired']
         && asset.serviceType in ['', 'Internal Repair', 'Warranty Claim', 'Vendor Repair']
         && asset.serviceVendor is string && asset.serviceVendor.size() <= 160
         && validOptionalIsoDate(asset.serviceSentOn)

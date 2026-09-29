@@ -1,7 +1,7 @@
     match /assets/{assetId} {
       allow get, list: if isSuperAdmin()
         || hasPropertyRole(resource.data.propertyId, 'supportEngineer')
-        || (hasPropertyMembership(resource.data.propertyId) && resource.data.status == 'Under Repair');
+        || (hasPropertyMembership(resource.data.propertyId) && resource.data.status in ['Damaged', 'Under Repair', 'Retired']);
       allow create: if canManageProperty(request.resource.data.propertyId)
         && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
         && validAssetCategory(request.resource.data.propertyId, request.resource.data.category)
@@ -27,6 +27,19 @@
       allow delete: if false;
     }
 
+    function assetOptionMatchesAfter(assetId, option) {
+      let sourcePath = /databases/$(database)/documents/assets/$(assetId);
+      return existsAfter(sourcePath)
+        && getAfter(sourcePath).data.propertyId == option.propertyId
+        && getAfter(sourcePath).data.propertyCode == option.propertyCode
+        && getAfter(sourcePath).data.assetTag == option.assetTag
+        && getAfter(sourcePath).data.name == option.name
+        && getAfter(sourcePath).data.category == option.category
+        && getAfter(sourcePath).data.department == option.department
+        && getAfter(sourcePath).data.location == option.location
+        && getAfter(sourcePath).data.status == option.status;
+    }
+
     // Ticket เลือก Asset จากชุดข้อมูลขั้นต่ำที่ไม่เปิดเผย Serial, Warranty หรือประวัติซ่อม
     match /ticketAssetOptions/{assetId} {
       allow get: if isSuperAdmin()
@@ -35,8 +48,13 @@
       allow list: if isSuperAdmin()
         || hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'requester']);
       allow create: if canManageProperty(request.resource.data.propertyId)
-        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
-        && validTicketAssetOption(request.resource.data)
+        && (
+          (validTicketAssetOptionShape(request.resource.data)
+            && assetOptionMatchesAfter(assetId, request.resource.data))
+          || (!exists(/databases/$(database)/documents/assets/$(assetId))
+            && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+            && validTicketAssetOption(request.resource.data))
+        )
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if canManageProperty(resource.data.propertyId)

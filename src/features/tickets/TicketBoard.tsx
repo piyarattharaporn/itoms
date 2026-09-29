@@ -990,7 +990,11 @@ export function TicketBoard({
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState(mode === 'update' ? 'active' : 'all')
   const [search, setSearch] = useState(initialSearch)
-  const [view, setView] = useState<'list' | 'kanban'>('list')
+  const [view, setView] = useState<'list' | 'table' | 'kanban'>(() => {
+    if (typeof window === 'undefined') return 'list'
+    const stored = window.localStorage.getItem('itoms.taskBoard.view')
+    return stored === 'table' || stored === 'kanban' || stored === 'list' ? stored : 'list'
+  })
   const [mobileKanbanStatus, setMobileKanbanStatus] = useState<TicketStatus>('Pending')
   const [completionTicket, setCompletionTicket] = useState<TicketRecord | null>(null)
   const [resolutionNotes, setResolutionNotes] = useState('')
@@ -999,6 +1003,10 @@ export function TicketBoard({
   const [nextCursor, setNextCursor] = useState<TicketPageCursor>(null)
   const [hasMore, setHasMore] = useState(false)
   const [engineers, setEngineers] = useState<AssignableEngineer[]>([])
+
+  useEffect(() => {
+    window.localStorage.setItem('itoms.taskBoard.view', view)
+  }, [view])
 
   const isSuperAdmin = profile?.globalRole === 'superAdmin'
   const selectedMembership = memberships.find((membership) => membership.propertyId === selectedPropertyId)
@@ -1246,6 +1254,14 @@ export function TicketBoard({
                       {t('รายการ')}
                     </button>
                     <button
+                      aria-pressed={view === 'table'}
+                      className={`h-10 flex-1 rounded-lg px-3 text-xs font-medium transition ${view === 'table' ? 'bg-lotus-50 text-lotus-800 shadow-sm' : 'text-muted hover:bg-canvas'}`}
+                      onClick={() => setView('table')}
+                      type="button"
+                    >
+                      {t('ตาราง')}
+                    </button>
+                    <button
                       aria-pressed={view === 'kanban'}
                       className={`h-10 flex-1 rounded-lg px-3 text-xs font-medium transition ${view === 'kanban' ? 'bg-lotus-50 text-lotus-800 shadow-sm' : 'text-muted hover:bg-canvas'}`}
                       onClick={() => setView('kanban')}
@@ -1302,6 +1318,119 @@ export function TicketBoard({
                       ticket={ticket}
                     />
                   ))}
+                </div>
+              ) : view === 'table' ? (
+                <div className="overflow-x-auto rounded-2xl border border-line">
+                  <table className="min-w-[1050px] w-full border-collapse text-left text-sm">
+                    <thead className="bg-canvas text-xs font-semibold text-muted">
+                      <tr>
+                        <th className="px-4 py-3">{t('Task')}</th>
+                        <th className="px-4 py-3">{t('รายละเอียดปัญหา')}</th>
+                        <th className="px-4 py-3">{t('ผู้แจ้ง:')}</th>
+                        <th className="px-4 py-3">{t('ผู้รับผิดชอบ:')}</th>
+                        <th className="px-4 py-3">{t('ความสำคัญ')}</th>
+                        <th className="px-4 py-3">{t('สถานะ')}</th>
+                        <th className="px-4 py-3">{t('Asset:')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line bg-white">
+                      {visibleTickets.map((ticket) => {
+                        const sla = getSlaSnapshot(ticket)
+                        const ticketEngineers = engineers.filter(
+                          (engineer) => engineer.propertyId === ticket.propertyId,
+                        )
+                        return (
+                          <tr className="align-top hover:bg-canvas/60" key={ticket.id}>
+                            <td className="max-w-48 px-4 py-3">
+                              <p className="break-all text-xs font-semibold text-lotus-700">
+                                {ticketDisplayId(ticket)}
+                              </p>
+                              <p className="mt-1 text-xs text-muted">
+                                {ticket.propertyCode} · {ticket.location}
+                              </p>
+                              <p className="mt-1 text-xs text-muted">{formatDate(ticket.createdAt)}</p>
+                            </td>
+                            <td className="max-w-72 px-4 py-3">
+                              <p className="font-semibold text-ink">
+                                {formatTicketProblem(ticket.problemCategory, ticket.problemType)}
+                              </p>
+                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{ticket.description}</p>
+                            </td>
+                            <td className="max-w-44 px-4 py-3">
+                              <p className="font-medium text-slate-800">{ticket.requesterName}</p>
+                              <p className="mt-1 text-xs text-muted">{ticket.department || t('ไม่ระบุ')}</p>
+                            </td>
+                            <td className="min-w-48 px-4 py-3">
+                              {mode === 'update' && canMutate ? (
+                                <select
+                                  aria-label={`${t('มอบหมายให้')} ${ticketDisplayId(ticket)}`}
+                                  className="form-select min-h-10 w-full py-2 text-xs"
+                                  onChange={(event) =>
+                                    void updateAssignment(ticket, event.target.value).catch((cause: unknown) =>
+                                      setError(cause instanceof Error ? cause.message : 'มอบหมายงานไม่สำเร็จ'),
+                                    )
+                                  }
+                                  value={ticket.assignedEngineerUid}
+                                >
+                                  <option value="">{t('ยังไม่มอบหมาย')}</option>
+                                  {ticketEngineers.map((engineer) => (
+                                    <option key={engineer.uid} value={engineer.uid}>
+                                      {formatAssignableEngineerLabel(engineer)}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : ticket.assignedEngineerUid ? (
+                                ticket.assignedEngineerUid
+                              ) : (
+                                t('ยังไม่มอบหมาย')
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${ticketPriorityTone(ticket.priority)}`}
+                              >
+                                {t(ticket.priority)}
+                              </span>
+                              <p
+                                className={`mt-2 text-xs font-medium ${sla.state === 'breached' ? 'text-rose-700' : sla.state === 'dueSoon' ? 'text-amber-700' : 'text-emerald-700'}`}
+                              >
+                                {slaStateLabel(sla.state)}
+                              </p>
+                            </td>
+                            <td className="min-w-40 px-4 py-3">
+                              <span
+                                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${ticketStatusTone(ticket.status)}`}
+                              >
+                                {t(ticket.status)}
+                              </span>
+                              {mode === 'update' && canMutate && statusTransitions(ticket.status).length > 0 && (
+                                <select
+                                  aria-label={`${t('เปลี่ยนสถานะ')} ${ticketDisplayId(ticket)}`}
+                                  className="form-select mt-2 min-h-10 w-full py-2 text-xs"
+                                  onChange={(event) =>
+                                    event.target.value &&
+                                    void updateStatus(ticket, event.target.value as TicketStatus).catch(
+                                      (cause: unknown) =>
+                                        setError(cause instanceof Error ? cause.message : 'เปลี่ยนสถานะไม่สำเร็จ'),
+                                    )
+                                  }
+                                  value=""
+                                >
+                                  <option value="">{t('เปลี่ยนสถานะ')}</option>
+                                  {statusTransitions(ticket.status).map((status) => (
+                                    <option key={status} value={status}>
+                                      {t(status)}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted">{ticket.assetId || t('ไม่ระบุ Asset')}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <div>

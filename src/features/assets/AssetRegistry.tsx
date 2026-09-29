@@ -1,5 +1,6 @@
 import { t } from '../../lib/i18n';
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { ViewModeToggle, useDataViewMode } from '../../components/ViewModeToggle'
 import { useAuth } from '../auth/AuthProvider'
 import { createAsset, subscribeToAssets, syncTicketAssetOptions, updateAsset, type AssetInput, type AssetRecord, type AssetStatus } from './assetService'
 import { defaultAssetCategories, defaultDepartments, subscribeToTicketCatalog } from '../tickets/ticketCatalogService'
@@ -149,6 +150,7 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [viewMode, setViewMode] = useDataViewMode('itoms.assetRegistry.view')
   const [showCreate, setShowCreate] = useState(false)
   const [editingAsset, setEditingAsset] = useState<AssetRecord | null>(null)
   const [syncingTicketOptions, setSyncingTicketOptions] = useState(false)
@@ -216,9 +218,10 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
             <h2 className="mt-1 text-lg font-semibold text-slate-900">{t("ทะเบียนอุปกรณ์")}</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{t("ทะเบียนอุปกรณ์แยกตาม Property · สูงสุด 100 รายการล่าสุด")}</p>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-[minmax(12rem,1fr)_auto_auto] xl:w-auto xl:min-w-[35rem]">
+          <div className="grid w-full gap-2 sm:grid-cols-[minmax(12rem,1fr)_auto_auto_auto] xl:w-auto xl:min-w-[44rem]">
             <input aria-label={t("ค้นหา Asset")} className="form-input min-w-0 w-full" onChange={(event) => setSearch(event.target.value)} placeholder={t("ค้นหา Asset…")} value={search} />
             <button className="min-h-11 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-lotus-700 hover:bg-lotus-50 disabled:cursor-not-allowed disabled:opacity-50" disabled={syncingTicketOptions || loading || assets.length === 0} onClick={() => void syncOptions()} type="button">{syncingTicketOptions ? t("กำลังอัปเดต…") : t("อัปเดต Dropdown Task")}</button>
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
             <button className="min-h-11 rounded-full bg-lotus-700 px-5 py-2 text-sm font-semibold text-white hover:bg-lotus-800" onClick={() => { setEditingAsset(null); setShowCreate((value) => !value) }} type="button">{showCreate ? t("ปิดฟอร์ม") : t("เพิ่ม Asset")}</button>
           </div>
         </div>
@@ -242,7 +245,22 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
       {loading ? <p className="py-8 text-center text-sm text-slate-500" role="status">{t("กำลังโหลด Asset…")}</p> : visibleAssets.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">{t("ยังไม่มี Asset ใน Property นี้")}</p>
       ) : (
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        viewMode === 'table' ? <section className="overflow-x-auto rounded-3xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/30">
+          <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-500"><tr>
+              <th className="px-4 py-3">{t('Asset Tag')}</th><th className="px-4 py-3">{t('ชื่ออุปกรณ์')}</th><th className="px-4 py-3">{t('ประเภท:')}</th><th className="px-4 py-3">{t('แผนก:')}</th><th className="px-4 py-3">{t('สถานที่:')}</th><th className="px-4 py-3">{t('สถานะ')}</th><th className="px-4 py-3">{t('การดำเนินการ')}</th>
+            </tr></thead>
+            <tbody className="divide-y divide-slate-100">{visibleAssets.map((asset) => <tr className="align-top hover:bg-slate-50/70" key={asset.id}>
+              <td className="px-4 py-3"><p className="font-semibold text-lotus-700">{asset.propertyCode} · {asset.assetTag}</p><p className="mt-1 text-xs text-slate-500">{asset.serialNumber || '—'}</p></td>
+              <td className="max-w-56 px-4 py-3"><p className="font-semibold text-slate-900">{asset.name}</p><p className="mt-1 text-xs text-slate-500">{[asset.vendor, asset.model].filter(Boolean).join(' / ') || '—'}</p></td>
+              <td className="px-4 py-3">{t(asset.category)}</td>
+              <td className="px-4 py-3">{asset.department || t('ไม่ระบุ')}</td>
+              <td className="px-4 py-3">{asset.location}</td>
+              <td className="px-4 py-3"><div className="flex flex-wrap gap-1.5"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${asset.status === 'Under Repair' ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-200' : asset.status === 'Damaged' ? 'bg-rose-50 text-rose-800 ring-1 ring-rose-200' : asset.status === 'Retired' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-800'}`}>{t(asset.status)}</span><span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{t(asset.ownershipType === 'Leased' ? 'อุปกรณ์เช่า' : 'เป็นเจ้าของ')}</span></div></td>
+              <td className="px-4 py-3"><button className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-lotus-700 hover:bg-lotus-50" onClick={() => { setShowCreate(false); setEditingAsset(asset) }} type="button">{t('แก้ไข Asset')}</button></td>
+            </tr>)}</tbody>
+          </table>
+        </section> : <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {visibleAssets.map((asset) => (
             <article className="flex min-w-0 flex-col rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/30 transition-shadow hover:shadow-md sm:p-5" key={asset.id}>
               <div className="flex items-start justify-between gap-3">

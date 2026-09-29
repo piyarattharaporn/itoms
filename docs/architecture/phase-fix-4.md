@@ -6,7 +6,9 @@ Date: 2026-09-29
 
 Reduce avoidable Firestore Rules evaluation cost and make the Spark-only read
 contract explicit, without opening permissions, connecting a new backend, or
-changing existing production data.
+changing existing production data. The verified change set was subsequently
+released to the approved Firebase project as Rules, indexes, and static
+Hosting only.
 
 ## Implemented
 
@@ -33,6 +35,14 @@ No allow rule was widened. Ticket, Assignment, Audit, CCTV, Property, and
 cross-Property boundaries remain deny-by-default. Client Audit remains
 append-only but is not tamper-proof; trusted audit ingress is still a backend
 requirement.
+
+## Release status
+
+The verified Phase Fix 4 commit was released as `20ff7e3` to Firebase project
+`itoms-v2`. The deployment included only `firestore:rules`,
+`firestore:indexes`, and the static Hosting site at
+`https://itoms-v2.web.app`. No Cloud Functions, Cloud Storage, trusted
+backend, or migration was deployed.
 
 ## Known limitation
 

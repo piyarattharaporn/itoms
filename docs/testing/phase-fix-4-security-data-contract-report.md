@@ -5,8 +5,10 @@ Date: 2026-09-29
 ## Scope
 
 Security Rules expression-cost reduction, event/audit data contracts, CCTV
-bounded payload behavior, and Firestore query/index coverage. No Production
-Firebase connection, migration, deploy, Cloud Function, or backend was added.
+bounded payload behavior, and Firestore query/index coverage. This Phase Fix 4
+change set did not add a Cloud Function, trusted backend, migration, or new
+Production data flow. After verification, the approved Rules, indexes, and
+static Hosting release were deployed separately.
 
 ## Verification matrix
 
@@ -17,7 +19,8 @@ Firebase connection, migration, deploy, Cloud Function, or backend was added.
 | Unit/contract/lint/format quality suite | PASS — 15 unit tests, OpenAPI contract, query/index contract, lint, and format                  |
 | Production build                        | PASS — Vite production build                                                                    |
 | Emulator browser suite                  | PASS — 16/16, including navigation, WCAG, responsive, CCTV save, performance, and visual checks |
-| Production Firebase                     | Not used                                                                                        |
+| Production Firebase deployment          | PASS — Rules, indexes, and Hosting deployed to `itoms-v2` after all gates passed                |
+| Production HTTP smoke                   | PASS — `https://itoms-v2.web.app/` and `/index.html` returned HTTP 200 with security headers    |
 
 ## Changes verified by Rules tests
 
@@ -28,6 +31,14 @@ Firebase connection, migration, deploy, Cloud Function, or backend was added.
 - Injected fields on Ticket, event, Audit, Asset, RCA, PM, CCTV, and Incident
   payloads remain denied.
 - Super Admin CCTV path remains separate from Support Engineer path.
+
+## Deployment record
+
+- Commit: `20ff7e3 feat: complete phase fix 4 hardening`
+- Firebase project: `itoms-v2`
+- Deployed targets: `firestore:rules`, `firestore:indexes`, and `hosting`
+- Hosting URL: `https://itoms-v2.web.app`
+- No Cloud Functions, Cloud Storage, or trusted backend was deployed.
 
 ## Expression-budget observation
 

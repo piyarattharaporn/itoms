@@ -160,6 +160,14 @@
       ]
     },
     {
+      "collectionGroup": "cctvNvrDailyChecks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "propertyId", "order": "ASCENDING" },
+        { "fieldPath": "checkedOn", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "cctvNvrInventory",
       "queryScope": "COLLECTION",
       "fields": [

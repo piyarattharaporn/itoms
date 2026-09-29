@@ -1193,4 +1193,42 @@ describe('CCTV and Infrastructure Incident access is Property-scoped', () => {
       }),
     )
   })
+
+  it('allows scalable per-NVR daily checks while preserving Property and role boundaries', async () => {
+    const supportDb = testEnv.authenticatedContext('support-1').firestore()
+    const executiveDb = testEnv.authenticatedContext('executive-1').firestore()
+    const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
+    const crossPropertySupportDb = testEnv.authenticatedContext('support-2').firestore()
+    const checkId = 'PROP-1_2026-09-28_nvr-6'
+    const record = {
+      propertyId: 'PROP-1',
+      propertyCode: 'P1',
+      checkedOn: '2026-09-28',
+      nvrId: 'nvr-6',
+      nvrName: 'NVR 6',
+      location: 'Meeting and Fitness',
+      online: true,
+      cameraTotal: 28,
+      cameraOnline: 28,
+      retentionDays: 30,
+      targetRetentionDays: 30,
+      notes: '',
+      checkedByUid: 'support-1',
+      checkedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+
+    await assertSucceeds(setDoc(doc(supportDb, `cctvNvrDailyChecks/${checkId}`), record))
+    await assertSucceeds(getDoc(doc(executiveDb, `cctvNvrDailyChecks/${checkId}`)))
+    await assertFails(getDoc(doc(requesterDb, `cctvNvrDailyChecks/${checkId}`)))
+    await assertFails(setDoc(doc(crossPropertySupportDb, `cctvNvrDailyChecks/${checkId}`), record))
+    await assertFails(
+      setDoc(doc(supportDb, 'cctvNvrDailyChecks/PROP-1_2026-09-28_nvr-injected'), {
+        ...record,
+        nvrId: 'nvr-injected',
+        unexpected: true,
+      }),
+    )
+  })
 })

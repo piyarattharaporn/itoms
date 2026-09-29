@@ -111,6 +111,14 @@ test('CCTV check can save one NVR independently', async ({ page }) => {
   await nvrCheck.getByRole('button', { name: 'บันทึก NVR นี้ E2E-NVR-01', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('บันทึกผลตรวจ NVR E2E-NVR-01 แล้ว')
   await expect(nvrCheck.getByText('บันทึกแล้ว', { exact: true })).toBeVisible()
+
+  const exportButton = page.getByRole('button', { name: 'ส่งออกข้อมูลที่โหลด', exact: true })
+  await expect(exportButton).toBeEnabled()
+  const downloadPromise = page.waitForEvent('download')
+  await exportButton.click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/^itoms-cctv-summary-\d{4}-\d{2}\.csv$/)
+  await expect(page.getByRole('status')).toContainText('ส่งออกข้อมูล CCTV ที่โหลดแล้ว')
 })
 
 test('catalog settings exposes responsive SLA navigation and fields', async ({ page }) => {

@@ -6,12 +6,30 @@ import {
   saveCctvDailyCheck,
   saveCctvDailyCheckNvr,
   subscribeToCctvChecks,
+  subscribeToCctvNvrDailyChecks,
   type CctvDailyCheck,
   type CctvDailyCheckInput,
   type CctvNvrDetail,
+  type CctvNvrDailyCheck,
   type CctvNvrInventoryItem,
 } from './cctvDailyCheckService'
 import { CctvNvrInventoryManager } from './CctvNvrInventoryManager'
+import { recordUsageEvent } from '../../lib/telemetry'
+
+function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
+  const headers = Object.keys(rows[0] ?? {})
+  const escape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
+  const csv = [headers, ...rows.map((row) => headers.map((header) => escape(row[header] ?? '')))]
+    .map((row) => row.join(','))
+    .join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
 
 function todayInBangkok() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -125,8 +143,12 @@ function buildDraftFromInventory(
   checkedOn: string,
   inventory: CctvNvrInventoryItem[],
   savedCheck?: CctvDailyCheck,
+  savedNvrChecks: CctvNvrDailyCheck[] = [],
 ): CctvDailyCheckInput {
-  const savedByNvrId = new Map((savedCheck?.nvrDetails ?? []).map((nvr) => [nvr.nvrId, nvr]))
+  const savedByNvrId = new Map([
+    ...(savedCheck?.nvrDetails ?? []).map((nvr) => [nvr.nvrId, nvr] as const),
+    ...savedNvrChecks.map((nvr) => [nvr.nvrId, nvr] as const),
+  ])
   const inventoryIds = new Set(inventory.filter((item) => item.active).map((item) => item.id))
   const details = inventory
     .filter((item) => item.active)
@@ -162,6 +184,8 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
   const [selectedDate, setSelectedDate] = useState(today)
   const [checks, setChecks] = useState<CctvDailyCheck[]>([])
   const [calendarChecks, setCalendarChecks] = useState<CctvDailyCheck[]>([])
+  const [todayNvrChecks, setTodayNvrChecks] = useState<CctvNvrDailyCheck[]>([])
+  const [selectedDateNvrChecks, setSelectedDateNvrChecks] = useState<CctvNvrDailyCheck[]>([])
   const [nvrInventory, setNvrInventory] = useState<CctvNvrInventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [calendarLoading, setCalendarLoading] = useState(true)
@@ -226,8 +250,42 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
     )
   }, [accessState, allProperties, canRead, enabledPropertyIds, targetPropertyId, visibleMonth])
 
+  useEffect(() => {
+    if (accessState !== 'ready' || !canRead || !targetPropertyId) {
+      setTodayNvrChecks([])
+      return
+    }
+    return subscribeToCctvNvrDailyChecks(
+      allProperties ? 'all' : targetPropertyId,
+      allProperties,
+      today,
+      setTodayNvrChecks,
+      () => setError(t('โหลดรายละเอียด NVR ไม่สำเร็จ ตรวจสอบ Firestore Index')),
+      allProperties ? enabledPropertyIds : undefined,
+    )
+  }, [accessState, allProperties, canRead, enabledPropertyIds, targetPropertyId, today])
+
+  useEffect(() => {
+    if (accessState !== 'ready' || !canRead || !targetPropertyId) {
+      setSelectedDateNvrChecks([])
+      return
+    }
+    return subscribeToCctvNvrDailyChecks(
+      allProperties ? 'all' : targetPropertyId,
+      allProperties,
+      selectedDate,
+      setSelectedDateNvrChecks,
+      () => setError(t('โหลดรายละเอียด NVR ไม่สำเร็จ ตรวจสอบ Firestore Index')),
+      allProperties ? enabledPropertyIds : undefined,
+    )
+  }, [accessState, allProperties, canRead, enabledPropertyIds, selectedDate, targetPropertyId])
+
   const todayChecks = useMemo(() => checks.filter((check) => check.checkedOn === today), [checks, today])
   const selectedTodayCheck = todayChecks.find((check) => check.propertyId === targetPropertyId)
+  const selectedTodayNvrChecks = useMemo(
+    () => todayNvrChecks.filter((check) => check.propertyId === targetPropertyId),
+    [targetPropertyId, todayNvrChecks],
+  )
   const selectedDateChecks = calendarChecks
     .filter((check) => check.checkedOn === selectedDate)
     .sort((a, b) => a.propertyCode.localeCompare(b.propertyCode))
@@ -248,8 +306,15 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
 
   const draftFromSavedCheck = useMemo(
     () =>
-      buildDraftFromInventory(targetPropertyId, targetProperty?.code ?? '', today, nvrInventory, selectedTodayCheck),
-    [nvrInventory, selectedTodayCheck, targetProperty?.code, targetPropertyId, today],
+      buildDraftFromInventory(
+        targetPropertyId,
+        targetProperty?.code ?? '',
+        today,
+        nvrInventory,
+        selectedTodayCheck,
+        selectedTodayNvrChecks,
+      ),
+    [nvrInventory, selectedTodayCheck, selectedTodayNvrChecks, targetProperty?.code, targetPropertyId, today],
   )
 
   useEffect(() => {
@@ -315,7 +380,6 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
         { ...draft, propertyId: targetProperty.id, propertyCode: targetProperty.code, checkedOn: today },
         nvr,
         firebaseUser.uid,
-        maxNvrDetails,
       )
       setNotice(`บันทึกผลตรวจ NVR ${nvr.nvrName || nvr.nvrId} แล้ว`)
     } catch (cause) {
@@ -325,10 +389,33 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
     }
   }
 
+  function exportLoadedCctvData() {
+    if (calendarChecks.length === 0) {
+      setNotice(t('ยังไม่มีข้อมูล CCTV ที่โหลดสำหรับส่งออก'))
+      return
+    }
+    downloadCsv(
+      `itoms-cctv-summary-${visibleMonth}.csv`,
+      calendarChecks.map((check) => ({
+        propertyCode: check.propertyCode,
+        checkedOn: check.checkedOn,
+        nvrTotal: check.nvrTotal,
+        nvrOnline: check.nvrOnline,
+        cameraTotal: check.cameraTotal,
+        cameraOnline: check.cameraOnline,
+        nvrDetailsLoaded: check.nvrDetails.length,
+      })),
+    )
+    recordUsageEvent('cctv_exported', { feature: 'cctv', count: calendarChecks.length })
+    setNotice(t('ส่งออกข้อมูล CCTV ที่โหลดแล้ว'))
+  }
+
   if (!canRead) return null
 
   const todayTargetChecked = Boolean(selectedTodayCheck)
   const monthIsCurrent = visibleMonth === today.slice(0, 7)
+  const activeNvrCount = nvrInventory.filter((item) => item.active).length
+  const largeNvrMode = activeNvrCount > maxNvrDetails
 
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100/70">
@@ -357,6 +444,12 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
           </label>
         )}
       </div>
+
+      <p className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">
+        {t(
+          'โหมด Spark: สรุปผลตรวจยังเป็นข้อมูลแบบ bounded ส่วนรายละเอียดราย NVR แยกเก็บเป็นรายการต่อเครื่องเพื่อรองรับจำนวนมากขึ้น',
+        )}
+      </p>
 
       {allProperties && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -464,8 +557,19 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
                 {t('วันนี้')}
               </button>
             )}
+            <button
+              className="rounded-full border border-lotus-200 bg-white px-3 py-2 text-sm font-medium text-lotus-700 hover:bg-lotus-50 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={calendarChecks.length === 0}
+              onClick={exportLoadedCctvData}
+              type="button"
+            >
+              {t('ส่งออกข้อมูลที่โหลด')}
+            </button>
           </div>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          {t('ส่งออกเฉพาะสรุป CCTV ของเดือนที่โหลดอยู่ ไม่ใช่การ Export ประวัติทั้งหมด')}
+        </p>
 
         <div
           aria-label={t('วันในสัปดาห์')}
@@ -564,6 +668,7 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
               const offlineNvr = check.nvrTotal - check.nvrOnline
               const offlineCameras = check.cameraTotal - check.cameraOnline
               const offline = checkNeedsAttention(check)
+              const nvrDetailsForDate = selectedDateNvrChecks.filter((item) => item.propertyId === check.propertyId)
               return (
                 <li
                   className={`rounded-xl border p-4 ${offline ? 'border-amber-100 bg-amber-50/60' : 'border-emerald-100 bg-emerald-50/50'}`}
@@ -590,10 +695,10 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
                       {t('กล้อง: Online')} {check.cameraOnline}/{check.cameraTotal} · {t('Offline')} {offlineCameras}
                     </p>
                   </div>
-                  {check.nvrDetails.length > 0 ? (
+                  {nvrDetailsForDate.length > 0 || check.nvrDetails.length > 0 ? (
                     <div className="mt-4 space-y-2">
                       <p className="text-xs font-semibold text-slate-600">{t('รายละเอียดแยกตาม NVR')}</p>
-                      {check.nvrDetails.map((nvr) => {
+                      {(nvrDetailsForDate.length > 0 ? nvrDetailsForDate : check.nvrDetails).map((nvr) => {
                         const nvrOfflineCameras = nvr.cameraTotal - nvr.cameraOnline
                         return (
                           <article
@@ -936,12 +1041,19 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
           <div className="mt-4 flex justify-end">
             <button
               className="rounded-xl bg-lotus-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-lotus-700 disabled:opacity-50"
-              disabled={saving || !targetProperty}
+              disabled={saving || !targetProperty || largeNvrMode}
               type="submit"
             >
               {saving ? t('กำลังบันทึก…') : t(todayTargetChecked ? 'อัปเดตผลตรวจ' : 'บันทึกผลตรวจ')}
             </button>
           </div>
+          {largeNvrMode && (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              {t(
+                'Property นี้มี NVR มากกว่าขีดจำกัดของเอกสารสรุป กรุณาบันทึกแยกทีละ NVR ระบบจะเก็บรายละเอียดในรายการต่อเครื่อง',
+              )}
+            </p>
+          )}
         </form>
       )}
     </section>

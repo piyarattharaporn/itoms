@@ -21,4 +21,22 @@ The local Trusted Backend still owns Ticket mutations, Audit Event writes, and p
 
 ## Phase 7 production-readiness boundary
 
-Phase 7 adds repository-side preflight checks, emulator-only server guardrails, and go-live runbooks. It does not deploy a Production Firebase project or backend. Production App Check enforcement, distributed rate limiting, scheduled SLA workers, backup/restore evidence, monitoring, data retention, and access review remain explicit approval gates.
+Phase 7 adds repository-side preflight checks, emulator-only server guardrails,
+and go-live runbooks. The approved Firebase project, App Check enforcement,
+and static Hosting release are now in place, but no trusted Production
+backend has been deployed. Distributed rate limiting, scheduled SLA workers,
+backup/restore evidence, monitoring, data retention, and access review remain
+explicit approval gates.
+
+## Phase Fix 5 Spark operational boundary
+
+Phase Fix 5 keeps the Spark-only path operational as data grows without
+weakening Rules or pretending that client-side reads are an unlimited report.
+CCTV daily summaries remain backward-compatible aggregate documents, while
+per-NVR daily checks use one document per Property/date/NVR. The UI exposes the
+loaded-data boundary and provides a manual CSV export of the loaded summary.
+Full historical export, scheduled retention, and exact global reporting still
+require an approved trusted backend or managed export process.
+
+Release status: the Phase Fix 5 changes are currently repository-verified only;
+no Phase Fix 5 Production Hosting, Rules, or index deploy has been performed.

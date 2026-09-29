@@ -2,7 +2,15 @@
 
 ## Scope
 
-Phase 7 closed the repository-level gaps before production provisioning. The Production Firebase project is now provisioned and Cloud Firestore App Check enforcement is enabled, but no application build, trusted backend, scheduled worker, or production data migration has been deployed.
+Phase 7 closed the repository-level gaps before production provisioning. The
+Production Firebase project is provisioned, Cloud Firestore App Check
+enforcement is enabled, and the static Vite build plus Rules/indexes are
+deployed to the approved Hosting site. No trusted backend, scheduled worker,
+or production data migration has been deployed.
+
+The Phase Fix 5 per-NVR collection Rules/index and CCTV UI changes are verified
+locally but are not included in a new Production Hosting/Firestore deployment
+yet. They require a separate explicit release approval.
 
 ## Delivered in the repository
 
@@ -13,6 +21,7 @@ Phase 7 closed the repository-level gaps before production provisioning. The Pro
 - Disaster recovery and monitoring runbooks define the evidence required before go-live.
 - Phase 7 guardrail tests run together with the trusted boundary tests.
 - Spark-only client mutation and Rules tests cover the no-backend operating path.
+- The approved Spark-only Hosting release is `https://itoms-v2.web.app`.
 
 ## Recommended target architecture
 
@@ -57,3 +66,4 @@ The preflight is a local validation only. It does not log in, read Firebase, dep
 - App Check is initialized by the client only; Cloud Firestore enforcement is now enabled in Firebase Console and must be validated against a production-configured client before user rollout.
 - Client telemetry is not a quota, billing, security, or incident source of truth.
 - The local rate limiter is not suitable for multiple instances.
+- Spark operations provide manual CSV export of the currently loaded bounded CCTV summary only; scheduled export, retention automation, and full historical export remain unavailable.

@@ -29,6 +29,15 @@ export interface CctvDailyCheck {
   checkedAt: Date | null
 }
 
+export interface CctvNvrDailyCheck extends CctvNvrDetail {
+  id: string
+  propertyId: string
+  propertyCode: string
+  checkedOn: string
+  checkedByUid: string
+  checkedAt: Date | null
+}
+
 export interface CctvNvrDetail {
   nvrId: string
   nvrName?: string
@@ -82,11 +91,13 @@ export function retentionDaysFromOldestDate(checkedOn: string, oldestFootageOn: 
 }
 
 function normalizeNvrDetail(nvr: CctvNvrDetail): CctvNvrDetail {
-  return {
+  const normalized = {
     ...nvr,
     nvrId: nvr.nvrId.trim(),
     notes: nvr.notes.trim(),
   }
+  if (!normalized.oldestFootageOn) delete normalized.oldestFootageOn
+  return normalized
 }
 
 function prepareDailyCheckInput(input: CctvDailyCheckInput, maxNvrDetails = 5): CctvDailyCheckInput {
@@ -304,6 +315,82 @@ export function subscribeToCctvNvrInventory(
   )
 }
 
+function parseNvrDailyCheck(id: string, data: DocumentData): CctvNvrDailyCheck | null {
+  if (
+    typeof data.propertyId !== 'string' ||
+    typeof data.propertyCode !== 'string' ||
+    typeof data.checkedOn !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(data.checkedOn) ||
+    typeof data.nvrId !== 'string' ||
+    typeof data.online !== 'boolean' ||
+    !Number.isInteger(data.cameraTotal) ||
+    !Number.isInteger(data.cameraOnline) ||
+    !Number.isInteger(data.retentionDays) ||
+    typeof data.notes !== 'string' ||
+    typeof data.checkedByUid !== 'string'
+  )
+    return null
+  return {
+    id,
+    propertyId: data.propertyId,
+    propertyCode: data.propertyCode,
+    checkedOn: data.checkedOn,
+    nvrId: data.nvrId,
+    ...(typeof data.nvrName === 'string' ? { nvrName: data.nvrName } : {}),
+    ...(typeof data.location === 'string' ? { location: data.location } : {}),
+    online: data.online,
+    cameraTotal: data.cameraTotal,
+    cameraOnline: data.cameraOnline,
+    retentionDays: data.retentionDays,
+    ...(typeof data.oldestFootageOn === 'string' ? { oldestFootageOn: data.oldestFootageOn } : {}),
+    ...(Number.isInteger(data.targetRetentionDays) ? { targetRetentionDays: data.targetRetentionDays } : {}),
+    notes: data.notes,
+    checkedByUid: data.checkedByUid,
+    checkedAt: asDate(data.checkedAt),
+  }
+}
+
+export function subscribeToCctvNvrDailyChecks(
+  propertyId: string,
+  allProperties: boolean,
+  checkedOn: string,
+  onItems: (items: CctvNvrDailyCheck[]) => void,
+  onError: () => void,
+  includedPropertyIds?: string[],
+) {
+  const groups =
+    allProperties && includedPropertyIds
+      ? Array.from({ length: Math.ceil(includedPropertyIds.length / 10) }, (_, index) =>
+          includedPropertyIds.slice(index * 10, index * 10 + 10),
+        )
+      : [allProperties ? [] : [propertyId]]
+  if (groups.length === 0) {
+    onItems([])
+    return () => undefined
+  }
+
+  const results = new Map<number, CctvNvrDailyCheck[]>()
+  const unsubscribes = groups.map((propertyIds, index) => {
+    const constraints: QueryConstraint[] = [where('checkedOn', '==', checkedOn), limit(500)]
+    if (allProperties && includedPropertyIds) constraints.unshift(where('propertyId', 'in', propertyIds))
+    else if (!allProperties) constraints.unshift(where('propertyId', '==', propertyId))
+    return onSnapshot(
+      query(collection(firestore(), 'cctvNvrDailyChecks'), ...constraints),
+      (snapshot) => {
+        results.set(
+          index,
+          snapshot.docs
+            .map((item) => parseNvrDailyCheck(item.id, item.data()))
+            .filter((item): item is CctvNvrDailyCheck => item !== null),
+        )
+        onItems([...results.values()].flat().sort((a, b) => a.nvrId.localeCompare(b.nvrId)))
+      },
+      onError,
+    )
+  })
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe())
+}
+
 export async function saveCctvNvrInventory(input: CctvNvrInventoryInput, actorUid: string, existingId?: string) {
   const value = { ...input, name: input.name.trim(), location: input.location.trim() }
   if (!value.propertyId || !value.propertyCode || !value.name || value.name.length > 100)
@@ -357,26 +444,72 @@ export async function saveCctvDailyCheck(input: CctvDailyCheckInput, actorUid: s
   })
 }
 
-export async function saveCctvDailyCheckNvr(
-  input: CctvDailyCheckInput,
-  nvr: CctvNvrDetail,
-  actorUid: string,
-  maxNvrDetails = 5,
-) {
+export async function saveCctvDailyCheckNvr(input: CctvDailyCheckInput, nvr: CctvNvrDetail, actorUid: string) {
   if (!actorUid) throw new Error('กรุณาเข้าสู่ระบบใหม่')
-  const ref = doc(firestore(), 'cctvDailyChecks', `${input.propertyId}_${input.checkedOn}`)
+  const normalized = prepareDailyCheckInput({ ...input, nvrDetails: [nvr] }, 1)
+  const detail = normalized.nvrDetails[0]
+  const aggregateRef = doc(firestore(), 'cctvDailyChecks', `${input.propertyId}_${input.checkedOn}`)
+  const nvrRef = doc(firestore(), 'cctvNvrDailyChecks', `${input.propertyId}_${input.checkedOn}_${detail.nvrId}`)
   await runTransaction(firestore(), async (transaction) => {
-    const existing = await transaction.get(ref)
-    const existingDetails = existing.exists() ? persistedNvrDetails(existing.data().nvrDetails) : []
-    const mergedDetails = [...existingDetails.filter((item) => item.nvrId !== nvr.nvrId), nvr]
-    const value = prepareDailyCheckInput({ ...input, nvrDetails: mergedDetails }, maxNvrDetails)
-    const checked = {
-      ...value,
+    const [existingAggregate, existingNvr] = await Promise.all([transaction.get(aggregateRef), transaction.get(nvrRef)])
+    const aggregateData = existingAggregate.exists() ? existingAggregate.data() : {}
+    const currentDetails = persistedNvrDetails(aggregateData.nvrDetails)
+    // Legacy aggregate documents may already contain this NVR before the
+    // scalable per-NVR document existed. Treat it as the previous value so
+    // the first per-NVR save does not double-count aggregate totals.
+    const previous = existingNvr.exists()
+      ? parseNvrDailyCheck(nvrRef.id, existingNvr.data())
+      : (currentDetails.find((item) => item.nvrId === detail.nvrId) ?? null)
+    const previousNvrTotal = previous ? 1 : 0
+    const previousNvrOnline = previous?.online ? 1 : 0
+    const previousCameraTotal = previous?.cameraTotal ?? 0
+    const previousCameraOnline = previous?.cameraOnline ?? 0
+    const embeddedDetails = currentDetails.some((item) => item.nvrId === detail.nvrId)
+      ? currentDetails.map((item) => (item.nvrId === detail.nvrId ? detail : item))
+      : currentDetails.length < 5
+        ? [...currentDetails, detail]
+        : currentDetails
+    const aggregate = {
+      ...normalized,
+      nvrTotal: Math.max(
+        0,
+        (Number.isInteger(aggregateData.nvrTotal) ? aggregateData.nvrTotal : 0) - previousNvrTotal + 1,
+      ),
+      nvrOnline: Math.max(
+        0,
+        (Number.isInteger(aggregateData.nvrOnline) ? aggregateData.nvrOnline : 0) -
+          previousNvrOnline +
+          (detail.online ? 1 : 0),
+      ),
+      cameraTotal: Math.max(
+        0,
+        (Number.isInteger(aggregateData.cameraTotal) ? aggregateData.cameraTotal : 0) -
+          previousCameraTotal +
+          detail.cameraTotal,
+      ),
+      cameraOnline: Math.max(
+        0,
+        (Number.isInteger(aggregateData.cameraOnline) ? aggregateData.cameraOnline : 0) -
+          previousCameraOnline +
+          detail.cameraOnline,
+      ),
+      nvrDetails: embeddedDetails,
       checkedByUid: actorUid,
       checkedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }
-    if (existing.exists()) transaction.update(ref, checked)
-    else transaction.set(ref, { ...checked, createdAt: serverTimestamp() })
+    if (existingAggregate.exists()) transaction.update(aggregateRef, aggregate)
+    else transaction.set(aggregateRef, { ...aggregate, createdAt: serverTimestamp() })
+    const nvrCheck = {
+      ...detail,
+      propertyId: input.propertyId,
+      propertyCode: input.propertyCode.trim(),
+      checkedOn: input.checkedOn,
+      checkedByUid: actorUid,
+      checkedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+    if (existingNvr.exists()) transaction.update(nvrRef, nvrCheck)
+    else transaction.set(nvrRef, { ...nvrCheck, createdAt: serverTimestamp() })
   })
 }

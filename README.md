@@ -67,6 +67,15 @@ tamper-proof audit remain backend work. See
 [`docs/architecture/query-index-contract.md`](docs/architecture/query-index-contract.md),
 and [`docs/testing/phase-fix-4-security-data-contract-report.md`](docs/testing/phase-fix-4-security-data-contract-report.md).
 
+Phase Fix 5 keeps the Spark-only path usable as CCTV/NVR data grows. New
+per-NVR daily checks are stored one document per Property/date/NVR while the
+legacy aggregate remains available for compatibility. The CCTV page exposes
+the loaded-data boundary and can export the currently loaded monthly summary
+as CSV. This is a bounded operational export, not a backup or full historical
+extract. See [`docs/architecture/phase-fix-5.md`](docs/architecture/phase-fix-5.md),
+[`docs/operations/spark-manual-export-retention.md`](docs/operations/spark-manual-export-retention.md),
+and [`docs/testing/phase-fix-5-spark-operational-report.md`](docs/testing/phase-fix-5-spark-operational-report.md).
+
 ## Quality checks
 
 The repository includes the following repeatable QA commands:

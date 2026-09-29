@@ -21,6 +21,7 @@ const required = [
   ['pmSchedules', 'propertyId:ASCENDING,nextDueOn:ASCENDING'],
   ['infrastructureIncidents', 'propertyId:ASCENDING,startedAt:DESCENDING'],
   ['cctvDailyChecks', 'propertyId:ASCENDING,checkedOn:DESCENDING'],
+  ['cctvNvrDailyChecks', 'propertyId:ASCENDING,checkedOn:DESCENDING'],
   ['cctvNvrInventory', 'propertyId:ASCENDING,name:ASCENDING'],
   ['operationalTodos', 'propertyId:ASCENDING,startDate:DESCENDING'],
   ['operationalTodoCompletions', 'propertyId:ASCENDING,occurrenceDate:ASCENDING'],

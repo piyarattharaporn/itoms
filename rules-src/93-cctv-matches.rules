@@ -67,3 +67,27 @@
         && validCctvNvrInventory(request.resource.data);
       allow delete: if false;
     }
+
+    match /cctvNvrDailyChecks/{checkId} {
+      // One document per NVR/date avoids the legacy embedded-list limit on
+      // cctvDailyChecks. The aggregate document remains for compatibility and
+      // dashboard totals; this collection is the scalable detail source.
+      allow get, list: if isSuperAdmin()
+        || (cctvEnabledForProperty(resource.data.propertyId)
+          && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
+      allow create: if validCctvNvrDailyCheck(request.resource.data)
+        && canManageProperty(request.resource.data.propertyId)
+        && cctvEnabledForProperty(request.resource.data.propertyId)
+        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn + '_' + request.resource.data.nvrId;
+      allow update: if validCctvNvrDailyCheck(request.resource.data)
+        && canManageProperty(resource.data.propertyId)
+        && cctvEnabledForProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.checkedOn == resource.data.checkedOn
+        && request.resource.data.nvrId == resource.data.nvrId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn + '_' + request.resource.data.nvrId;
+      allow delete: if false;
+    }

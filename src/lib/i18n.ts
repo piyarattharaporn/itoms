@@ -656,6 +656,18 @@ const englishFeature: Record<string, string> = {
   'ตรวจแล้ว Online ครบ': 'Checked: all online',
   'ตัวเลขมาจากผลตรวจที่ทีมบันทึกวันนี้ ระบบยังไม่ได้เชื่อมต่อดึงสถานะจาก NVR โดยตรง':
     'Counts come from today’s manually recorded check; the system does not read NVR status directly.',
+  'โหลดรายละเอียด NVR ไม่สำเร็จ ตรวจสอบ Firestore Index': 'Could not load per-NVR details. Check Firestore indexes.',
+  'ยังไม่มีข้อมูล CCTV ที่โหลดสำหรับส่งออก': 'No loaded CCTV data is available to export.',
+  'ส่งออกข้อมูล CCTV ที่โหลดแล้ว': 'Loaded CCTV data exported.',
+  'โหมด Spark: สรุปผลตรวจยังเป็นข้อมูลแบบ bounded ส่วนรายละเอียดราย NVR แยกเก็บเป็นรายการต่อเครื่องเพื่อรองรับจำนวนมากขึ้น':
+    'Spark mode: check summaries remain bounded, while per-NVR details are stored as one record per device for larger inventories.',
+  ส่งออกข้อมูลที่โหลด: 'Export loaded data',
+  'แสดงทะเบียน NVR สูงสุด 200 รายการต่อ Property ในโหมด Spark':
+    'Spark mode loads up to 200 NVR inventory records per Property',
+  'ส่งออกเฉพาะสรุป CCTV ของเดือนที่โหลดอยู่ ไม่ใช่การ Export ประวัติทั้งหมด':
+    'Exports only the loaded month’s CCTV summary; it is not a full historical export.',
+  'Property นี้มี NVR มากกว่าขีดจำกัดของเอกสารสรุป กรุณาบันทึกแยกทีละ NVR ระบบจะเก็บรายละเอียดในรายการต่อเครื่อง':
+    'This property has more NVRs than the aggregate document limit. Save each NVR separately; details are stored per device.',
   ตั้งแต่วันที่: 'From date',
   'ตาม Property': 'By property',
   'ภาพรวมตาม Property': 'Property coverage',

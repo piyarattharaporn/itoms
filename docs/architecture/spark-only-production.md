@@ -25,6 +25,9 @@ Firebase Hosting may serve the static Vite build. The project must remain within
 - Append-only operational events and audit records from the client.
 - App Check enforcement for Cloud Firestore.
 - Client-side SLA indicators based on priority and ticket timestamps.
+- CCTV daily summaries remain compatible with legacy documents while new
+  per-NVR daily checks are stored as one document per device/date.
+- Manual CSV export is available for the currently loaded bounded CCTV summary.
 - Emulator-based Rules, build, restore, and role-boundary testing.
 
 ## Explicit limitations
@@ -32,7 +35,7 @@ Firebase Hosting may serve the static Vite build. The project must remain within
 - Client-created Audit Logs are append-only to normal users but are not tamper-proof. A user with a valid account can fabricate a structurally valid event within their permitted Property.
 - Client timestamps and SLA calculations are advisory. There is no trusted worker to continuously evaluate breaches, pause clocks, or send notifications.
 - No email, LINE, Slack, webhook, or push notification worker is active.
-- No automatic user provisioning, role assignment, data export, scheduled backup, PITR, or managed restore drill is available in Spark-only mode.
+- No automatic user provisioning, role assignment, scheduled export, scheduled backup, PITR, or managed restore drill is available in Spark-only mode. Manual export is limited to the data loaded in the current screen.
 - Search is bounded client-side over the loaded page. Full-text/server-side search remains future work.
 - A malicious client can consume Firestore quota within the limits allowed by Rules; App Check reduces abuse but is not an accounting source of truth.
 

@@ -32,6 +32,13 @@ Run Firestore Rules tests locally with:
 npm run test:rules
 ```
 
+For the controlled Phase Fix 1.1 legacy-schema check, use the dedicated
+sampling script. It reports documents missing `updatedAt`, creates only
+`PHASE-FIX-1-1-SAMPLE-` records, verifies the expected gap, and removes those
+records after the check. Production mode requires an explicit project
+confirmation; never use it as a general data migration command. See
+[`docs/architecture/phase-fix-1-1.md`](docs/architecture/phase-fix-1-1.md).
+
 ## Quality checks
 
 The repository includes the following repeatable QA commands:

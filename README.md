@@ -47,6 +47,16 @@ these pages are limited to rows loaded in the browser; see
 verification report at
 [`docs/testing/phase-fix-2-read-scalability-report.md`](docs/testing/phase-fix-2-read-scalability-report.md).
 
+Phase Fix 3 adds production-hardening behavior for the paginated list pages:
+the SPA root is marked no-cache so a new release is not hidden by a stale
+shell, each list exposes a manual refresh and last-updated time, and scope
+changes cancel stale asynchronous results before they can overwrite the new
+Property view. These are snapshot-read improvements; search and counts still
+describe the rows loaded in the browser, not global collection aggregates. See
+[`docs/architecture/phase-fix-3.md`](docs/architecture/phase-fix-3.md) and the
+verification report at
+[`docs/testing/phase-fix-3-production-hardening-report.md`](docs/testing/phase-fix-3-production-hardening-report.md).
+
 ## Quality checks
 
 The repository includes the following repeatable QA commands:

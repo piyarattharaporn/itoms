@@ -1,5 +1,6 @@
 import { t } from '../../lib/i18n'
 import { useEffect, useMemo, useState } from 'react'
+import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { ViewModeToggle, useDataViewMode } from '../../components/ViewModeToggle'
 import { useAuth } from '../auth/AuthProvider'
 import { getAssetPage, type AssetPageCursor, type AssetRecord } from './assetService'
@@ -51,6 +52,8 @@ export function DamagedAssetsPage({
   const [statusFilter, setStatusFilter] = useState<'all' | 'Damaged' | 'Under Repair' | 'Retired'>('all')
   const [nextCursor, setNextCursor] = useState<AssetPageCursor>(null)
   const [hasMore, setHasMore] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
     if (accessState !== 'ready') return
@@ -65,18 +68,26 @@ export function DamagedAssetsPage({
     setAssets([])
     setNextCursor(null)
     setHasMore(false)
+    setLastUpdated(null)
+    let cancelled = false
     void getAssetPage(selectedPropertyId, allProperties, 25, null, true)
       .then((page) => {
+        if (cancelled) return
         setAssets(page.items)
         setNextCursor(page.nextCursor)
         setHasMore(page.hasMore)
+        setLastUpdated(new Date())
         setLoading(false)
       })
       .catch(() => {
+        if (cancelled) return
         setError(t('โหลดรายการ Asset ไม่สำเร็จ ตรวจสอบ Firestore Rules และ Indexes'))
         setLoading(false)
       })
-  }, [accessState, canRead, selectedPropertyId, allProperties])
+    return () => {
+      cancelled = true
+    }
+  }, [accessState, canRead, selectedPropertyId, allProperties, reloadKey])
 
   async function loadMore() {
     if (!nextCursor || loading) return
@@ -86,11 +97,16 @@ export function DamagedAssetsPage({
       setAssets((current) => [...current, ...page.items])
       setNextCursor(page.nextCursor)
       setHasMore(page.hasMore)
+      setLastUpdated(new Date())
     } catch {
       setError(t('โหลดรายการเพิ่มไม่สำเร็จ'))
     } finally {
       setLoading(false)
     }
+  }
+
+  function refresh() {
+    setReloadKey((value) => value + 1)
   }
 
   const damaged = useMemo(() => {
@@ -233,6 +249,7 @@ export function DamagedAssetsPage({
           {t(error)}
         </p>
       )}
+      <DataFreshnessBar lastUpdated={lastUpdated} loading={loading} onRefresh={refresh} />
       {loading && assets.length === 0 ? (
         <p className="py-10 text-center text-sm text-slate-500" role="status">
           {t('กำลังโหลดรายการอุปกรณ์…')}

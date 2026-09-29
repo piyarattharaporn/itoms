@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { getLocale, t } from '../../lib/i18n'
 import { useAuth } from '../auth/AuthProvider'
 import { getSlaSnapshot } from '../tickets/sla'
@@ -90,6 +91,8 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
   const [savedMessage, setSavedMessage] = useState('')
   const [ownerOptions, setOwnerOptions] = useState<AssignableEngineer[]>([])
   const [ownerOptionsLoading, setOwnerOptionsLoading] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const ownerPropertyId = selectedTask?.propertyId ?? editingRca?.propertyId ?? ''
 
@@ -134,18 +137,29 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
     setRcaCursor(null)
     setTicketsMore(false)
     setRcasMore(false)
+    setLastUpdated(null)
+    let cancelled = false
     void Promise.all([getCompletedTasksPage(ticketAccess, 25), getRcaPage(selectedPropertyId, allProperties, 25)])
       .then(([ticketPage, rcaPage]) => {
+        if (cancelled) return
         setTickets(ticketPage.items)
         setTicketCursor(ticketPage.nextCursor)
         setTicketsMore(ticketPage.hasMore)
         setRcas(rcaPage.items)
         setRcaCursor(rcaPage.nextCursor)
         setRcasMore(rcaPage.hasMore)
+        setLastUpdated(new Date())
       })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : t('โหลด RCA ไม่สำเร็จ')))
-      .finally(() => setLoading(false))
-  }, [accessState, allProperties, canRead, selectedPropertyId, ticketAccess])
+      .catch((cause) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : t('โหลด RCA ไม่สำเร็จ'))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [accessState, allProperties, canRead, reloadKey, selectedPropertyId, ticketAccess])
 
   const filteredTickets = useMemo(() => {
     const term = search.trim().toLocaleLowerCase()
@@ -256,6 +270,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
       setRcas(refreshed.items)
       setRcaCursor(refreshed.nextCursor)
       setRcasMore(refreshed.hasMore)
+      setLastUpdated(new Date())
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('บันทึก RCA ไม่สำเร็จ'))
     } finally {
@@ -279,11 +294,16 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
         setRcaCursor(page.nextCursor)
         setRcasMore(page.hasMore)
       }
+      setLastUpdated(new Date())
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('โหลดรายการเพิ่มไม่สำเร็จ'))
     } finally {
       setLoadingMore(false)
     }
+  }
+
+  function refresh() {
+    setReloadKey((value) => value + 1)
   }
 
   if (accessState === 'loading')
@@ -407,6 +427,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
           {t(error)}
         </p>
       )}
+      <DataFreshnessBar lastUpdated={lastUpdated} loading={loading || loadingMore} onRefresh={refresh} />
       {savedMessage && (
         <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
           {savedMessage}

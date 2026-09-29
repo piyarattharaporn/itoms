@@ -1,5 +1,6 @@
 import { t } from '../../lib/i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { ViewModeToggle, useDataViewMode } from '../../components/ViewModeToggle'
 import { useAuth } from '../auth/AuthProvider'
 import {
@@ -577,6 +578,7 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
   const [nextCursor, setNextCursor] = useState<AssetPageCursor>(null)
   const [hasMore, setHasMore] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const allProperties = isSuperAdmin && selectedPropertyId === 'all'
 
   useEffect(() => {
@@ -592,17 +594,25 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
     setAssets([])
     setNextCursor(null)
     setHasMore(false)
+    setLastUpdated(null)
+    let cancelled = false
     void getAssetPage(selectedPropertyId, allProperties, 25)
       .then((page) => {
+        if (cancelled) return
         setAssets(page.items)
         setNextCursor(page.nextCursor)
         setHasMore(page.hasMore)
+        setLastUpdated(new Date())
         setLoading(false)
       })
       .catch(() => {
+        if (cancelled) return
         setError(t('โหลด Asset ไม่สำเร็จ ตรวจสอบ Firestore Rules และ Indexes'))
         setLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
   }, [accessState, canManage, selectedPropertyId, allProperties, reloadKey])
 
   async function loadMore() {
@@ -613,11 +623,16 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
       setAssets((current) => [...current, ...page.items])
       setNextCursor(page.nextCursor)
       setHasMore(page.hasMore)
+      setLastUpdated(new Date())
     } catch {
       setError(t('โหลดรายการเพิ่มไม่สำเร็จ'))
     } finally {
       setLoading(false)
     }
+  }
+
+  function refresh() {
+    setReloadKey((value) => value + 1)
   }
 
   const visibleAssets = useMemo(() => {
@@ -732,6 +747,7 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
             {t(error)}
           </p>
         )}
+        <DataFreshnessBar lastUpdated={lastUpdated} loading={loading} onRefresh={refresh} />
         <p className="mt-3 text-xs leading-5 text-slate-500">
           {t('ปุ่มนี้ sync เฉพาะ Asset ที่โหลดอยู่ในหน้านี้; เพิ่มหรือแก้ไข Asset ใหม่จะอัปเดต Dropdown อัตโนมัติ')}
         </p>

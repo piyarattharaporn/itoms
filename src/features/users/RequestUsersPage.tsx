@@ -1,5 +1,6 @@
 import { t } from '../../lib/i18n'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { useAuth } from '../auth/AuthProvider'
 import { defaultDepartments, subscribeToTicketCatalog } from '../tickets/ticketCatalogService'
 import { subscribeToTicketAssets, type TicketAssetOption } from '../tickets/ticketAssetService'
@@ -44,6 +45,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
   const [nextCursor, setNextCursor] = useState<RequestUserPageCursor>(null)
   const [hasMore, setHasMore] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
     if (selectedPropertyId !== 'all') setTargetPropertyId(selectedPropertyId)
@@ -96,17 +98,25 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
     setUsers([])
     setNextCursor(null)
     setHasMore(false)
+    setLastUpdated(null)
+    let cancelled = false
     void getRequestUserPage(selectedPropertyId, allProperties, 25)
       .then((page) => {
+        if (cancelled) return
         setUsers(page.items)
         setNextCursor(page.nextCursor)
         setHasMore(page.hasMore)
+        setLastUpdated(new Date())
         setLoading(false)
       })
       .catch(() => {
+        if (cancelled) return
         setError(t('โหลด Request User ไม่สำเร็จ ตรวจสอบ Firestore Rules และ Indexes'))
         setLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
   }, [accessState, canManage, selectedPropertyId, allProperties, reloadKey])
 
   async function loadMore() {
@@ -117,11 +127,16 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
       setUsers((current) => [...current, ...page.items])
       setNextCursor(page.nextCursor)
       setHasMore(page.hasMore)
+      setLastUpdated(new Date())
     } catch {
       setError(t('โหลดรายการเพิ่มไม่สำเร็จ'))
     } finally {
       setLoading(false)
     }
+  }
+
+  function refresh() {
+    setReloadKey((value) => value + 1)
   }
 
   // Keep Firestore cursor order stable across pages. A client-side sort by
@@ -434,6 +449,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
             {t(error)}
           </p>
         )}
+        <DataFreshnessBar lastUpdated={lastUpdated} loading={loading} onRefresh={refresh} />
         {loading && users.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500" role="status">
             {t('กำลังโหลดรายชื่อ…')}

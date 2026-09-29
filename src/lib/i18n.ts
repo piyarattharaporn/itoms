@@ -656,6 +656,14 @@ const englishFeature: Record<string, string> = {
     'Counts come from today’s manually recorded check; the system does not read NVR status directly.',
   ตั้งแต่วันที่: 'From date',
   'ตาม Property': 'By property',
+  'ภาพรวมตาม Property': 'Property coverage',
+  'ใช้เป็นตัวชี้วัดขอบเขตข้อมูล ไม่ขยายตามจำนวน Property':
+    'A compact scope summary that stays stable as properties grow',
+  'Property ที่มีงาน': 'Properties with tasks',
+  งานมากที่สุด: 'Most tasks',
+  ยังไม่มีข้อมูล: 'No data yet',
+  แสดงรายการเด่น: 'Showing top',
+  'รายการที่เหลือรวมไว้ใน อื่น ๆ': 'Remaining items are grouped into Other',
   ตามหมวดปัญหา: 'By problem category',
   ตามแผน: 'Scheduled',
   'ติดตามเหตุ CCTV, Network, ISP, Power และระบบสำคัญ พร้อมดูประวัติแยกตามวัน':

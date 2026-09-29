@@ -61,14 +61,19 @@ function BarList({
   rows,
   accent = 'bg-lotus-500',
   totalCount,
+  maxRows = 6,
 }: {
   title: string
   rows: Array<{ label: string; count: number }>
   accent?: string
   totalCount?: number
+  maxRows?: number
 }) {
   const denominator = totalCount ?? Math.max(1, ...rows.map((row) => row.count))
   const max = totalCount === undefined ? Math.max(1, ...rows.map((row) => row.count)) : Math.max(1, totalCount)
+  const visibleRows = rows.slice(0, maxRows)
+  const overflowCount = rows.slice(maxRows).reduce((sum, row) => sum + row.count, 0)
+  const displayRows = overflowCount > 0 ? [...visibleRows, { label: t('อื่น ๆ'), count: overflowCount }] : visibleRows
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex items-start justify-between gap-3">
@@ -83,7 +88,7 @@ function BarList({
         <p className="mt-5 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ยังไม่มีข้อมูลในช่วงเวลานี้')}</p>
       ) : (
         <ul className="mt-5 space-y-4">
-          {rows.map((row) => (
+          {displayRows.map((row) => (
             <li className="space-y-1.5" key={row.label}>
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate text-slate-600" title={row.label}>
@@ -107,6 +112,82 @@ function BarList({
             </li>
           ))}
         </ul>
+      )}
+      {rows.length > maxRows && (
+        <p className="mt-4 text-xs leading-5 text-slate-400">
+          {t('แสดงรายการเด่น')} {maxRows} {t('รายการ')} · {t('รายการที่เหลือรวมไว้ใน อื่น ๆ')}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function PropertyCoverage({ rows, totalCount }: { rows: Array<{ label: string; count: number }>; totalCount: number }) {
+  const lead = rows[0]
+  const visibleRows = rows.slice(0, 5)
+  const remainder = rows.slice(5).reduce((sum, row) => sum + row.count, 0)
+  const displayRows = remainder > 0 ? [...visibleRows, { label: t('อื่น ๆ'), count: remainder }] : visibleRows
+  const max = Math.max(1, totalCount)
+
+  return (
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-slate-800">{t('ภาพรวมตาม Property')}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t('ใช้เป็นตัวชี้วัดขอบเขตข้อมูล ไม่ขยายตามจำนวน Property')}</p>
+        </div>
+        <span className="shrink-0 text-xs tabular-nums text-slate-400">
+          {totalCount.toLocaleString(getLocale())} {t('งาน')}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-sky-50 px-3 py-3">
+          <p className="text-xs text-sky-800">{t('Property ที่มีงาน')}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{rows.length}</p>
+        </div>
+        <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-3">
+          <p className="text-xs text-slate-500">{t('งานมากที่สุด')}</p>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-800" title={lead?.label ?? t('ยังไม่มีข้อมูล')}>
+            {lead?.label ?? t('ยังไม่มีข้อมูล')}
+          </p>
+          {lead && (
+            <p className="mt-0.5 text-xs tabular-nums text-slate-500">
+              {lead.count} {t('งาน')}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {displayRows.length > 0 ? (
+        <ul className="mt-5 space-y-3">
+          {displayRows.map((row) => (
+            <li key={row.label}>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="truncate text-slate-600" title={row.label}>
+                  {row.label}
+                </span>
+                <span className="flex shrink-0 items-center gap-2 tabular-nums">
+                  <span className="font-semibold text-slate-800">{row.count}</span>
+                  <span className="text-xs text-slate-400">{Math.round((row.count / max) * 100)}%</span>
+                </span>
+              </div>
+              <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                <span
+                  className="block h-full rounded-full bg-sky-400"
+                  style={{ width: `${Math.min(100, Math.max(4, (row.count / max) * 100))}%` }}
+                />
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-5 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ยังไม่มีข้อมูลในช่วงเวลานี้')}</p>
+      )}
+      {rows.length > 5 && (
+        <p className="mt-4 text-xs leading-5 text-slate-400">
+          {t('แสดงรายการเด่น')} 5 {t('รายการ')} · {t('รายการที่เหลือรวมไว้ใน อื่น ๆ')}
+        </p>
       )}
     </section>
   )
@@ -1266,23 +1347,20 @@ export function ExecutiveDashboard({
                 <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1.2fr_0.8fr]">
                   <BarList
                     accent="bg-violet-400"
-                    rows={data.problemCategories.slice(0, 6)}
+                    rows={data.problemCategories}
                     title={t('ตามหมวดปัญหา')}
                     totalCount={data.filtered.length}
+                    maxRows={5}
                   />
-                  <BarList
-                    accent="bg-sky-400"
-                    rows={data.properties}
-                    title={t('ตาม Property')}
-                    totalCount={data.filtered.length}
-                  />
+                  <PropertyCoverage rows={data.properties} totalCount={data.filtered.length} />
                 </div>
                 <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
                   <BarList
                     accent="bg-fuchsia-300"
-                    rows={data.problems.slice(0, 6)}
+                    rows={data.problems}
                     title={t('ประเภทย่อยที่พบบ่อย')}
                     totalCount={data.filtered.length}
+                    maxRows={5}
                   />
                   <BarList
                     accent="bg-amber-400"

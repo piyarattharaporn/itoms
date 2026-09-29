@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -140,17 +141,13 @@ export async function getRcaPage(
   pageSize = Math.min(Math.max(pageSize, 1), 50)
   const constraints = [] as Parameters<typeof query>[1][]
   if (!allProperties) constraints.push(where('propertyId', '==', propertyId))
+  constraints.push(orderBy('updatedAt', 'desc'))
   if (cursor) constraints.push(startAfter(cursor))
   constraints.push(limit(pageSize))
   const snapshot = await getDocs(query(collection(firestore(), 'rcaRecords'), ...constraints))
   const items = snapshot.docs
     .map((item) => parseRca(item.id, item.data()))
     .filter((item): item is RcaRecord => item !== null)
-    .sort(
-      (a, b) =>
-        (b.updatedAt?.getTime() ?? b.createdAt?.getTime() ?? 0) -
-        (a.updatedAt?.getTime() ?? a.createdAt?.getTime() ?? 0),
-    )
   recordUsageEvent('rca_page_loaded', { count: items.length, pageSize })
   return {
     items,

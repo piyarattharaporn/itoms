@@ -28,14 +28,14 @@ The application uses an expand-and-read-both strategy:
 
 ## Pagination inventory
 
-| Screen/service | Current behavior | Phase 2 decision |
-| --- | --- | --- |
-| Ticket Board | Cursor page, max 50 per request | Ready for MVP; search is page-local |
-| User Directory | Cursor profiles + memberships for loaded UIDs | Ready for MVP; search is page-local |
-| Audit Log | Cursor page, max 50 | Ready for MVP |
-| Dashboard | Bounded realtime listener, latest 50 | Intentionally bounded until aggregate/read-model backend exists |
-| Activities Log | Bounded realtime listener, latest 50, reads latest event per ticket | Retain for compatibility; replace with Audit/aggregation query later |
-| Ticket history | Realtime subcollection listener without cursor | Acceptable for a single ticket; add event pagination if histories grow |
+| Screen/service | Current behavior                                                    | Phase 2 decision                                                                                                                   |
+| -------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Ticket Board   | Cursor page, max 50 per request                                     | Ready for MVP; search is page-local                                                                                                |
+| User Directory | Cursor profiles + memberships for loaded UIDs                       | Ready for MVP; search is page-local                                                                                                |
+| Audit Log      | Cursor page, max 50                                                 | Ready for MVP                                                                                                                      |
+| Dashboard      | Bounded realtime listener, latest 50                                | Intentionally bounded until aggregate/read-model backend exists                                                                    |
+| Activities Log | Bounded realtime listener, latest 50, reads latest event per ticket | Retain for compatibility; Phase Fix 1 caches immutable event reads per ticket revision; replace with Audit/aggregation query later |
+| Ticket history | Realtime subcollection listener without cursor                      | Acceptable for a single ticket; add event pagination if histories grow                                                             |
 
 Server-side search/filter requirements for the backend phase: property/tenant scope must be part of every query, filters must be validated against an allowlist, ordering must be stable, pagination must use a cursor plus a tie-breaker, and search must not fall back to downloading a collection to the browser.
 

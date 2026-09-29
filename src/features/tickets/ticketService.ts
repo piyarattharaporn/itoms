@@ -226,17 +226,13 @@ export async function getCompletedTicketPage(
   pageSize = Math.min(Math.max(pageSize, 1), 50)
   const constraints: QueryConstraint[] = [where('status', '==', 'Completed')]
   if (!access.allProperties) constraints.push(where('propertyId', '==', access.propertyId))
+  constraints.push(orderBy('updatedAt', 'desc'))
   if (cursor) constraints.push(startAfter(cursor))
   constraints.push(limit(pageSize))
   const snapshot = await getDocs(query(collection(firestore, 'tickets'), ...constraints))
   const items = snapshot.docs
     .map((ticket) => parseTicket(ticket.id, ticket.data()))
     .filter((ticket): ticket is TicketRecord => ticket !== null)
-    .sort(
-      (a, b) =>
-        (b.updatedAt?.getTime() ?? b.createdAt?.getTime() ?? 0) -
-        (a.updatedAt?.getTime() ?? a.createdAt?.getTime() ?? 0),
-    )
   recordUsageEvent('completed_ticket_page_loaded', { count: items.length, pageSize })
   return {
     items,

@@ -25,7 +25,6 @@
         && (details.size() <= 1 || validCctvNvrDetail(details[1]))
         && (details.size() <= 2 || validCctvNvrDetail(details[2]))
         && (details.size() <= 3 || validCctvNvrDetail(details[3]))
-        && (details.size() <= 4 || validCctvNvrDetail(details[4]))
         && (details.size() <= 4 || validCctvNvrDetail(details[4]));
     }
 
@@ -38,6 +37,7 @@
           'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
           'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
         ])
+        && check.nvrDetails is list && check.nvrDetails.size() <= 5
         && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
         && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
         && validIsoDate(check.checkedOn)
@@ -65,6 +65,7 @@
           'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
           'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
         ])
+        && check.nvrDetails is list && check.nvrDetails.size() <= 20
         && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
         && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
         && validIsoDate(check.checkedOn)

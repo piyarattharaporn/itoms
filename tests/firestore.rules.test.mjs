@@ -542,6 +542,24 @@ describe('Ticket, Asset, and PM access', () => {
     // client write without exceeding the expression limit. The app mutation
     // service still writes the audit record in the same transaction path.
     await assertSucceeds(noAuditBatch.commit())
+
+    const injectedStatusEvent = doc(db, 'tickets/ticket-to-update/events/injected-status-event')
+    const injectedStatusBatch = writeBatch(db)
+    injectedStatusBatch.update(doc(db, 'tickets/ticket-to-update'), {
+      status: 'In Progress',
+      updatedAt: serverTimestamp(),
+      lastEventId: injectedStatusEvent.id,
+    })
+    injectedStatusBatch.set(injectedStatusEvent, {
+      actorUid: 'support-1',
+      fromStatus: 'Pending',
+      toStatus: 'In Progress',
+      note: 'Injected status event field',
+      type: 'statusChanged',
+      createdAt: serverTimestamp(),
+      injectedField: true,
+    })
+    await assertFails(injectedStatusBatch.commit())
   })
 
   it('requires the initial Ticket event to match lastEventId', async () => {

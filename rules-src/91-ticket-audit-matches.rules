@@ -11,9 +11,14 @@
 
       match /events/{eventId} {
         allow get, list: if exists(ticketPath(ticketId)) && canReadTicket(get(ticketPath(ticketId)).data);
+        // Keep edited events separate from status/assignment events so a request
+        // only evaluates the validator for its declared event type.
         allow create: if signedIn()
-          && ((request.resource.data.type == 'edited' && validSparkTicketEditedEvent(ticketId, eventId, request.resource.data))
-            || (request.resource.data.type != 'edited' && validSparkTicketEvent(ticketId, eventId, request.resource.data)));
+          && request.resource.data.type == 'edited'
+          && validSparkTicketEditedEvent(ticketId, eventId, request.resource.data);
+        allow create: if signedIn()
+          && request.resource.data.type != 'edited'
+          && validSparkTicketEvent(ticketId, eventId, request.resource.data);
         allow update, delete: if false;
       }
     }

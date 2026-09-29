@@ -424,7 +424,6 @@ service cloud.firestore {
         && (details.size() <= 1 || validCctvNvrDetail(details[1]))
         && (details.size() <= 2 || validCctvNvrDetail(details[2]))
         && (details.size() <= 3 || validCctvNvrDetail(details[3]))
-        && (details.size() <= 4 || validCctvNvrDetail(details[4]))
         && (details.size() <= 4 || validCctvNvrDetail(details[4]));
     }
 
@@ -437,6 +436,7 @@ service cloud.firestore {
           'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
           'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
         ])
+        && check.nvrDetails is list && check.nvrDetails.size() <= 5
         && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
         && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
         && validIsoDate(check.checkedOn)
@@ -464,6 +464,7 @@ service cloud.firestore {
           'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
           'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
         ])
+        && check.nvrDetails is list && check.nvrDetails.size() <= 20
         && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
         && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
         && validIsoDate(check.checkedOn)
@@ -713,6 +714,27 @@ service cloud.firestore {
         || hasPropertyRole(propertyId, 'requester');
     }
 
+    // Ticket creation is the one path that needs both property identity and
+    // role checks. Resolve that context once instead of evaluating the generic
+    // membership helpers twice through canUseProperty/canCreateTicket.
+    function validSparkTicketCreateAccess(ticket) {
+      let profile = profilePath(request.auth.uid);
+      let membership = membershipPath(request.auth.uid, ticket.propertyId);
+      let property = /databases/$(database)/documents/properties/$(ticket.propertyId);
+      return exists(profile)
+        && get(profile).data.active == true
+        && ((get(profile).data.globalRole == 'superAdmin'
+            && exists(property)
+            && get(property).data.active == true
+            && get(property).data.code == ticket.propertyCode)
+          || (exists(membership)
+            && get(membership).data.userId == request.auth.uid
+            && get(membership).data.propertyId == ticket.propertyId
+            && get(membership).data.active == true
+            && get(membership).data.propertyCode == ticket.propertyCode
+            && get(membership).data.role in ['supportEngineer', 'requester']));
+    }
+
     function validTicketStatusTransition(fromStatus, toStatus) {
       return (fromStatus == 'Pending' && toStatus in ['In Progress', 'Cancelled'])
         || (fromStatus == 'In Progress' && toStatus in ['Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled'])
@@ -738,8 +760,7 @@ service cloud.firestore {
         && ticket.schemaVersion == 2
         && ticket.propertyId is string && ticket.propertyId.size() > 0 && ticket.propertyId.size() <= 160
         && ticket.propertyCode is string && ticket.propertyCode.size() > 0 && ticket.propertyCode.size() <= 40
-        && canUseProperty(ticket.propertyId, ticket.propertyCode)
-        && canCreateTicket(ticket.propertyId)
+        && validSparkTicketCreateAccess(ticket)
         && ticket.requesterUid == request.auth.uid
         && ticket.requesterName is string && ticket.requesterName.size() > 0 && ticket.requesterName.size() <= 120
         && ticket.requesterEmail is string && ticket.requesterEmail.size() >= 6 && ticket.requesterEmail.size() <= 254
@@ -818,47 +839,87 @@ service cloud.firestore {
         && request.resource.data.priority in ['Low', 'Medium', 'High', 'Critical'];
     }
 
-    function validSparkTicketEvent(ticketId, eventId, event) {
+    function validSparkTicketEventBase(event, allowedFields) {
       return event.keys().hasAll(['actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'createdAt'])
-        && event.keys().hasOnly([
-          'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'fromAssignedEngineerUid',
-          'toAssignedEngineerUid', 'changedFields', 'correlationId', 'createdAt'
-        ])
+        && event.keys().hasOnly(allowedFields)
         && event.actorUid == request.auth.uid
         && (event.fromStatus == null || event.fromStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled'])
         && event.toStatus in ['Pending', 'In Progress', 'Monitoring', 'Waiting for Vendor', 'Waiting for User', 'Completed', 'Cancelled']
         && event.note is string && event.note.size() <= 1000
-        && event.type in ['created', 'statusChanged', 'assigned', 'reassigned', 'unassigned']
-        && (!event.keys().hasAny(['fromAssignedEngineerUid']) || (event.fromAssignedEngineerUid is string && event.fromAssignedEngineerUid.size() <= 128))
-        && (!event.keys().hasAny(['toAssignedEngineerUid']) || (event.toAssignedEngineerUid is string && event.toAssignedEngineerUid.size() <= 128))
         && (!event.keys().hasAny(['correlationId']) || (event.correlationId is string && event.correlationId.size() > 0 && event.correlationId.size() <= 128))
-        && event.createdAt == request.time
-        && ((event.type == 'created' && event.fromStatus == null && event.toStatus == 'Pending'
-              && !exists(ticketPath(ticketId))
-              && existsAfter(ticketPath(ticketId))
-              && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
-              && getAfter(ticketPath(ticketId)).data.status == 'Pending'
-              && getAfter(ticketPath(ticketId)).data.requesterUid == request.auth.uid
-              && canCreateTicket(getAfter(ticketPath(ticketId)).data.propertyId))
-          || (event.type == 'statusChanged'
-              && exists(ticketPath(ticketId))
-              && existsAfter(ticketPath(ticketId))
-              && get(ticketPath(ticketId)).data.status == event.fromStatus
-              && getAfter(ticketPath(ticketId)).data.status == event.toStatus
-              && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
-              && canManageProperty(getAfter(ticketPath(ticketId)).data.propertyId))
-          || (event.type in ['assigned', 'reassigned', 'unassigned']
-              && event.keys().hasAll(['fromAssignedEngineerUid', 'toAssignedEngineerUid'])
-              && exists(ticketPath(ticketId))
-              && existsAfter(ticketPath(ticketId))
-              && get(ticketPath(ticketId)).data.status == getAfter(ticketPath(ticketId)).data.status
-              && get(ticketPath(ticketId)).data.assignedEngineerUid == event.fromAssignedEngineerUid
-              && getAfter(ticketPath(ticketId)).data.assignedEngineerUid == event.toAssignedEngineerUid
-              && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
-              && ((event.type == 'assigned' && event.fromAssignedEngineerUid == '' && event.toAssignedEngineerUid != '')
-                || (event.type == 'reassigned' && event.fromAssignedEngineerUid != '' && event.toAssignedEngineerUid != '')
-                || (event.type == 'unassigned' && event.fromAssignedEngineerUid != '' && event.toAssignedEngineerUid == ''))
-              && canManageProperty(getAfter(ticketPath(ticketId)).data.propertyId)));
+        && event.createdAt == request.time;
+    }
+
+    function validSparkCreatedTicketEventShape(event) {
+      return validSparkTicketEventBase(event, [
+          'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'correlationId', 'createdAt'
+        ])
+        && event.type == 'created';
+    }
+
+    function validSparkCreatedTicketEvent(ticketId, eventId, event) {
+      return validSparkCreatedTicketEventShape(event)
+        && event.fromStatus == null
+        && event.toStatus == 'Pending'
+        && !exists(ticketPath(ticketId))
+        && existsAfter(ticketPath(ticketId))
+        && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
+        && getAfter(ticketPath(ticketId)).data.status == 'Pending'
+        && getAfter(ticketPath(ticketId)).data.requesterUid == request.auth.uid
+        && canCreateTicket(getAfter(ticketPath(ticketId)).data.propertyId);
+    }
+
+    function validSparkStatusTicketEventShape(event) {
+      return validSparkTicketEventBase(event, [
+          'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'correlationId', 'createdAt'
+        ])
+        && event.type == 'statusChanged';
+    }
+
+    function validSparkStatusTicketEvent(ticketId, eventId, event) {
+      return validSparkStatusTicketEventShape(event)
+        && exists(ticketPath(ticketId))
+        && existsAfter(ticketPath(ticketId))
+        && get(ticketPath(ticketId)).data.status == event.fromStatus
+        && getAfter(ticketPath(ticketId)).data.status == event.toStatus
+        && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
+        && canManageProperty(getAfter(ticketPath(ticketId)).data.propertyId);
+    }
+
+    function validSparkAssignmentTicketEventShape(event) {
+      return validSparkTicketEventBase(event, [
+          'actorUid', 'fromStatus', 'toStatus', 'note', 'type', 'fromAssignedEngineerUid',
+          'toAssignedEngineerUid', 'correlationId', 'createdAt'
+        ])
+        && event.type in ['assigned', 'reassigned', 'unassigned']
+        && event.fromAssignedEngineerUid is string && event.fromAssignedEngineerUid.size() <= 128
+        && event.toAssignedEngineerUid is string && event.toAssignedEngineerUid.size() <= 128;
+    }
+
+    function validSparkAssignmentTicketEvent(ticketId, eventId, event) {
+      return validSparkAssignmentTicketEventShape(event)
+        && exists(ticketPath(ticketId))
+        && existsAfter(ticketPath(ticketId))
+        && get(ticketPath(ticketId)).data.status == getAfter(ticketPath(ticketId)).data.status
+        && get(ticketPath(ticketId)).data.assignedEngineerUid == event.fromAssignedEngineerUid
+        && getAfter(ticketPath(ticketId)).data.assignedEngineerUid == event.toAssignedEngineerUid
+        && getAfter(ticketPath(ticketId)).data.lastEventId == eventId
+        && ((event.type == 'assigned' && event.fromAssignedEngineerUid == '' && event.toAssignedEngineerUid != '')
+          || (event.type == 'reassigned' && event.fromAssignedEngineerUid != '' && event.toAssignedEngineerUid != '')
+          || (event.type == 'unassigned' && event.fromAssignedEngineerUid != '' && event.toAssignedEngineerUid == ''))
+        && canManageProperty(getAfter(ticketPath(ticketId)).data.propertyId);
+    }
+
+    // Dispatch by event type after the bounded shape check. This avoids evaluating
+    // unrelated status/assignment branches for malformed or valid events and keeps
+    // Spark Rules expression usage predictable without widening permissions.
+    function validSparkTicketEvent(ticketId, eventId, event) {
+      return event.keys().hasAny(['type'])
+        && (event.type == 'created'
+          ? validSparkCreatedTicketEvent(ticketId, eventId, event)
+          : event.type == 'statusChanged'
+            ? validSparkStatusTicketEvent(ticketId, eventId, event)
+            : validSparkAssignmentTicketEvent(ticketId, eventId, event));
     }
 
     // Keep edit events separate from the broader status/assignment validator
@@ -880,6 +941,45 @@ service cloud.firestore {
         && getAfter(ticketPath(ticketId)).data.lastEventId == eventId;
     }
 
+    function validSparkAuditAccess(audit) {
+      let profile = profilePath(request.auth.uid);
+      let membership = membershipPath(request.auth.uid, audit.propertyId);
+      let property = /databases/$(database)/documents/properties/$(audit.propertyId);
+      return exists(profile)
+        && get(profile).data.active == true
+        && ((get(profile).data.globalRole == 'superAdmin'
+            && exists(property)
+            && get(property).data.active == true
+            && get(property).data.code == audit.propertyCode)
+          || (exists(membership)
+            && get(membership).data.userId == request.auth.uid
+            && get(membership).data.propertyId == audit.propertyId
+            && get(membership).data.active == true
+            && get(membership).data.propertyCode == audit.propertyCode
+            && (audit.action == 'created'
+              ? get(membership).data.role in ['supportEngineer', 'requester']
+              : get(membership).data.role == 'supportEngineer')));
+    }
+
+    function validSparkAuditLinkData(audit) {
+      let ticket = getAfter(ticketPath(audit.entityId)).data;
+      let event = getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data;
+      return ticket.propertyId == audit.propertyId
+        && ticket.propertyCode == audit.propertyCode
+        && ticket.lastEventId == audit.sourceEventId
+        && event.actorUid == audit.actorUid
+        && event.type == audit.action
+        && (!audit.keys().hasAny(['correlationId'])
+          || (event.keys().hasAny(['correlationId'])
+            && audit.correlationId == event.correlationId));
+    }
+
+    function validSparkAuditLinks(audit) {
+      return existsAfter(ticketPath(audit.entityId))
+        && existsAfter(ticketEventPath(audit.entityId, audit.sourceEventId))
+        && validSparkAuditLinkData(audit);
+    }
+
     function validSparkAuditEvent(audit) {
       return audit.keys().hasAll([
           'propertyId', 'propertyCode', 'entityType', 'entityId', 'sourceEventId', 'action', 'actorUid', 'summary', 'createdAt'
@@ -889,7 +989,6 @@ service cloud.firestore {
         ])
         && audit.propertyId is string && audit.propertyId.size() > 0 && audit.propertyId.size() <= 160
         && audit.propertyCode is string && audit.propertyCode.size() > 0 && audit.propertyCode.size() <= 40
-        && canUseProperty(audit.propertyId, audit.propertyCode)
         && audit.entityType == 'ticket'
         && audit.entityId is string && audit.entityId.size() > 0 && audit.entityId.size() <= 150
         && audit.sourceEventId is string && audit.sourceEventId.size() > 0 && audit.sourceEventId.size() <= 150
@@ -898,17 +997,8 @@ service cloud.firestore {
         && audit.summary is string && audit.summary.size() <= 1000
         && (!audit.keys().hasAny(['correlationId']) || (audit.correlationId is string && audit.correlationId.size() > 0 && audit.correlationId.size() <= 128))
         && audit.createdAt == request.time
-        && existsAfter(ticketPath(audit.entityId))
-        && existsAfter(ticketEventPath(audit.entityId, audit.sourceEventId))
-        && getAfter(ticketPath(audit.entityId)).data.propertyId == audit.propertyId
-        && getAfter(ticketPath(audit.entityId)).data.propertyCode == audit.propertyCode
-        && getAfter(ticketPath(audit.entityId)).data.lastEventId == audit.sourceEventId
-        && getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.actorUid == audit.actorUid
-        && getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.type == audit.action
-        && (!audit.keys().hasAny(['correlationId'])
-          || (getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.keys().hasAny(['correlationId'])
-            && audit.correlationId == getAfter(ticketEventPath(audit.entityId, audit.sourceEventId)).data.correlationId))
-        && ((audit.action == 'created' && canCreateTicket(audit.propertyId)) || (audit.action != 'created' && canManageProperty(audit.propertyId)));
+        && validSparkAuditAccess(audit)
+        && validSparkAuditLinks(audit);
     }
 
     function canReadTicket(ticket) {
@@ -1058,9 +1148,14 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow get, list: if exists(ticketPath(ticketId)) && canReadTicket(get(ticketPath(ticketId)).data);
+        // Keep edited events separate from status/assignment events so a request
+        // only evaluates the validator for its declared event type.
         allow create: if signedIn()
-          && ((request.resource.data.type == 'edited' && validSparkTicketEditedEvent(ticketId, eventId, request.resource.data))
-            || (request.resource.data.type != 'edited' && validSparkTicketEvent(ticketId, eventId, request.resource.data)));
+          && request.resource.data.type == 'edited'
+          && validSparkTicketEditedEvent(ticketId, eventId, request.resource.data);
+        allow create: if signedIn()
+          && request.resource.data.type != 'edited'
+          && validSparkTicketEvent(ticketId, eventId, request.resource.data);
         allow update, delete: if false;
       }
     }
@@ -1157,35 +1252,35 @@ service cloud.firestore {
           && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
       // Keep the Super Admin branch separate: combining it with the membership branch
       // makes the Firestore Rules evaluator exceed its expression budget.
-      allow create: if isSuperAdmin()
+      allow create: if validCctvDailyCheckAdmin(request.resource.data)
+        && isSuperAdmin()
         && activeCctvPropertyMatches(request.resource.data.propertyId, request.resource.data.propertyCode)
-        && validCctvDailyCheckAdmin(request.resource.data)
         && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
         && request.resource.data.checkedByUid == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow create: if hasPropertyRole(request.resource.data.propertyId, 'supportEngineer')
+      allow create: if validCctvDailyCheck(request.resource.data)
+        && hasPropertyRole(request.resource.data.propertyId, 'supportEngineer')
         && cctvEnabledForProperty(request.resource.data.propertyId)
         && request.resource.data.propertyCode == get(membershipPath(request.auth.uid, request.resource.data.propertyId)).data.propertyCode
-        && validCctvDailyCheck(request.resource.data)
         && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
         && request.resource.data.checkedByUid == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow update: if isSuperAdmin()
+      allow update: if validCctvDailyCheckAdmin(request.resource.data)
+        && isSuperAdmin()
         && activeCctvPropertyMatches(resource.data.propertyId, resource.data.propertyCode)
         && request.resource.data.propertyId == resource.data.propertyId
         && request.resource.data.propertyCode == resource.data.propertyCode
         && request.resource.data.checkedOn == resource.data.checkedOn
         && request.resource.data.createdAt == resource.data.createdAt
-        && validCctvDailyCheckAdmin(request.resource.data)
         && request.resource.data.checkedByUid == request.auth.uid;
-      allow update: if hasPropertyRole(resource.data.propertyId, 'supportEngineer')
+      allow update: if validCctvDailyCheck(request.resource.data)
+        && hasPropertyRole(resource.data.propertyId, 'supportEngineer')
         && cctvEnabledForProperty(resource.data.propertyId)
         && resource.data.propertyCode == get(membershipPath(request.auth.uid, resource.data.propertyId)).data.propertyCode
         && request.resource.data.propertyId == resource.data.propertyId
         && request.resource.data.propertyCode == resource.data.propertyCode
         && request.resource.data.checkedOn == resource.data.checkedOn
         && request.resource.data.createdAt == resource.data.createdAt
-        && validCctvDailyCheck(request.resource.data)
         && request.resource.data.checkedByUid == request.auth.uid;
       allow delete: if false;
     }

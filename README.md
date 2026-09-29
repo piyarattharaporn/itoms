@@ -57,6 +57,16 @@ describe the rows loaded in the browser, not global collection aggregates. See
 verification report at
 [`docs/testing/phase-fix-3-production-hardening-report.md`](docs/testing/phase-fix-3-production-hardening-report.md).
 
+Phase Fix 4 hardens the Spark Rules/data boundary: Ticket events are validated
+by event type, Audit link checks avoid repeated post-write reads, malformed
+CCTV payloads remain bounded, and the Firestore composite-index/query contract
+is executable. The client still provides bounded page-local search and
+non-contractual SLA indicators; global search, trusted SLA workers, and
+tamper-proof audit remain backend work. See
+[`docs/architecture/phase-fix-4.md`](docs/architecture/phase-fix-4.md),
+[`docs/architecture/query-index-contract.md`](docs/architecture/query-index-contract.md),
+and [`docs/testing/phase-fix-4-security-data-contract-report.md`](docs/testing/phase-fix-4-security-data-contract-report.md).
+
 ## Quality checks
 
 The repository includes the following repeatable QA commands:
@@ -72,10 +82,11 @@ npm run test:performance # Authenticated dashboard timing and viewport budget on
 npm run lint            # ESLint
 npm run format:check    # Prettier checks for QA/config files
 npm run test:contract   # OpenAPI document and trusted-server route contract
+npm run test:query-contract # Firestore query/index contract
 npm run test:load       # Local static preview load test; never targets Production Firebase by default
 ```
 
-`npm run test:quality` runs the unit, OpenAPI, lint, and formatting gates used by the Hosting predeploy hook. Playwright tests use placeholder Firebase configuration and do not connect to a real Firebase project.
+`npm run test:quality` runs the unit, OpenAPI, query/index, lint, and formatting gates used by the Hosting predeploy hook. Playwright tests use placeholder Firebase configuration and do not connect to a real Firebase project.
 
 ## Production Firebase setup
 

@@ -122,19 +122,31 @@ function BarList({
   )
 }
 
-function PropertyCoverage({ rows, totalCount }: { rows: Array<{ label: string; count: number }>; totalCount: number }) {
-  const lead = rows[0]
-  const visibleRows = rows.slice(0, 5)
-  const remainder = rows.slice(5).reduce((sum, row) => sum + row.count, 0)
-  const displayRows = remainder > 0 ? [...visibleRows, { label: t('อื่น ๆ'), count: remainder }] : visibleRows
-  const max = Math.max(1, totalCount)
+function TaskControlSummary({
+  assignmentRows,
+  priorityRows,
+  totalCount,
+}: {
+  assignmentRows: Array<{ label: string; count: number }>
+  priorityRows: Array<{ label: string; count: number }>
+  totalCount: number
+}) {
+  const unassigned = assignmentRows.find((row) => row.label === t('ยังไม่มอบหมาย'))?.count ?? 0
+  const assigned = assignmentRows.find((row) => row.label === t('มอบหมายแล้ว'))?.count ?? 0
+  const maxPriority = Math.max(1, ...priorityRows.map((row) => row.count))
+  const priorityColors: Record<string, string> = {
+    [t('Critical')]: 'bg-rose-400',
+    [t('High')]: 'bg-orange-400',
+    [t('Medium')]: 'bg-amber-300',
+    [t('Low')]: 'bg-sky-300',
+  }
 
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-slate-800">{t('ภาพรวมตาม Property')}</h2>
-          <p className="mt-1 text-sm text-slate-500">{t('ใช้เป็นตัวชี้วัดขอบเขตข้อมูล ไม่ขยายตามจำนวน Property')}</p>
+          <h2 className="font-semibold text-slate-800">{t('การมอบหมายและความสำคัญ')}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t('ดูงานที่ยังไม่มีผู้รับผิดชอบและระดับความสำคัญ')}</p>
         </div>
         <span className="shrink-0 text-xs tabular-nums text-slate-400">
           {totalCount.toLocaleString(getLocale())} {t('งาน')}
@@ -142,53 +154,49 @@ function PropertyCoverage({ rows, totalCount }: { rows: Array<{ label: string; c
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-sky-50 px-3 py-3">
-          <p className="text-xs text-sky-800">{t('Property ที่มีงาน')}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{rows.length}</p>
+        <div className={`${unassigned ? 'bg-amber-50' : 'bg-emerald-50'} rounded-xl px-3 py-3`}>
+          <p className={`text-xs ${unassigned ? 'text-amber-800' : 'text-emerald-800'}`}>{t('ยังไม่มอบหมาย')}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{unassigned}</p>
         </div>
         <div className="min-w-0 rounded-xl bg-slate-50 px-3 py-3">
-          <p className="text-xs text-slate-500">{t('งานมากที่สุด')}</p>
-          <p className="mt-1 truncate text-sm font-semibold text-slate-800" title={lead?.label ?? t('ยังไม่มีข้อมูล')}>
-            {lead?.label ?? t('ยังไม่มีข้อมูล')}
-          </p>
-          {lead && (
-            <p className="mt-0.5 text-xs tabular-nums text-slate-500">
-              {lead.count} {t('งาน')}
-            </p>
-          )}
+          <p className="text-xs text-slate-500">{t('มอบหมายแล้ว')}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{assigned}</p>
         </div>
       </div>
 
-      {displayRows.length > 0 ? (
-        <ul className="mt-5 space-y-3">
-          {displayRows.map((row) => (
-            <li key={row.label}>
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="truncate text-slate-600" title={row.label}>
-                  {row.label}
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-slate-800">{t('ตามความสำคัญ')}</h3>
+          <span className="text-xs text-slate-400">{t('งาน')}</span>
+        </div>
+        {priorityRows.length > 0 ? (
+          <ul className="mt-3 space-y-3">
+            {priorityRows.map((row) => (
+              <li key={row.label}>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate text-slate-600" title={row.label}>
+                    {row.label}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2 tabular-nums">
+                    <span className="font-semibold text-slate-800">{row.count}</span>
+                    <span className="text-xs text-slate-400">
+                      {Math.round((row.count / Math.max(totalCount, 1)) * 100)}%
+                    </span>
+                  </span>
+                </div>
+                <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+                  <span
+                    className={`block h-full rounded-full ${priorityColors[row.label] ?? 'bg-slate-300'}`}
+                    style={{ width: `${Math.min(100, Math.max(4, (row.count / maxPriority) * 100))}%` }}
+                  />
                 </span>
-                <span className="flex shrink-0 items-center gap-2 tabular-nums">
-                  <span className="font-semibold text-slate-800">{row.count}</span>
-                  <span className="text-xs text-slate-400">{Math.round((row.count / max) * 100)}%</span>
-                </span>
-              </div>
-              <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
-                <span
-                  className="block h-full rounded-full bg-sky-400"
-                  style={{ width: `${Math.min(100, Math.max(4, (row.count / max) * 100))}%` }}
-                />
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-5 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ยังไม่มีข้อมูลในช่วงเวลานี้')}</p>
-      )}
-      {rows.length > 5 && (
-        <p className="mt-4 text-xs leading-5 text-slate-400">
-          {t('แสดงรายการเด่น')} 5 {t('รายการ')} · {t('รายการที่เหลือรวมไว้ใน อื่น ๆ')}
-        </p>
-      )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ยังไม่มีข้อมูลในช่วงเวลานี้')}</p>
+        )}
+      </div>
     </section>
   )
 }
@@ -1079,10 +1087,17 @@ export function ExecutiveDashboard({
       values.forEach((value) => counts.set(value, (counts.get(value) ?? 0) + 1))
       return [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count)
     }
-    const properties = tally(filtered.map((ticket) => ticket.propertyCode))
     const problems = tally(filtered.map((ticket) => formatTicketProblem(ticket.problemCategory, ticket.problemType)))
     const problemCategories = tally(filtered.map((ticket) => ticket.problemCategory || 'ยังไม่ระบุหมวด'))
     const channels = tally(filtered.map((ticket) => ticket.channel || 'Line'))
+    const assignmentRows = [
+      { label: 'มอบหมายแล้ว', count: filtered.filter((ticket) => Boolean(ticket.assignedEngineerUid)).length },
+      { label: 'ยังไม่มอบหมาย', count: filtered.filter((ticket) => !ticket.assignedEngineerUid).length },
+    ]
+    const priorityRows = (['Critical', 'High', 'Medium', 'Low'] as const).map((priority) => ({
+      label: priority,
+      count: filtered.filter((ticket) => ticket.priority === priority).length,
+    }))
     const areaCounts = ticketIssueAreas.map((area) => ({
       label: area,
       count: filtered.filter((ticket) => ticket.issueArea === area).length,
@@ -1157,10 +1172,11 @@ export function ExecutiveDashboard({
       slaRisk: active.filter((ticket) => getSlaSnapshot(ticket).state === 'dueSoon').length,
       critical: active.filter((ticket) => ticket.priority === 'Critical').length,
       averageCloseTime,
-      properties,
       problems,
       problemCategories,
       channels,
+      assignmentRows,
+      priorityRows,
       issueAreas,
       locations,
       statusCounts,
@@ -1341,7 +1357,7 @@ export function ExecutiveDashboard({
                 <div className="mb-3 mt-6">
                   <h3 className="font-semibold text-slate-800">{t('รายละเอียดที่พบใน Task')}</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    {t('ประเภทย่อย Property และจุด / Asset ที่มีรายการมาก')}
+                    {t('หมวดปัญหา ประเภทย่อย และจุด / Asset ที่มีรายการมาก')}
                   </p>
                 </div>
                 <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1.2fr_0.8fr]">
@@ -1352,7 +1368,11 @@ export function ExecutiveDashboard({
                     totalCount={data.filtered.length}
                     maxRows={5}
                   />
-                  <PropertyCoverage rows={data.properties} totalCount={data.filtered.length} />
+                  <TaskControlSummary
+                    assignmentRows={data.assignmentRows}
+                    priorityRows={data.priorityRows}
+                    totalCount={data.filtered.length}
+                  />
                 </div>
                 <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
                   <BarList

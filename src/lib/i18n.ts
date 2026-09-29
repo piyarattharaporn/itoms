@@ -664,6 +664,10 @@ const englishFeature: Record<string, string> = {
   ยังไม่มีข้อมูล: 'No data yet',
   แสดงรายการเด่น: 'Showing top',
   'รายการที่เหลือรวมไว้ใน อื่น ๆ': 'Remaining items are grouped into Other',
+  'การมอบหมายและความสำคัญ': 'Assignment and priority',
+  'ดูงานที่ยังไม่มีผู้รับผิดชอบและระดับความสำคัญ': 'See unassigned work and priority levels',
+  ตามความสำคัญ: 'By priority',
+  'หมวดปัญหา ประเภทย่อย และจุด / Asset ที่มีรายการมาก': 'Top problem categories, subcategories, and locations / assets',
   ตามหมวดปัญหา: 'By problem category',
   ตามแผน: 'Scheduled',
   'ติดตามเหตุ CCTV, Network, ISP, Power และระบบสำคัญ พร้อมดูประวัติแยกตามวัน':
@@ -1168,6 +1172,7 @@ const englishFeature: Record<string, string> = {
   'ไม่มีสิทธิ์เปลี่ยนสถานะ Task': 'This account cannot change task status.',
   'ไม่มีสิทธิ์มอบหมาย Task': 'This account cannot assign tasks.',
   ยังไม่มอบหมาย: 'Unassigned',
+  มอบหมายแล้ว: 'Assigned',
   'แยกตามประเภท SLA': 'By SLA type',
   รายการใช้งาน: 'Active items',
   รายการที่โหลดแล้ว: 'Loaded records',

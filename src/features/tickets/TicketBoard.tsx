@@ -351,6 +351,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
   })
   const [assetId, setAssetId] = useState('')
   const [manualAssetId, setManualAssetId] = useState(false)
+  const [autoAppliedRequestUserId, setAutoAppliedRequestUserId] = useState('')
   const [assetOptions, setAssetOptions] = useState<TicketAssetOption[]>([])
   const [assetOptionsLoading, setAssetOptionsLoading] = useState(false)
   const [description, setDescription] = useState('')
@@ -373,7 +374,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
     [catalog.problemTypes],
   )
   const problemCategories = Object.keys(problemGroups).sort((a, b) => a.localeCompare(b, 'en'))
-  const problemTypesForCategory = problemGroups[problemCategory] ?? []
+  const problemTypesForCategory = useMemo(() => problemGroups[problemCategory] ?? [], [problemGroups, problemCategory])
 
   useEffect(() => {
     const nextPropertyId =
@@ -476,9 +477,27 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
     )
   }, [assetOptions, problemCategory, problemType, catalog.assetCategories, department])
 
+  const selectableAssets = useMemo(() => {
+    const linkedAsset = selectedRequestUser?.assetId
+      ? assetOptions.find((asset) => asset.id === selectedRequestUser.assetId && asset.status !== 'Retired')
+      : undefined
+    if (!linkedAsset || relevantAssets.some((asset) => asset.id === linkedAsset.id)) return relevantAssets
+    return [linkedAsset, ...relevantAssets]
+  }, [assetOptions, relevantAssets, selectedRequestUser])
+
   useEffect(() => {
-    if (!manualAssetId && assetId && !relevantAssets.some((asset) => asset.id === assetId)) setAssetId('')
-  }, [assetId, manualAssetId, relevantAssets])
+    if (!selectedRequestUserId || autoAppliedRequestUserId === selectedRequestUserId) return
+    const linkedAsset = selectedRequestUser?.assetId
+      ? assetOptions.find((asset) => asset.id === selectedRequestUser.assetId && asset.status !== 'Retired')
+      : undefined
+    setAssetId(linkedAsset?.id ?? '')
+    setManualAssetId(false)
+    setAutoAppliedRequestUserId(selectedRequestUserId)
+  }, [assetOptions, autoAppliedRequestUserId, selectedRequestUser, selectedRequestUserId])
+
+  useEffect(() => {
+    if (!manualAssetId && assetId && !selectableAssets.some((asset) => asset.id === assetId)) setAssetId('')
+  }, [assetId, manualAssetId, selectableAssets])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -491,7 +510,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
     }
     setSaving(true)
     try {
-      const chosenAsset = relevantAssets.find((asset) => asset.id === assetId)
+      const chosenAsset = selectableAssets.find((asset) => asset.id === assetId)
       const command = {
         propertyId: property.id,
         propertyCode: property.code,
@@ -567,7 +586,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
           </div>
         </div>
         <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-2.5 text-sm shadow-sm">
-          <p className="text-xs text-slate-500">Task ID</p>
+          <p className="text-xs text-slate-500">{t('Task ID')}</p>
           <p className="font-medium text-slate-800">{t('ระบบสร้างให้อัตโนมัติ')}</p>
         </div>
       </header>
@@ -643,10 +662,11 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                     const user = requestUsers.find((item) => item.id === event.target.value)
                     setSelectedRequestUserId(event.target.value)
                     setDepartment(user?.department ?? '')
+                    setAutoAppliedRequestUserId('')
                   }}
                   value={selectedRequestUserId}
                 >
-                  <option value="">Request User</option>
+                  <option value="">{t('Request User')}</option>
                   {requestUsers.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.name ? `${user.name} · ` : ''}
@@ -834,7 +854,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 value={manualAssetId ? '__manual__' : assetId}
               >
                 <option value="">{t('ไม่ระบุ Asset')}</option>
-                {relevantAssets.map((asset) => (
+                {selectableAssets.map((asset) => (
                   <option key={asset.id} value={asset.id}>
                     {asset.name} · {asset.assetTag} ({asset.category}) · {asset.location}
                   </option>
@@ -850,6 +870,11 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                   placeholder={t('กรอกชื่อ Asset หรือ Asset Tag')}
                   value={assetId}
                 />
+              )}
+              {selectedRequestUser?.assetId && assetId === selectedRequestUser.assetId && !manualAssetId && (
+                <p className="mt-2 text-xs font-medium text-lotus-700">
+                  {t('เลือก Asset อัตโนมัติจาก Request User แล้ว · เปลี่ยนหรือล้างได้')}
+                </p>
               )}
               <p className="mt-2 text-xs text-slate-600">
                 {assetOptionsLoading
@@ -1027,8 +1052,8 @@ export function TicketBoard({
       void getAssignableEngineers(selectedPropertyId)
         .then(setEngineers)
         .catch(() => setEngineers([]))
-    } else if (isSuperAdmin && selectedPropertyId !== 'all') {
-      void getAssignableEngineers(selectedPropertyId)
+    } else if (isSuperAdmin) {
+      void getAssignableEngineers(selectedPropertyId === 'all' ? 'all' : selectedPropertyId, true)
         .then(setEngineers)
         .catch(() => setEngineers([]))
     } else {
@@ -1263,7 +1288,7 @@ export function TicketBoard({
                   {visibleTickets.map((ticket) => (
                     <TicketCard
                       canUpdate={mode === 'update' && canMutate}
-                      engineers={engineers}
+                      engineers={engineers.filter((engineer) => engineer.propertyId === ticket.propertyId)}
                       key={ticket.id}
                       onAssign={updateAssignment}
                       onStatusChange={updateStatus}

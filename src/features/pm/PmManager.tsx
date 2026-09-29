@@ -197,7 +197,7 @@ export function PmManager({ selectedPropertyId }: { selectedPropertyId: string }
   const sortedSchedules = useMemo(() => schedules.filter((schedule) => schedule.active).sort((a, b) => a.nextDueOn.localeCompare(b.nextDueOn)), [schedules])
 
   async function saveSchedule(input: PmScheduleInput) {
-    if (!firebaseUser) throw new Error(t("รุณาเข้าสู่ระบบใหม่"))
+    if (!firebaseUser) throw new Error(t("กรุณาเข้าสู่ระบบใหม่"))
     if (editing) {
       await updateSchedule(editing.id, input)
       setNotice(`อัปเดต PM Schedule “${input.title}” แล้ว`)
@@ -210,7 +210,7 @@ export function PmManager({ selectedPropertyId }: { selectedPropertyId: string }
   }
 
   async function saveRun(schedule: PmSchedule, results: PmChecklistResult[], notes: string) {
-    if (!firebaseUser) throw new Error(t("รุณาเข้าสู่ระบบใหม่"))
+    if (!firebaseUser) throw new Error(t("กรุณาเข้าสู่ระบบใหม่"))
     const runId = await completeSchedule(schedule, firebaseUser.uid, results, notes)
     setRunning(null)
     setNotice(`บันทึก PM แล้ว (Run ${runId})`)
@@ -249,7 +249,7 @@ export function PmManager({ selectedPropertyId }: { selectedPropertyId: string }
                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${overdue ? 'bg-rose-50 text-rose-800' : dueToday ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}>{overdue ? t("เลยกำหนด") : dueToday ? t("ถึงกำหนดวันนี้") : t("ตามแผน")}</span>
               </div>
               <p className="mt-4 text-sm text-slate-600">{t("กำหนดครั้งถัดไป:")} <strong className="font-semibold text-slate-900">{formatDueDate(schedule.nextDueOn)}</strong></p>
-              <p className="mt-3 text-xs font-medium text-slate-500">Checklist {schedule.checklistItems.length}  {t("รายการ")}</p>
+              <p className="mt-3 text-xs font-medium text-slate-500">{t('Checklist')} {schedule.checklistItems.length}  {t("รายการ")}</p>
               <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-600">{schedule.checklistItems.slice(0, 4).map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>
               {schedule.checklistItems.length > 4 && <p className="mt-1 text-xs text-slate-500">{t("และอีก")} {schedule.checklistItems.length - 4}  {t("รายการ")}</p>}
               <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">

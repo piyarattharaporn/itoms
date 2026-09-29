@@ -8,6 +8,15 @@
         && (!get(path).data.keys().hasAny(['cctvEnabled']) || get(path).data.cctvEnabled == true);
     }
 
+    function activeCctvPropertyMatches(propertyId, propertyCode) {
+      let path = /databases/$(database)/documents/properties/$(propertyId);
+      return exists(path)
+        && get(path).data.active == true
+        && get(path).data.code == propertyCode
+        // Missing cctvEnabled remains backward-compatible with the legacy default-on behavior.
+        && (!get(path).data.keys().hasAny(['cctvEnabled']) || get(path).data.cctvEnabled == true);
+    }
+
     function canReadOperationalTodos(propertyId) {
       return isSuperAdmin() || hasPropertyMembership(propertyId);
     }

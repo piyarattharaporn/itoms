@@ -49,7 +49,7 @@
           'propertyId', 'propertyCode', 'email', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && user.keys().hasOnly([
-          'propertyId', 'propertyCode', 'email', 'name', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
+          'propertyId', 'propertyCode', 'email', 'name', 'department', 'assetId', 'active', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && user.propertyId is string
         && user.propertyCode is string
@@ -58,6 +58,13 @@
         && (!user.keys().hasAny(['name']) || user.name == null || (user.name is string && user.name.size() <= 120))
         && user.department is string && user.department.size() > 0 && user.department.size() <= 80
         && validDepartment(user.propertyId, user.department)
+        && (!user.keys().hasAny(['assetId']) || user.assetId == null || (
+          user.assetId is string && user.assetId.size() > 0 && user.assetId.size() <= 128
+          && exists(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId))
+          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.propertyId == user.propertyId
+          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.department == user.department
+          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.status != 'Retired'
+        ))
         && user.active is bool
         && user.createdBy is string;
     }

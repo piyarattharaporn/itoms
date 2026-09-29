@@ -1,4 +1,13 @@
-import { collection, limit, onSnapshot, orderBy, query, where, type DocumentData } from 'firebase/firestore'
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+  type DocumentData,
+  type QueryConstraint,
+} from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 
 export interface TicketAssetOption {
@@ -36,7 +45,8 @@ const categoryMap: Record<string, string[]> = {
 }
 
 export function categoriesForProblem(problemCategory: string, problemType: string, availableCategories: string[]) {
-  if (problemType in categoryMap) return categoryMap[problemType].filter((category) => availableCategories.includes(category))
+  if (problemType in categoryMap)
+    return categoryMap[problemType].filter((category) => availableCategories.includes(category))
   if (problemCategory === 'Helpdesk') return []
   if (problemCategory === 'Other' || problemCategory === 'Hardware') return availableCategories
   const normalized = problemType.toLocaleLowerCase()
@@ -54,16 +64,46 @@ function firestore() {
 
 function parseOption(id: string, data: DocumentData): TicketAssetOption | null {
   if (
-    typeof data.propertyId !== 'string' || typeof data.propertyCode !== 'string' ||
-    typeof data.assetTag !== 'string' || typeof data.name !== 'string' ||
-    typeof data.category !== 'string' || typeof data.location !== 'string' ||
+    typeof data.propertyId !== 'string' ||
+    typeof data.propertyCode !== 'string' ||
+    typeof data.assetTag !== 'string' ||
+    typeof data.name !== 'string' ||
+    typeof data.category !== 'string' ||
+    typeof data.location !== 'string' ||
     !['In Service', 'Under Repair', 'Retired'].includes(data.status)
-  ) return null
-  return { id, propertyId: data.propertyId, propertyCode: data.propertyCode, assetTag: data.assetTag, name: data.name, category: data.category, department: typeof data.department === 'string' ? data.department : '', location: data.location, status: data.status }
+  )
+    return null
+  return {
+    id,
+    propertyId: data.propertyId,
+    propertyCode: data.propertyCode,
+    assetTag: data.assetTag,
+    name: data.name,
+    category: data.category,
+    department: typeof data.department === 'string' ? data.department : '',
+    location: data.location,
+    status: data.status,
+  }
 }
 
-export function subscribeToTicketAssets(propertyId: string, onAssets: (assets: TicketAssetOption[]) => void, onError: () => void) {
-  return onSnapshot(query(collection(firestore(), 'ticketAssetOptions'), where('propertyId', '==', propertyId), orderBy('updatedAt', 'desc'), limit(100)), (snapshot) => {
-    onAssets(snapshot.docs.map((item) => parseOption(item.id, item.data())).filter((item): item is TicketAssetOption => item !== null))
-  }, onError)
+export function subscribeToTicketAssets(
+  propertyId: string,
+  onAssets: (assets: TicketAssetOption[]) => void,
+  onError: () => void,
+  allProperties = false,
+) {
+  const constraints: QueryConstraint[] = allProperties
+    ? [orderBy('updatedAt', 'desc'), limit(100)]
+    : [where('propertyId', '==', propertyId), orderBy('updatedAt', 'desc'), limit(100)]
+  return onSnapshot(
+    query(collection(firestore(), 'ticketAssetOptions'), ...constraints),
+    (snapshot) => {
+      onAssets(
+        snapshot.docs
+          .map((item) => parseOption(item.id, item.data()))
+          .filter((item): item is TicketAssetOption => item !== null),
+      )
+    },
+    onError,
+  )
 }

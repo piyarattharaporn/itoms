@@ -125,7 +125,7 @@ export function LicenseRenewalPanel({ selectedPropertyId }: { selectedPropertyId
   const visibleLicenses = showAll ? licenses : expiring
 
   async function saveLicense(input: SoftwareLicenseInput) {
-    if (!firebaseUser) throw new Error(t("รุณาเข้าสู่ระบบใหม่"))
+    if (!firebaseUser) throw new Error(t("กรุณาเข้าสู่ระบบใหม่"))
     if (editingLicense) {
       await updateLicense(editingLicense.id, input)
       setNotice(`แก้ไข ${input.productName} แล้ว`); setEditingLicense(null)

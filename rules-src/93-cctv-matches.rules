@@ -9,15 +9,32 @@
       allow list: if isSuperAdmin()
         || (cctvEnabledForProperty(resource.data.propertyId)
           && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
-      allow create: if canManageProperty(request.resource.data.propertyId)
+      // Keep the Super Admin branch separate: combining it with the membership branch
+      // makes the Firestore Rules evaluator exceed its expression budget.
+      allow create: if isSuperAdmin()
+        && activeCctvPropertyMatches(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validCctvDailyCheckAdmin(request.resource.data)
+        && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
+        && request.resource.data.checkedByUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow create: if hasPropertyRole(request.resource.data.propertyId, 'supportEngineer')
         && cctvEnabledForProperty(request.resource.data.propertyId)
-        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && request.resource.data.propertyCode == get(membershipPath(request.auth.uid, request.resource.data.propertyId)).data.propertyCode
         && validCctvDailyCheck(request.resource.data)
         && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
         && request.resource.data.checkedByUid == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow update: if canManageProperty(resource.data.propertyId)
+      allow update: if isSuperAdmin()
+        && activeCctvPropertyMatches(resource.data.propertyId, resource.data.propertyCode)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.checkedOn == resource.data.checkedOn
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validCctvDailyCheckAdmin(request.resource.data)
+        && request.resource.data.checkedByUid == request.auth.uid;
+      allow update: if hasPropertyRole(resource.data.propertyId, 'supportEngineer')
         && cctvEnabledForProperty(resource.data.propertyId)
+        && resource.data.propertyCode == get(membershipPath(request.auth.uid, resource.data.propertyId)).data.propertyCode
         && request.resource.data.propertyId == resource.data.propertyId
         && request.resource.data.propertyCode == resource.data.propertyCode
         && request.resource.data.checkedOn == resource.data.checkedOn

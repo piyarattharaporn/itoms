@@ -36,7 +36,8 @@
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
         && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'updatedAt'])
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt']))
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt'])
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assetId', 'updatedAt']))
         && validRequestUser(request.resource.data)
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;

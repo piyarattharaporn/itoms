@@ -42,7 +42,7 @@ export function ActivityLogPage({ selectedPropertyId }: { selectedPropertyId: st
 
   return <div className="space-y-5">
     <section className="rounded-2xl border border-slate-200/80 bg-white p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Activities Log</h2><p className="mt-1 text-sm text-slate-500">{t("ประวัติการสร้างและเปลี่ยนสถานะ Task ตามสิทธิ์ Property")}</p></div><span className="rounded-full bg-lotus-50 px-3 py-1.5 text-xs font-semibold text-lotus-800">{t("แสดงกิจกรรมล่าสุดไม่เกิน 50 รายการ")}</span></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">{t('Activities Log')}</h2><p className="mt-1 text-sm text-slate-500">{t("ประวัติการสร้างและเปลี่ยนสถานะ Task ตามสิทธิ์ Property")}</p></div><span className="rounded-full bg-lotus-50 px-3 py-1.5 text-xs font-semibold text-lotus-800">{t("แสดงกิจกรรมล่าสุดไม่เกิน 50 รายการ")}</span></div>
       <div className="mt-4"><label className="text-sm font-medium text-slate-700" htmlFor="activity-search">{t("ค้นหา")}<input className="form-input mt-1 w-full" id="activity-search" onChange={(event) => setSearch(event.target.value)} placeholder={t("เลขที่งาน, หัวข้อ, ผู้ดำเนินการ")} type="search" value={search} /></label></div>
     </section>
 

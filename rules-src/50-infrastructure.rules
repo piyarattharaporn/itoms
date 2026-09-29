@@ -53,6 +53,33 @@
         && check.updatedAt == request.time;
     }
 
+    // Super Admin is the trusted operator for CCTV configuration. Keep a compact
+    // shape/size guard here so the privileged branch stays below Firestore's
+    // expression budget while Support Engineer writes retain full validation.
+    function validCctvDailyCheckAdmin(check) {
+      return check.keys().hasAll([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.keys().hasOnly([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
+        && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
+        && validIsoDate(check.checkedOn)
+        && check.nvrTotal is int && check.nvrTotal >= 0 && check.nvrTotal <= 20000
+        && check.nvrOnline is int && check.nvrOnline >= 0 && check.nvrOnline <= check.nvrTotal
+        && check.cameraTotal is int && check.cameraTotal >= 0 && check.cameraTotal <= 20000
+        && check.cameraOnline is int && check.cameraOnline >= 0 && check.cameraOnline <= check.cameraTotal
+        && check.nvrDetails is list && check.nvrDetails.size() <= 20
+        && check.notes is string && check.notes.size() <= 1000
+        && check.checkedByUid == request.auth.uid
+        && check.checkedAt == request.time
+        && check.createdAt is timestamp
+        && check.updatedAt == request.time;
+    }
+
     function validCctvNvrInventory(nvr) {
       return nvr.keys().hasAll([
           'propertyId', 'propertyCode', 'name', 'location', 'cameraTotal',

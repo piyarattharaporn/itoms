@@ -15,6 +15,7 @@ import { subscribeToAssets, type AssetRecord } from '../assets/assetService'
 import { LicenseOverviewSummary } from '../licenses/LicenseOverviewSummary'
 import { CctvOverview } from './CctvOverview'
 import { TodoDashboardPreview } from '../todo/TodoCalendar'
+import { subscribeToIncidents, type InfrastructureIncident } from '../infrastructure/incidentService'
 
 type Period = '7' | '15' | '1m' | '3m' | 'custom'
 
@@ -59,15 +60,25 @@ function BarList({
   title,
   rows,
   accent = 'bg-lotus-500',
+  totalCount,
 }: {
   title: string
   rows: Array<{ label: string; count: number }>
   accent?: string
+  totalCount?: number
 }) {
-  const max = Math.max(1, ...rows.map((row) => row.count))
+  const denominator = totalCount ?? Math.max(1, ...rows.map((row) => row.count))
+  const max = totalCount === undefined ? Math.max(1, ...rows.map((row) => row.count)) : Math.max(1, totalCount)
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40">
-      <h2 className="font-semibold text-slate-800">{title}</h2>
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="font-semibold text-slate-800">{title}</h2>
+        {totalCount !== undefined && (
+          <span className="shrink-0 text-xs tabular-nums text-slate-400">
+            {totalCount.toLocaleString(getLocale())} {t('งาน')}
+          </span>
+        )}
+      </div>
       {rows.length === 0 ? (
         <p className="mt-5 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ยังไม่มีข้อมูลในช่วงเวลานี้')}</p>
       ) : (
@@ -78,12 +89,19 @@ function BarList({
                 <span className="truncate text-slate-600" title={row.label}>
                   {row.label}
                 </span>
-                <span className="font-semibold tabular-nums text-slate-800">{row.count}</span>
+                <span className="flex shrink-0 items-center gap-2 tabular-nums">
+                  <span className="font-semibold text-slate-800">{row.count}</span>
+                  {totalCount !== undefined && (
+                    <span className="text-xs text-slate-400">
+                      {Math.round((row.count / Math.max(denominator, 1)) * 100)}%
+                    </span>
+                  )}
+                </span>
               </div>
               <span className="block h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
                 <span
                   className={`block h-full rounded-full ${accent}`}
-                  style={{ width: `${Math.max(4, (row.count / max) * 100)}%` }}
+                  style={{ width: `${Math.min(100, Math.max(4, (row.count / max) * 100))}%` }}
                 />
               </span>
             </li>
@@ -334,6 +352,144 @@ function PendingTickets({
   )
 }
 
+function IncidentOperations({
+  incidents,
+  loading,
+  onViewAll,
+}: {
+  incidents: InfrastructureIncident[]
+  loading: boolean
+  onViewAll: () => void
+}) {
+  const open = incidents.filter((incident) => incident.status === 'Open')
+  const monitoring = incidents.filter((incident) => incident.status === 'Monitoring')
+  const restored = incidents.filter((incident) => incident.status === 'Restored')
+  const active = [...open, ...monitoring].sort((a, b) => (b.startedAt?.getTime() ?? 0) - (a.startedAt?.getTime() ?? 0))
+  const critical = active.filter((incident) => incident.impact === 'Critical')
+  const visibleIncidents = active.slice(0, 4)
+
+  return (
+    <section
+      aria-labelledby="dashboard-incidents-heading"
+      className="rounded-2xl border border-rose-100 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-700">
+            <MetricIcon name="alert" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-semibold text-slate-900" id="dashboard-incidents-heading">
+              {t('บันทึกเหตุขัดข้อง')}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">{t('ติดตามเหตุที่ยังไม่กู้คืนและเหตุ Critical')}</p>
+          </div>
+        </div>
+        <button
+          className="shrink-0 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-300"
+          onClick={onViewAll}
+          type="button"
+        >
+          {t('เปิด Incident Log')}
+        </button>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/60 sm:grid-cols-4 sm:divide-y-0">
+        <div className="px-3 py-3 sm:px-4">
+          <p className="text-xs text-slate-500">{t('ยังไม่กู้คืน')}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-rose-700">{loading ? '—' : active.length}</p>
+        </div>
+        <div className="px-3 py-3 sm:px-4">
+          <p className="text-xs text-slate-500">{t('Critical ที่ยังเปิด')}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-red-700">{loading ? '—' : critical.length}</p>
+        </div>
+        <div className="px-3 py-3 sm:px-4">
+          <p className="text-xs text-slate-500">{t('กำลังเฝ้าระวัง')}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-700">{loading ? '—' : monitoring.length}</p>
+        </div>
+        <div className="px-3 py-3 sm:px-4">
+          <p className="text-xs text-slate-500">{t('กู้คืนแล้ว')}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-700">{loading ? '—' : restored.length}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)]">
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-800">{t('เหตุที่ยังไม่กู้คืน')}</h3>
+            <span className="text-xs tabular-nums text-slate-400">
+              {active.length} {t('เหตุ')}
+            </span>
+          </div>
+          {loading ? (
+            <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500" role="status">
+              {t('กำลังโหลด Incident…')}
+            </p>
+          ) : visibleIncidents.length === 0 ? (
+            <div className="mt-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
+              <p className="font-semibold">{t('ไม่มีเหตุที่ยังเปิดอยู่')}</p>
+              <p className="mt-1 text-xs text-emerald-700">{t('ไม่พบเหตุขัดข้องที่ต้องติดตามในข้อมูลที่โหลด')}</p>
+            </div>
+          ) : (
+            <ul className="mt-2 divide-y divide-slate-100">
+              {visibleIncidents.map((incident) => (
+                <li className="flex items-start justify-between gap-3 py-3" key={incident.id}>
+                  <button
+                    className="min-w-0 flex-1 rounded-lg text-left hover:text-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-300"
+                    onClick={onViewAll}
+                    type="button"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-500">{incident.propertyCode}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                        {t(incident.type)}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${incident.impact === 'Critical' ? 'bg-red-50 text-red-800' : incident.impact === 'High' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600'}`}
+                      >
+                        {t(incident.impact)}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-sm font-semibold text-slate-800">{incident.title}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">{incident.location}</p>
+                  </button>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${incident.status === 'Monitoring' ? 'bg-amber-50 text-amber-800' : 'bg-rose-50 text-rose-800'}`}
+                  >
+                    {t(incident.status)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-xl bg-slate-50 p-4">
+          <h3 className="text-sm font-semibold text-slate-800">{t('สถานะเหตุขัดข้อง')}</h3>
+          <div className="mt-4 space-y-3 text-sm">
+            {[
+              { label: t('เปิดอยู่'), count: open.length, color: 'bg-rose-500' },
+              { label: t('กำลังเฝ้าระวัง'), count: monitoring.length, color: 'bg-amber-500' },
+              { label: t('กู้คืนแล้ว'), count: restored.length, color: 'bg-emerald-500' },
+            ].map(({ label, count, color }) => (
+              <div className="flex items-center justify-between gap-3" key={label}>
+                <span className="flex min-w-0 items-center gap-2 text-slate-600">
+                  <i aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} />
+                  <span className="truncate">{label}</span>
+                </span>
+                <strong className="tabular-nums text-slate-800">{loading ? '—' : count}</strong>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 border-t border-slate-200 pt-3 text-xs leading-5 text-slate-400">
+            {t('นับจาก Incident ล่าสุดสูงสุด 100 รายการ')}
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function StatusSnapshot({ rows }: { rows: Array<{ status: string; count: number }> }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0)
   const colors: Record<string, string> = {
@@ -349,7 +505,7 @@ function StatusSnapshot({ rows }: { rows: Array<{ status: string; count: number 
     <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Task flow</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">{t('Task flow')}</p>
           <h2 className="mt-1 font-semibold text-slate-900">{t('สถานะงาน')}</h2>
           <p className="mt-1 text-sm text-slate-500">
             {t('Task ที่สร้างในช่วงเวลาที่เลือก ·')} {total} {t('งาน')}
@@ -420,26 +576,26 @@ function SlaOperations({
           {t('สำเร็จ')} {metRate}
         </span>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl bg-white p-3">
-          <p className="text-xs text-slate-500">{t('งานที่เข้าเกณฑ์')}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{summary.eligible}</p>
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-white p-3">
+            <p className="text-xs text-slate-500">{t('งานที่เข้าเกณฑ์')}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{summary.eligible}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3">
+            <p className="text-xs text-slate-500">{t('ใกล้ครบกำหนด')}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-700">{summary.dueSoon}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3">
+            <p className="text-xs text-slate-500">{t('เกิน SLA')}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-rose-700">{summary.breached}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3">
+            <p className="text-xs text-slate-500">{t('เปิดอยู่')}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-sky-700">{summary.open}</p>
+          </div>
         </div>
-        <div className="rounded-xl bg-white p-3">
-          <p className="text-xs text-slate-500">{t('ใกล้ครบกำหนด')}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-700">{summary.dueSoon}</p>
-        </div>
-        <div className="rounded-xl bg-white p-3">
-          <p className="text-xs text-slate-500">{t('เกิน SLA')}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-rose-700">{summary.breached}</p>
-        </div>
-        <div className="rounded-xl bg-white p-3">
-          <p className="text-xs text-slate-500">{t('เปิดอยู่')}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-sky-700">{summary.open}</p>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl bg-white p-4">
+        <div className="h-full rounded-xl bg-white p-4">
           <p className="text-xs font-semibold text-slate-700">{t('แยกตามประเภท SLA')}</p>
           <div className="mt-3 space-y-2 text-xs">
             <div className="flex justify-between gap-3">
@@ -456,7 +612,14 @@ function SlaOperations({
             </div>
           </div>
         </div>
-        <BarList accent="bg-violet-400" rows={summary.byProperty} title={t('งานเกิน SLA ตาม Property')} />
+      </div>
+      <div className="mt-4">
+        <BarList
+          accent="bg-violet-400"
+          rows={summary.byProperty}
+          title={t('งานเกิน SLA ตาม Property')}
+          totalCount={summary.breached}
+        />
       </div>
       <p className="mt-4 text-xs leading-5 text-violet-900/70">
         {t('ตัวเลขนี้คำนวณจาก Task ล่าสุดที่โหลดตามสิทธิ์และช่วงวันที่เลือก ไม่ใช่ข้อมูลย้อนหลังทั้งหมด')}
@@ -465,12 +628,18 @@ function SlaOperations({
   )
 }
 
-function PieChart({
+function DistributionCard({
+  eyebrow,
+  title,
+  description,
   rows,
   colors,
   ariaLabel,
   formatLabel = t,
 }: {
+  eyebrow: string
+  title: string
+  description: string
   rows: Array<{ label: string; count: number }>
   colors: Record<string, string>
   ariaLabel: string
@@ -478,61 +647,62 @@ function PieChart({
 }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0)
   const chartRows = rows.filter((row) => row.count > 0)
-  let angle = -90
-  const slices = chartRows.map((row) => {
-    const start = angle
-    const sweep = (row.count / Math.max(total, 1)) * 360
-    angle += sweep
-    if (sweep >= 359.99) return { ...row, color: colors[row.label] ?? '#cbd5e1', path: '' }
-    const point = (degrees: number) => {
-      const radians = (degrees * Math.PI) / 180
-      return { x: 80 + 70 * Math.cos(radians), y: 80 + 70 * Math.sin(radians) }
-    }
-    const first = point(start)
-    const last = point(start + sweep)
-    return {
-      ...row,
-      color: colors[row.label] ?? '#cbd5e1',
-      path: `M 80 80 L ${first.x} ${first.y} A 70 70 0 ${sweep > 180 ? 1 : 0} 1 ${last.x} ${last.y} Z`,
-    }
-  })
   return (
-    <div className="mt-5 flex flex-col items-center gap-4">
-      <svg aria-label={ariaLabel} className="h-36 w-36 shrink-0" role="img" viewBox="0 0 160 160">
-        {slices.length === 1 && !slices[0].path ? (
-          <circle cx="80" cy="80" fill={slices[0].color} r="70" />
-        ) : (
-          slices.map((slice) => (
-            <path d={slice.path} fill={slice.color} key={slice.label} stroke="white" strokeWidth="2">
-              <title>{`${formatLabel(slice.label)}: ${slice.count} (${Math.round((slice.count / total) * 100)}%)`}</title>
-            </path>
-          ))
-        )}
-      </svg>
-      <ul className="grid w-full grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-        {chartRows.map((row) => (
-          <li className="flex min-w-0 items-center gap-2 text-xs" key={row.label}>
-            <i
-              aria-hidden="true"
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: colors[row.label] ?? '#cbd5e1' }}
-            />
-            <span className="min-w-0 flex-1 truncate text-slate-600" title={formatLabel(row.label)}>
-              {formatLabel(row.label)}
-            </span>
-            <span className="font-semibold tabular-nums text-slate-800">{row.count.toLocaleString(getLocale())}</span>
-            <span className="w-10 text-right tabular-nums text-slate-500">
-              {Math.round((row.count / total) * 100)}%
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{eyebrow}</p>
+      <div className="mt-1 flex items-start justify-between gap-4">
+        <div>
+          <h3 className="font-semibold text-slate-900">{title}</h3>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-2xl font-semibold tabular-nums text-slate-900">{total.toLocaleString(getLocale())}</p>
+          <p className="text-xs text-slate-500">{t('งาน')}</p>
+        </div>
+      </div>
+      {total === 0 ? (
+        <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ไม่มี Task ในช่วงเวลานี้')}</p>
+      ) : (
+        <>
+          <div aria-label={ariaLabel} className="mt-5 flex h-3 overflow-hidden rounded-full bg-slate-100" role="img">
+            {chartRows.map((row) => (
+              <span
+                key={row.label}
+                style={{
+                  backgroundColor: colors[row.label] ?? '#cbd5e1',
+                  width: `${(row.count / total) * 100}%`,
+                }}
+                title={`${formatLabel(row.label)}: ${row.count} (${Math.round((row.count / total) * 100)}%)`}
+              />
+            ))}
+          </div>
+          <ul className="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+            {chartRows.map((row) => (
+              <li className="flex min-w-0 items-center gap-2 text-xs" key={row.label}>
+                <i
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: colors[row.label] ?? '#cbd5e1' }}
+                />
+                <span className="min-w-0 flex-1 truncate text-slate-600" title={formatLabel(row.label)}>
+                  {formatLabel(row.label)}
+                </span>
+                <span className="font-semibold tabular-nums text-slate-800">
+                  {row.count.toLocaleString(getLocale())}
+                </span>
+                <span className="w-10 text-right tabular-nums text-slate-500">
+                  {Math.round((row.count / total) * 100)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   )
 }
 
 function IssueAreaBreakdown({ rows }: { rows: Array<{ label: string; count: number }> }) {
-  const total = rows.reduce((sum, row) => sum + row.count, 0)
   const colors: Record<string, string> = {
     'Guest Property Problem': '#b5a3d8',
     'BOH (Back of House)': '#8fc8df',
@@ -541,23 +711,18 @@ function IssueAreaBreakdown({ rows }: { rows: Array<{ label: string; count: numb
     ยังไม่ระบุ: '#cbd5e1',
   }
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">Issue area</p>
-        <h3 className="mt-1 font-semibold text-slate-900">{t('ปัญหาตามพื้นที่')}</h3>
-        <p className="mt-1 text-sm text-slate-500">{t('แยก Guest, BOH และ Office')}</p>
-      </div>
-      {total === 0 ? (
-        <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ไม่มี Task ในช่วงเวลานี้')}</p>
-      ) : (
-        <PieChart ariaLabel={t('สัดส่วนกลุ่มพื้นที่ของ Task')} colors={colors} rows={rows} />
-      )}
-    </section>
+    <DistributionCard
+      ariaLabel={t('สัดส่วนกลุ่มพื้นที่ของ Task')}
+      colors={colors}
+      description={t('แยก Guest, BOH และ Office')}
+      eyebrow={t('Issue area')}
+      rows={rows}
+      title={t('ปัญหาตามพื้นที่')}
+    />
   )
 }
 
 function ChannelBreakdown({ rows }: { rows: Array<{ label: string; count: number }> }) {
-  const total = rows.reduce((sum, row) => sum + row.count, 0)
   const colors: Record<string, string> = {
     Line: '#91c9a4',
     'Message Box': '#9678C4',
@@ -565,23 +730,15 @@ function ChannelBreakdown({ rows }: { rows: Array<{ label: string; count: number
     Other: '#edc77d',
   }
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Contact channel</p>
-        <h3 className="mt-1 font-semibold text-slate-900">{t('ช่องทางที่ใช้แจ้ง')}</h3>
-        <p className="mt-1 text-sm text-slate-500">{t('ช่องทางที่ผู้แจ้งเลือกใน Task')}</p>
-      </div>
-      {total === 0 ? (
-        <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{t('ไม่มี Task ในช่วงเวลานี้')}</p>
-      ) : (
-        <PieChart
-          ariaLabel={t('สัดส่วนช่องทางแจ้ง Task')}
-          colors={colors}
-          formatLabel={formatTicketChannel}
-          rows={rows}
-        />
-      )}
-    </section>
+    <DistributionCard
+      ariaLabel={t('สัดส่วนช่องทางแจ้ง Task')}
+      colors={colors}
+      description={t('ช่องทางที่ผู้แจ้งเลือกใน Task')}
+      eyebrow={t('Contact channel')}
+      formatLabel={formatTicketChannel}
+      rows={rows}
+      title={t('ช่องทางที่ใช้แจ้ง')}
+    />
   )
 }
 
@@ -594,7 +751,7 @@ function TaskTrendChart({ buckets, grouping }: { buckets: TrendBucket[]; groupin
     <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Task trend</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">{t('Task trend')}</p>
           <h2 className="mt-1 font-semibold text-slate-900">{t('งานที่สร้างตามช่วงเวลา')}</h2>
           <p className="mt-1 text-sm text-slate-500">{t('จำนวน Task ที่แจ้งในช่วงวันที่เลือก')}</p>
         </div>
@@ -700,6 +857,7 @@ export function ExecutiveDashboard({
   onOpenCctv,
   onOpenTicket,
   onViewTickets,
+  onViewIncidents,
   onViewDamagedAssets,
   onViewLicenses,
   onViewTodo,
@@ -710,6 +868,7 @@ export function ExecutiveDashboard({
   onOpenCctv: () => void
   onOpenTicket: (ticket: TicketRecord) => void
   onViewTickets: () => void
+  onViewIncidents: () => void
   onViewDamagedAssets: () => void
   onViewLicenses: () => void
   onViewTodo: () => void
@@ -723,6 +882,8 @@ export function ExecutiveDashboard({
   const [customStartDate, setCustomStartDate] = useState(() => shiftCalendarMonths(bangkokToday(), -1))
   const [customEndDate, setCustomEndDate] = useState(() => bangkokToday())
   const [assets, setAssets] = useState<AssetRecord[]>([])
+  const [incidents, setIncidents] = useState<InfrastructureIncident[]>([])
+  const [incidentLoading, setIncidentLoading] = useState(true)
 
   const isSuperAdmin = profile?.globalRole === 'superAdmin'
   const membership = memberships.find((item) => item.propertyId === selectedPropertyId)
@@ -730,6 +891,8 @@ export function ExecutiveDashboard({
   const canReadPm = isSuperAdmin || membership?.role === 'supportEngineer' || membership?.role === 'clientExecutive'
   const canReadAssets = isSuperAdmin || membership?.role === 'supportEngineer'
   const canReadLicenses =
+    isSuperAdmin || membership?.role === 'supportEngineer' || membership?.role === 'clientExecutive'
+  const canReadIncidents =
     isSuperAdmin || membership?.role === 'supportEngineer' || membership?.role === 'clientExecutive'
   const allProperties = isSuperAdmin && selectedPropertyId === 'all'
 
@@ -740,6 +903,27 @@ export function ExecutiveDashboard({
     }
     return subscribeToAssets(selectedPropertyId, allProperties, setAssets, () => setAssets([]))
   }, [accessState, canReadAssets, selectedPropertyId, allProperties])
+
+  useEffect(() => {
+    if (accessState !== 'ready' || !canReadIncidents) {
+      setIncidents([])
+      setIncidentLoading(false)
+      return
+    }
+    setIncidentLoading(true)
+    return subscribeToIncidents(
+      selectedPropertyId,
+      allProperties,
+      (nextIncidents) => {
+        setIncidents(nextIncidents)
+        setIncidentLoading(false)
+      },
+      () => {
+        setIncidents([])
+        setIncidentLoading(false)
+      },
+    )
+  }, [accessState, canReadIncidents, selectedPropertyId, allProperties])
 
   useEffect(() => {
     if (accessState !== 'ready' || !firebaseUser || !profile) return
@@ -1043,8 +1227,11 @@ export function ExecutiveDashboard({
             />
           </div>
 
-          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="grid grid-cols-1 gap-4">
             <PendingTickets onOpenTicket={onOpenTicket} onViewAll={onViewTickets} tickets={tickets} />
+            {canReadIncidents && (
+              <IncidentOperations incidents={incidents} loading={incidentLoading} onViewAll={onViewIncidents} />
+            )}
             <SlaOperations summary={data.slaSummary} />
           </div>
 
@@ -1066,9 +1253,8 @@ export function ExecutiveDashboard({
                 <div className="mb-3">
                   <h2 className="mt-1 text-lg font-semibold text-slate-900">{t('รูปแบบการแจ้งและประเภทปัญหา')}</h2>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                   <IssueAreaBreakdown rows={data.issueAreas} />
-                  <BarList accent="bg-violet-400" rows={data.problemCategories.slice(0, 6)} title={t('ตามหมวดปัญหา')} />
                   <ChannelBreakdown rows={data.channels} />
                 </div>
                 <div className="mb-3 mt-6">
@@ -1077,10 +1263,33 @@ export function ExecutiveDashboard({
                     {t('ประเภทย่อย Property และจุด / Asset ที่มีรายการมาก')}
                   </p>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <BarList accent="bg-fuchsia-300" rows={data.problems.slice(0, 6)} title={t('ประเภทย่อยที่พบบ่อย')} />
-                  <BarList accent="bg-sky-400" rows={data.properties} title={t('ตาม Property')} />
-                  <BarList accent="bg-amber-400" rows={data.locations} title={t('จุด / Asset ที่พบ Task บ่อย')} />
+                <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+                  <BarList
+                    accent="bg-violet-400"
+                    rows={data.problemCategories.slice(0, 6)}
+                    title={t('ตามหมวดปัญหา')}
+                    totalCount={data.filtered.length}
+                  />
+                  <BarList
+                    accent="bg-sky-400"
+                    rows={data.properties}
+                    title={t('ตาม Property')}
+                    totalCount={data.filtered.length}
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+                  <BarList
+                    accent="bg-fuchsia-300"
+                    rows={data.problems.slice(0, 6)}
+                    title={t('ประเภทย่อยที่พบบ่อย')}
+                    totalCount={data.filtered.length}
+                  />
+                  <BarList
+                    accent="bg-amber-400"
+                    rows={data.locations}
+                    title={t('จุด / Asset ที่พบ Task บ่อย')}
+                    totalCount={data.filtered.length}
+                  />
                 </div>
               </section>
             </div>
@@ -1096,7 +1305,7 @@ export function ExecutiveDashboard({
                   {t('ติดตามสถานะ CCTV, PM, Asset และ License ในขอบเขตปัจจุบัน')}
                 </p>
               </div>
-              <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
                 {showCctv && <CctvOverview compact onOpenCctv={onOpenCctv} selectedPropertyId={selectedPropertyId} />}
                 {canReadPm && <PmOverviewSummary compact selectedPropertyId={selectedPropertyId} />}
                 {canReadAssets && <RepairAssets assets={assets} compact onViewAll={onViewDamagedAssets} />}

@@ -1,4 +1,4 @@
-import { t } from '../../lib/i18n';
+import { t, tKey } from '../../lib/i18n';
 import { useState, type FormEvent } from 'react'
 import { useAuth } from './AuthProvider'
 
@@ -40,14 +40,14 @@ export function SignInForm() {
         <div className="mb-7 flex items-center gap-3">
           <div aria-hidden="true" className="flex h-11 w-11 items-center justify-center rounded-full bg-lotus-600 text-white"><svg className="h-6 w-6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><rect height="13" rx="2" width="19" x="2.5" y="3" /><path d="M8 21h8M12 16v5M6 7h12" /></svg></div>
           <div>
-            <h1 className="font-semibold tracking-tight">{t("IT Outsource Managed System (ITOMS)")}</h1>
-            <p className="text-sm text-slate-500">{t("เข้าสู่ระบบสำหรับทีมงาน")}</p>
+          <h1 className="font-semibold tracking-tight">{tKey('app.name')}</h1>
+            <p className="text-sm text-slate-500">{tKey('auth.staffSignIn')}</p>
           </div>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1.5 block text-sm font-medium" htmlFor="email">{t("อีเมล")}</label>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="email">{tKey('auth.email')}</label>
             <input
               autoComplete="username"
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-lotus-600 focus:ring-2 focus:ring-lotus-100"
@@ -61,7 +61,7 @@ export function SignInForm() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium" htmlFor="password">{t("รหัสผ่าน")}</label>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="password">{tKey('auth.password')}</label>
             <input
               autoComplete="current-password"
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-lotus-600 focus:ring-2 focus:ring-lotus-100"
@@ -74,7 +74,7 @@ export function SignInForm() {
             />
           </div>
 
-          {(formError || error) && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{formError || error}</p>}
+          {(formError || error) && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{t(formError || error)}</p>}
 
           {!firebaseReady && (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
@@ -87,13 +87,13 @@ export function SignInForm() {
             disabled={!firebaseReady || submitting}
             type="submit"
           >
-            {submitting ? t("กำลังเข้าสู่ระบบ…") : t("เข้าสู่ระบบ")}
+            {submitting ? tKey('auth.signingIn') : tKey('auth.signIn')}
           </button>
         </form>
 
         <div className="my-5 flex items-center gap-3" aria-hidden="true">
           <span className="h-px flex-1 bg-slate-200" />
-          <span className="text-xs font-medium text-slate-400">{t('หรือ')}</span>
+          <span className="text-xs font-medium text-slate-400">{tKey('auth.or')}</span>
           <span className="h-px flex-1 bg-slate-200" />
         </div>
 
@@ -109,7 +109,7 @@ export function SignInForm() {
             <path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19Z" transform="translate(0 0)" />
             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.8l-7.73-6c-2.14 1.44-4.89 2.3-8.17 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" />
           </svg>
-          {submitting ? t('กำลังเข้าสู่ระบบ…') : t('เข้าสู่ระบบด้วย Google')}
+          {submitting ? tKey('auth.signingIn') : tKey('auth.googleSignIn')}
         </button>
 
         <p className="mt-5 text-xs leading-5 text-slate-500">

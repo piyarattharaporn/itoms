@@ -57,6 +57,62 @@ test('representative operational pages have no WCAG A/AA violations', async ({ p
   await scanCurrentPage()
 })
 
+test('local Super Admin can open every visible portal page from grouped navigation', async ({ page }) => {
+  await signInAsLocalAdmin(page)
+
+  const visiblePages = [
+    'ภาพรวม',
+    'กระดานงาน',
+    'Create Task',
+    'ปฏิทินงาน',
+    'RCA & Service Review',
+    'บันทึกเหตุขัดข้อง',
+    'กล้องวงจรปิด',
+    'บำรุงรักษาเชิงป้องกัน',
+    'อุปกรณ์และลิขสิทธิ์',
+    'อุปกรณ์เสียหาย',
+    'บันทึกกิจกรรม',
+    'บันทึก Audit Log',
+    'ตั้งค่า Property',
+    'ตั้งค่ารายการ',
+    'รายชื่อผู้แจ้งงาน',
+    'รายชื่อผู้ใช้',
+  ]
+
+  for (const pageName of visiblePages) {
+    const navigationButton = page.getByRole('button', { name: pageName, exact: true })
+    await expect(navigationButton).toBeVisible()
+    await navigationButton.click()
+    await expect(page.getByRole('heading', { name: pageName, exact: true }).first()).toBeVisible()
+    await expect(page.locator('main').first()).toBeVisible()
+    if (pageName === 'กระดานงาน') {
+      await expect(page.getByRole('heading', { name: 'งาน Task ที่ต้องดำเนินการ', exact: true })).toBeVisible()
+    }
+  }
+})
+
+test('CCTV check can save one NVR independently', async ({ page }) => {
+  await signInAsLocalAdmin(page)
+  await page.getByRole('button', { name: 'กล้องวงจรปิด', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'กล้องวงจรปิด', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: '+ เพิ่ม NVR', exact: true }).click()
+  await page.getByLabel('ชื่อ / รหัส NVR').fill('E2E-NVR-01')
+  await page.getByLabel('Location / พื้นที่').fill('E2E Test Room')
+  await page.getByLabel('จำนวนกล้องที่ติดตั้ง').fill('2')
+  await page.getByLabel('เป้าหมายวันเก็บภาพ').fill('30')
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).last().click()
+  await expect(page.getByText('E2E-NVR-01', { exact: true }).first()).toBeVisible()
+
+  const dailyCheckForm = page.locator('form').filter({ hasText: 'ตรวจสุขภาพรายวันแยกตาม NVR' })
+  const nvrCheck = dailyCheckForm.locator('article').filter({ hasText: 'E2E-NVR-01' }).first()
+  await expect(nvrCheck).toBeVisible()
+  await nvrCheck.getByLabel('กล้อง Online').fill('1')
+  await nvrCheck.getByRole('button', { name: 'บันทึก NVR นี้ E2E-NVR-01', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('บันทึกผลตรวจ NVR E2E-NVR-01 แล้ว')
+  await expect(nvrCheck.getByText('บันทึกแล้ว', { exact: true })).toBeVisible()
+})
+
 test('catalog settings exposes responsive SLA navigation and fields', async ({ page }) => {
   await signInAsLocalAdmin(page)
   await page.getByRole('button', { name: 'ตั้งค่ารายการ', exact: true }).click()
@@ -65,8 +121,10 @@ test('catalog settings exposes responsive SLA navigation and fields', async ({ p
   await expect(sectionNavigation).toBeVisible()
   await sectionNavigation.getByRole('link', { name: 'SLA', exact: true }).click()
   await expect(page.locator('#catalog-sla')).toBeVisible()
-  await expect(page.getByLabel('First Response Critical')).toBeVisible()
-  await expect(page.getByLabel('Resolution Critical')).toBeVisible()
+  // Scope to the editor's stable field type so the assertion is independent of the selected UI language.
+  const slaTargetInputs = page.locator('#catalog-sla input[type="number"]')
+  await expect(slaTargetInputs).toHaveCount(8)
+  await expect(slaTargetInputs.first()).toBeVisible()
 
   await page.setViewportSize({ width: 390, height: 844 })
   const dimensions = await page.evaluate(() => ({
@@ -76,7 +134,7 @@ test('catalog settings exposes responsive SLA navigation and fields', async ({ p
   }))
   expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1)
   expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1)
-  await expect(page.getByLabel('First Response Critical')).toBeVisible()
+  await expect(slaTargetInputs.first()).toBeVisible()
 })
 
 test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
@@ -179,7 +237,8 @@ test('dashboard keeps every visible element inside a desktop viewport', async ({
   console.log(JSON.stringify({ viewport: await page.evaluate(() => window.innerWidth), overflow }))
   await expect(overflow, JSON.stringify(overflow, null, 2)).toEqual([])
 
-  const licenseCard = page.locator('section').filter({ hasText: 'License ที่ใกล้หมดอายุ / หมดอายุแล้ว' }).first()
+  // Keep the structural assertion aligned with the current user-facing dashboard title.
+  const licenseCard = page.locator('section').filter({ hasText: 'License ใกล้หมดอายุหรือหมดอายุแล้ว' }).first()
   const licenseAction = page.getByRole('button', { name: 'ดูรายละเอียดใน Asset & Licence', exact: true })
   const cardBox = await licenseCard.boundingBox()
   const actionBox = await licenseAction.boundingBox()

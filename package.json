@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test:unit": "vitest run",
+    "test:i18n": "node scripts/check-i18n-completeness.mjs",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:emulator": "playwright test --config playwright.emulator.config.ts",

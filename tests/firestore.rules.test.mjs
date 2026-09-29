@@ -99,6 +99,30 @@ beforeEach(async () => {
       }),
       setDoc(doc(db, 'assets/asset-1'), { propertyId: 'PROP-1' }),
       setDoc(doc(db, 'assets/damaged-asset'), { propertyId: 'PROP-1', status: 'Under Repair', updatedAt: new Date() }),
+      setDoc(doc(db, 'ticketAssetOptions/asset-1'), {
+        propertyId: 'PROP-1',
+        propertyCode: 'P1',
+        assetTag: 'ASSET-1',
+        name: 'IT Laptop',
+        category: 'Computer',
+        department: 'IT',
+        location: 'IT Office',
+        status: 'In Service',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      setDoc(doc(db, 'ticketAssetOptions/asset-2'), {
+        propertyId: 'PROP-2',
+        propertyCode: 'P2',
+        assetTag: 'ASSET-2',
+        name: 'Property Two Laptop',
+        category: 'Computer',
+        department: 'IT',
+        location: 'IT Office',
+        status: 'In Service',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
       setDoc(doc(db, 'pmSchedules/pm-1'), { propertyId: 'PROP-1' }),
       setDoc(doc(db, 'cctvDailyChecks/check-1'), { propertyId: 'PROP-1' }),
       setDoc(doc(db, 'cctvNvrInventory/nvr-1'), { propertyId: 'PROP-1' }),
@@ -174,6 +198,51 @@ describe('profile, membership and Property boundaries', () => {
     const db = testEnv.authenticatedContext('requester-1').firestore()
     await assertSucceeds(getDoc(doc(db, 'properties/PROP-1')))
     await assertFails(getDoc(doc(db, 'properties/PROP-2')))
+  })
+})
+
+describe('Request User asset links', () => {
+  const requestUser = (overrides = {}) => ({
+    propertyId: 'PROP-1',
+    propertyCode: 'P1',
+    email: 'asset-user@example.test',
+    name: 'Asset User',
+    department: 'IT',
+    assetId: 'asset-1',
+    active: true,
+    createdBy: 'support-1',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('allows an optional same-property, same-department Asset link and later unlink', async () => {
+    const db = testEnv.authenticatedContext('support-1').firestore()
+    const ref = doc(db, 'requestUsers/PROP-1__asset-user')
+    await assertSucceeds(setDoc(ref, requestUser()))
+    await assertSucceeds(updateDoc(ref, { assetId: null, updatedAt: serverTimestamp() }))
+  })
+
+  it('denies cross-property, cross-department, and injected Asset link payloads', async () => {
+    const db = testEnv.authenticatedContext('support-1').firestore()
+    await assertFails(
+      setDoc(
+        doc(db, 'requestUsers/cross-property-asset'),
+        requestUser({ email: 'cross-property@example.test', assetId: 'asset-2' }),
+      ),
+    )
+    await assertFails(
+      setDoc(
+        doc(db, 'requestUsers/cross-department-asset'),
+        requestUser({ email: 'cross-department@example.test', department: 'Engineering' }),
+      ),
+    )
+    await assertFails(
+      setDoc(
+        doc(db, 'requestUsers/injected-asset-field'),
+        requestUser({ email: 'injected@example.test', injectedField: true }),
+      ),
+    )
   })
 })
 
@@ -555,6 +624,64 @@ describe('Ticket, Asset, and PM access', () => {
     )
   })
 
+  it('scopes RCA records by Property, keeps Client Executives read-only, and denies injected fields', async () => {
+    const supportDb = testEnv.authenticatedContext('support-1').firestore()
+    const executiveDb = testEnv.authenticatedContext('executive-1').firestore()
+    const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
+    const rcaRef = doc(supportDb, 'rcaRecords/rca-p1')
+    const validRca = {
+      schemaVersion: 1,
+      propertyId: 'PROP-1',
+      propertyCode: 'P1',
+      taskId: 'ticket-to-update',
+      taskTitle: 'Network / WiFi Connections · Office',
+      taskCategory: 'Network',
+      taskPriority: 'Medium',
+      taskCompletedAt: new Date('2026-09-24T00:00:00.000Z'),
+      incidentSummary: 'Network service was unavailable for the office.',
+      rootCause: 'The access point configuration was invalid.',
+      contributingFactors: 'A change was not peer reviewed.',
+      fiveWhys: 'Why did service fail? The access point rejected the configuration.',
+      impact: 'Office users could not access the network.',
+      downtimeMinutes: 30,
+      correctiveAction: 'Restored the previous configuration and verified connectivity.',
+      preventiveAction: 'Add peer review to the network change checklist.',
+      ownerUid: 'support-1',
+      dueDate: '2026-10-01',
+      status: 'Draft',
+      createdBy: 'support-1',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+    await assertSucceeds(setDoc(rcaRef, validRca))
+    await assertSucceeds(getDoc(doc(executiveDb, 'rcaRecords/rca-p1')))
+    await assertSucceeds(updateDoc(rcaRef, { rootCause: 'Updated root cause', updatedAt: serverTimestamp() }))
+    await assertFails(
+      updateDoc(doc(executiveDb, 'rcaRecords/rca-p1'), { rootCause: 'Client edit', updatedAt: serverTimestamp() }),
+    )
+    await assertFails(getDoc(doc(requesterDb, 'rcaRecords/rca-p1')))
+    await assertFails(
+      setDoc(doc(supportDb, 'rcaRecords/cross-property'), {
+        ...validRca,
+        propertyId: 'PROP-2',
+        propertyCode: 'P2',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    )
+    await assertFails(
+      setDoc(doc(supportDb, 'rcaRecords/injected'), {
+        ...validRca,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        injectedField: true,
+      }),
+    )
+    await assertSucceeds(
+      getDocs(query(collection(testEnv.authenticatedContext('admin-1').firestore(), 'rcaRecords'), limit(10))),
+    )
+  })
+
   it('limits Asset reads to Support Engineers and allows read-only PM access for Property Executives', async () => {
     const supportDb = testEnv.authenticatedContext('support-1').firestore()
     const executiveDb = testEnv.authenticatedContext('executive-1').firestore()
@@ -786,6 +913,32 @@ describe('CCTV and Infrastructure Incident access is Property-scoped', () => {
         })),
         notes: '',
         checkedByUid: 'support-1',
+        checkedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    )
+
+    const adminDb = testEnv.authenticatedContext('admin-1').firestore()
+    await assertSucceeds(
+      setDoc(doc(adminDb, 'cctvDailyChecks/PROP-1_2026-09-27'), {
+        propertyId: 'PROP-1',
+        propertyCode: 'P1',
+        checkedOn: '2026-09-27',
+        nvrTotal: 8,
+        nvrOnline: 8,
+        cameraTotal: 8,
+        cameraOnline: 8,
+        nvrDetails: Array.from({ length: 8 }, (_, index) => ({
+          nvrId: `nvr-${index}`,
+          online: true,
+          cameraTotal: 1,
+          cameraOnline: 1,
+          retentionDays: 30,
+          notes: '',
+        })),
+        notes: '',
+        checkedByUid: 'admin-1',
         checkedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

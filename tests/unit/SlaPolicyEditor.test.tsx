@@ -12,7 +12,7 @@ describe('SlaPolicyEditor', () => {
       <SlaPolicyEditor property={{ id: 'property-1', code: 'P1', slaPolicy: null }} saving={false} onSave={onSave} />,
     )
 
-    const responseInput = screen.getByLabelText('First Response Critical')
+    const responseInput = screen.getByLabelText('การตอบรับครั้งแรก Critical')
     fireEvent.change(responseInput, { target: { value: '15' } })
     await user.click(screen.getByRole('button', { name: 'บันทึก SLA' }))
 

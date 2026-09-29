@@ -535,7 +535,7 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
     )
   }, [propertyId, canManage])
   async function addOption(field: CatalogField, value: string) {
-    if (!firebaseUser || !property) throw new Error(t('ม่พบผู้ใช้หรือ Property ที่เลือก'))
+    if (!firebaseUser || !property) throw new Error(t('ไม่พบผู้ใช้หรือ Property ที่เลือก'))
     setSaving(true)
     setError(null)
     setNotice(null)
@@ -547,7 +547,7 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
     }
   }
   async function renameOption(field: CatalogField, oldValue: string, value: string) {
-    if (!firebaseUser || !property) throw new Error(t('ม่พบผู้ใช้หรือ Property ที่เลือก'))
+    if (!firebaseUser || !property) throw new Error(t('ไม่พบผู้ใช้หรือ Property ที่เลือก'))
     setSaving(true)
     setError(null)
     setNotice(null)
@@ -559,7 +559,7 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
     }
   }
   async function removeOption(value: string) {
-    if (!property) throw new Error(t('ม่พบ Property ที่เลือก'))
+    if (!property) throw new Error(t('ไม่พบ Property ที่เลือก'))
     setSaving(true)
     setError(null)
     setNotice(null)
@@ -570,7 +570,7 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
     }
   }
   async function renameGroup(oldGroup: string, value: string) {
-    if (!property) throw new Error(t('ม่พบ Property ที่เลือก'))
+    if (!property) throw new Error(t('ไม่พบ Property ที่เลือก'))
     setSaving(true)
     setError(null)
     setNotice(null)
@@ -581,7 +581,7 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
     }
   }
   async function removeGroup(group: string) {
-    if (!property) throw new Error(t('ม่พบ Property ที่เลือก'))
+    if (!property) throw new Error(t('ไม่พบ Property ที่เลือก'))
     setSaving(true)
     setError(null)
     setNotice(null)

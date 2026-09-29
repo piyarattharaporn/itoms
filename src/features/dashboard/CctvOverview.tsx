@@ -53,8 +53,11 @@ export function CctvOverview({
   const membership = memberships.find((item) => item.propertyId === selectedPropertyId)
   const canRead = isSuperAdmin || membership?.role === 'supportEngineer' || membership?.role === 'clientExecutive'
   const allProperties = isSuperAdmin && selectedPropertyId === 'all'
-  const enabledProperties = properties.filter((property) => property.cctvEnabled !== false)
-  const enabledPropertyIds = enabledProperties.map((property) => property.id)
+  const enabledProperties = useMemo(
+    () => properties.filter((property) => property.cctvEnabled !== false),
+    [properties],
+  )
+  const enabledPropertyIds = useMemo(() => enabledProperties.map((property) => property.id), [enabledProperties])
   const enabledPropertyKey = enabledPropertyIds.join('|')
   const today = todayInBangkok()
   const [checks, setChecks] = useState<CctvDailyCheck[]>([])
@@ -83,7 +86,7 @@ export function CctvOverview({
       undefined,
       allProperties ? enabledPropertyIds : undefined,
     )
-  }, [accessState, canRead, allProperties, selectedPropertyId, enabledPropertyKey])
+  }, [accessState, canRead, allProperties, selectedPropertyId, enabledPropertyIds, enabledPropertyKey])
 
   const summary = useMemo(() => {
     const todayChecks = checks.filter((check) => check.checkedOn === today)
@@ -115,7 +118,7 @@ export function CctvOverview({
       check: checkedByProperty.get(property.id),
     }))
     return { ...totals, rows, checkedCount: rows.filter((row) => row.check).length }
-  }, [checks, today, allProperties, properties, selectedPropertyId])
+  }, [checks, today, allProperties, properties, enabledProperties, selectedPropertyId])
 
   if (!canRead) return null
 

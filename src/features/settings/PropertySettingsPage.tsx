@@ -155,7 +155,9 @@ export function PropertySettingsPage() {
                     ? t('ปิดใช้งาน CCTV')
                     : t('เปิดใช้งาน CCTV')}
               </p>
-              <p className="mt-3 break-all text-xs text-slate-500">Document ID: {property.id}</p>
+              <p className="mt-3 break-all text-xs text-slate-500">
+                {t('Document ID:')} {property.id}
+              </p>
             </article>
           ))}
         </section>

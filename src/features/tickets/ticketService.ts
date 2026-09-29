@@ -1,5 +1,7 @@
 import {
   collection,
+  doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -35,6 +37,7 @@ export interface TicketAccess {
 export interface AssignableEngineer {
   uid: string
   displayName: string
+  propertyId: string
 }
 
 export function formatAssignableEngineerLabel(engineer: AssignableEngineer): string {
@@ -209,6 +212,36 @@ export async function getTicketPage(
   }
 }
 
+/** Bounded completed-task feed used by RCA review. Search/filter remains client-side
+ * within the loaded page until the trusted backend provides server-side search. */
+export async function getCompletedTicketPage(
+  access: TicketAccess,
+  pageSize = 25,
+  cursor: TicketPageCursor = null,
+): Promise<CursorPage<TicketRecord>> {
+  const firestore = requiredFirestore()
+  pageSize = Math.min(Math.max(pageSize, 1), 50)
+  const constraints: QueryConstraint[] = [where('status', '==', 'Completed')]
+  if (!access.allProperties) constraints.push(where('propertyId', '==', access.propertyId))
+  if (cursor) constraints.push(startAfter(cursor))
+  constraints.push(limit(pageSize))
+  const snapshot = await getDocs(query(collection(firestore, 'tickets'), ...constraints))
+  const items = snapshot.docs
+    .map((ticket) => parseTicket(ticket.id, ticket.data()))
+    .filter((ticket): ticket is TicketRecord => ticket !== null)
+    .sort(
+      (a, b) =>
+        (b.updatedAt?.getTime() ?? b.createdAt?.getTime() ?? 0) -
+        (a.updatedAt?.getTime() ?? a.createdAt?.getTime() ?? 0),
+    )
+  recordUsageEvent('completed_ticket_page_loaded', { count: items.length, pageSize })
+  return {
+    items,
+    nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null,
+    hasMore: snapshot.docs.length === pageSize,
+  }
+}
+
 export function subscribeToTickets(
   access: TicketAccess,
   onTickets: (tickets: TicketRecord[]) => void,
@@ -262,23 +295,49 @@ export function subscribeToTicketEvents(
   )
 }
 
-export async function getAssignableEngineers(propertyId: string) {
+export async function getAssignableEngineers(propertyId: string | 'all', includeUserProfiles = false) {
   const firestore = requiredFirestore()
-  const snapshot = await getDocs(
-    query(
-      collection(firestore, 'memberships'),
-      where('propertyId', '==', propertyId),
-      where('role', '==', 'supportEngineer'),
-      where('active', '==', true),
-      orderBy('userId', 'asc'),
-      limit(50),
-    ),
-  )
-  return snapshot.docs.map((item) => ({
-    uid: item.data().userId as string,
-    displayName:
-      typeof item.data().displayName === 'string' && item.data().displayName.trim()
-        ? item.data().displayName.trim()
-        : (item.data().userId as string),
-  }))
+  const constraints =
+    propertyId === 'all'
+      ? [where('role', '==', 'supportEngineer'), where('active', '==', true), limit(200)]
+      : [
+          where('propertyId', '==', propertyId),
+          where('role', '==', 'supportEngineer'),
+          where('active', '==', true),
+          orderBy('userId', 'asc'),
+          limit(50),
+        ]
+  const snapshot = await getDocs(query(collection(firestore, 'memberships'), ...constraints))
+  const candidates = snapshot.docs
+    .map((item) => {
+      const data = item.data()
+      if (typeof data.userId !== 'string' || typeof data.propertyId !== 'string') return null
+      return {
+        uid: data.userId,
+        displayName:
+          typeof data.displayName === 'string' && data.displayName.trim() ? data.displayName.trim() : data.userId,
+        propertyId: data.propertyId,
+      }
+    })
+    .filter((engineer): engineer is AssignableEngineer => engineer !== null)
+
+  if (includeUserProfiles) {
+    const resolved = await Promise.all(
+      candidates.map(async (engineer) => {
+        if (engineer.displayName !== engineer.uid) return engineer
+        try {
+          const profile = await getDoc(doc(firestore, 'users', engineer.uid))
+          const displayName = profile.data()?.displayName
+          return typeof displayName === 'string' && displayName.trim()
+            ? { ...engineer, displayName: displayName.trim() }
+            : engineer
+        } catch {
+          return engineer
+        }
+      }),
+    )
+    return resolved.sort((left, right) => left.displayName.localeCompare(right.displayName, 'en'))
+  }
+
+  return candidates.sort((left, right) => left.displayName.localeCompare(right.displayName, 'en'))
 }

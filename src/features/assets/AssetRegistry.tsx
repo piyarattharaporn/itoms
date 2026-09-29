@@ -183,7 +183,7 @@ export function AssetRegistry({ selectedPropertyId }: { selectedPropertyId: stri
   }, [assets, search])
 
   async function saveNewAsset(input: AssetInput) {
-    if (!firebaseUser) throw new Error(t("รุณาเข้าสู่ระบบใหม่"))
+    if (!firebaseUser) throw new Error(t("กรุณาเข้าสู่ระบบใหม่"))
     const id = await createAsset(input, firebaseUser.uid)
     setShowCreate(false)
     setNotice(`เพิ่ม Asset ${input.assetTag} แล้ว (${id})`)

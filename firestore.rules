@@ -194,7 +194,7 @@ service cloud.firestore {
           'propertyId', 'propertyCode', 'email', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && user.keys().hasOnly([
-          'propertyId', 'propertyCode', 'email', 'name', 'department', 'active', 'createdBy', 'createdAt', 'updatedAt'
+          'propertyId', 'propertyCode', 'email', 'name', 'department', 'assetId', 'active', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && user.propertyId is string
         && user.propertyCode is string
@@ -203,6 +203,13 @@ service cloud.firestore {
         && (!user.keys().hasAny(['name']) || user.name == null || (user.name is string && user.name.size() <= 120))
         && user.department is string && user.department.size() > 0 && user.department.size() <= 80
         && validDepartment(user.propertyId, user.department)
+        && (!user.keys().hasAny(['assetId']) || user.assetId == null || (
+          user.assetId is string && user.assetId.size() > 0 && user.assetId.size() <= 128
+          && exists(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId))
+          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.propertyId == user.propertyId
+          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.department == user.department
+          && get(/databases/$(database)/documents/ticketAssetOptions/$(user.assetId)).data.status != 'Retired'
+        ))
         && user.active is bool
         && user.createdBy is string;
     }
@@ -285,6 +292,15 @@ service cloud.firestore {
     function cctvEnabledForProperty(propertyId) {
       let path = /databases/$(database)/documents/properties/$(propertyId);
       return exists(path)
+        && (!get(path).data.keys().hasAny(['cctvEnabled']) || get(path).data.cctvEnabled == true);
+    }
+
+    function activeCctvPropertyMatches(propertyId, propertyCode) {
+      let path = /databases/$(database)/documents/properties/$(propertyId);
+      return exists(path)
+        && get(path).data.active == true
+        && get(path).data.code == propertyCode
+        // Missing cctvEnabled remains backward-compatible with the legacy default-on behavior.
         && (!get(path).data.keys().hasAny(['cctvEnabled']) || get(path).data.cctvEnabled == true);
     }
 
@@ -406,6 +422,33 @@ service cloud.firestore {
         && check.cameraTotal is int && check.cameraTotal >= 0 && check.cameraTotal <= 20000
         && check.cameraOnline is int && check.cameraOnline >= 0 && check.cameraOnline <= check.cameraTotal
         && validCctvNvrDetails(check.nvrDetails)
+        && check.notes is string && check.notes.size() <= 1000
+        && check.checkedByUid == request.auth.uid
+        && check.checkedAt == request.time
+        && check.createdAt is timestamp
+        && check.updatedAt == request.time;
+    }
+
+    // Super Admin is the trusted operator for CCTV configuration. Keep a compact
+    // shape/size guard here so the privileged branch stays below Firestore's
+    // expression budget while Support Engineer writes retain full validation.
+    function validCctvDailyCheckAdmin(check) {
+      return check.keys().hasAll([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.keys().hasOnly([
+          'propertyId', 'propertyCode', 'checkedOn', 'nvrTotal', 'nvrOnline', 'cameraTotal',
+          'cameraOnline', 'nvrDetails', 'notes', 'checkedByUid', 'checkedAt', 'createdAt', 'updatedAt'
+        ])
+        && check.propertyId is string && check.propertyId.size() > 0 && check.propertyId.size() <= 100
+        && check.propertyCode is string && check.propertyCode.size() > 0 && check.propertyCode.size() <= 40
+        && validIsoDate(check.checkedOn)
+        && check.nvrTotal is int && check.nvrTotal >= 0 && check.nvrTotal <= 20000
+        && check.nvrOnline is int && check.nvrOnline >= 0 && check.nvrOnline <= check.nvrTotal
+        && check.cameraTotal is int && check.cameraTotal >= 0 && check.cameraTotal <= 20000
+        && check.cameraOnline is int && check.cameraOnline >= 0 && check.cameraOnline <= check.cameraTotal
+        && check.nvrDetails is list && check.nvrDetails.size() <= 20
         && check.notes is string && check.notes.size() <= 1000
         && check.checkedByUid == request.auth.uid
         && check.checkedAt == request.time
@@ -821,6 +864,76 @@ service cloud.firestore {
               && ticket.requesterUid == request.auth.uid)));
     }
 
+    function canReadRca(propertyId) {
+      return isSuperAdmin()
+        || hasPropertyRole(propertyId, 'supportEngineer')
+        || hasPropertyRole(propertyId, 'clientExecutive');
+    }
+
+    function validRca(record) {
+      return record.keys().hasAll([
+          'schemaVersion', 'propertyId', 'propertyCode', 'taskId', 'taskTitle', 'taskCategory',
+          'taskPriority', 'taskCompletedAt', 'incidentSummary', 'rootCause', 'contributingFactors',
+          'fiveWhys', 'impact', 'downtimeMinutes', 'correctiveAction', 'preventiveAction',
+          'ownerUid', 'dueDate', 'status', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && record.keys().hasOnly([
+          'schemaVersion', 'propertyId', 'propertyCode', 'taskId', 'taskTitle', 'taskCategory',
+          'taskPriority', 'taskCompletedAt', 'incidentSummary', 'rootCause', 'contributingFactors',
+          'fiveWhys', 'impact', 'downtimeMinutes', 'correctiveAction', 'preventiveAction',
+          'ownerUid', 'dueDate', 'status', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && record.schemaVersion == 1
+        && record.propertyId is string && record.propertyId.size() > 0 && record.propertyId.size() <= 160
+        && record.propertyCode is string && record.propertyCode.size() > 0 && record.propertyCode.size() <= 40
+        && canUseProperty(record.propertyId, record.propertyCode)
+        && record.taskId is string && record.taskId.size() > 0 && record.taskId.size() <= 150
+        && record.taskTitle is string && record.taskTitle.size() > 0 && record.taskTitle.size() <= 240
+        && record.taskCategory is string && record.taskCategory.size() > 0 && record.taskCategory.size() <= 120
+        && record.taskPriority in ['Low', 'Medium', 'High', 'Critical']
+        && (record.taskCompletedAt == null || record.taskCompletedAt is timestamp)
+        && record.incidentSummary is string && record.incidentSummary.size() <= 4000
+        && record.rootCause is string && record.rootCause.size() <= 4000
+        && record.contributingFactors is string && record.contributingFactors.size() <= 4000
+        && record.fiveWhys is string && record.fiveWhys.size() <= 6000
+        && record.impact is string && record.impact.size() <= 4000
+        && (record.downtimeMinutes == null || (record.downtimeMinutes is int && record.downtimeMinutes >= 0 && record.downtimeMinutes <= 525600))
+        && record.correctiveAction is string && record.correctiveAction.size() <= 4000
+        && record.preventiveAction is string && record.preventiveAction.size() <= 4000
+        && record.ownerUid is string && record.ownerUid.size() <= 128
+        && validOptionalIsoDate(record.dueDate)
+        && record.status in ['Draft', 'In Review', 'Approved', 'Closed']
+        && record.createdBy is string && record.createdBy.size() > 0 && record.createdBy.size() <= 128
+        && record.createdAt is timestamp
+        && record.updatedAt is timestamp;
+    }
+
+    match /rcaRecords/{rcaId} {
+      allow get, list: if canReadRca(resource.data.propertyId);
+      allow create: if signedIn()
+        && canManageProperty(request.resource.data.propertyId)
+        && request.resource.data.status == 'Draft'
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && validRca(request.resource.data);
+      allow update: if signedIn()
+        && canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.taskId == resource.data.taskId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'incidentSummary', 'rootCause', 'contributingFactors', 'fiveWhys', 'impact',
+          'downtimeMinutes', 'correctiveAction', 'preventiveAction', 'ownerUid', 'dueDate',
+          'status', 'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && validRca(request.resource.data);
+      allow delete: if false;
+    }
+
     match /users/{uid} {
       allow get: if (signedIn() && request.auth.uid == uid) || isSuperAdmin();
       allow list: if isSuperAdmin();
@@ -859,7 +972,8 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
         && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'updatedAt'])
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt']))
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt'])
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assetId', 'updatedAt']))
         && validRequestUser(request.resource.data)
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
@@ -964,15 +1078,32 @@ service cloud.firestore {
       allow list: if isSuperAdmin()
         || (cctvEnabledForProperty(resource.data.propertyId)
           && hasAnyPropertyRole(resource.data.propertyId, ['supportEngineer', 'clientExecutive']));
-      allow create: if canManageProperty(request.resource.data.propertyId)
+      // Keep the Super Admin branch separate: combining it with the membership branch
+      // makes the Firestore Rules evaluator exceed its expression budget.
+      allow create: if isSuperAdmin()
+        && activeCctvPropertyMatches(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && validCctvDailyCheckAdmin(request.resource.data)
+        && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
+        && request.resource.data.checkedByUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow create: if hasPropertyRole(request.resource.data.propertyId, 'supportEngineer')
         && cctvEnabledForProperty(request.resource.data.propertyId)
-        && canUseProperty(request.resource.data.propertyId, request.resource.data.propertyCode)
+        && request.resource.data.propertyCode == get(membershipPath(request.auth.uid, request.resource.data.propertyId)).data.propertyCode
         && validCctvDailyCheck(request.resource.data)
         && checkId == request.resource.data.propertyId + '_' + request.resource.data.checkedOn
         && request.resource.data.checkedByUid == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow update: if canManageProperty(resource.data.propertyId)
+      allow update: if isSuperAdmin()
+        && activeCctvPropertyMatches(resource.data.propertyId, resource.data.propertyCode)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.checkedOn == resource.data.checkedOn
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validCctvDailyCheckAdmin(request.resource.data)
+        && request.resource.data.checkedByUid == request.auth.uid;
+      allow update: if hasPropertyRole(resource.data.propertyId, 'supportEngineer')
         && cctvEnabledForProperty(resource.data.propertyId)
+        && resource.data.propertyCode == get(membershipPath(request.auth.uid, resource.data.propertyId)).data.propertyCode
         && request.resource.data.propertyId == resource.data.propertyId
         && request.resource.data.propertyCode == resource.data.propertyCode
         && request.resource.data.checkedOn == resource.data.checkedOn

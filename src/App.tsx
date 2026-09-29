@@ -38,6 +38,9 @@ const ActivityLogPage = lazy(() =>
 const AuditLogPage = lazy(() =>
   import('./features/audit/AuditLogPage').then((module) => ({ default: module.AuditLogPage })),
 )
+const ServicePerformancePage = lazy(() =>
+  import('./features/reporting/ServicePerformancePage').then((module) => ({ default: module.ServicePerformancePage })),
+)
 const RcaServiceReviewPage = lazy(() =>
   import('./features/rca/RcaServiceReviewPage').then((module) => ({ default: module.RcaServiceReviewPage })),
 )
@@ -56,7 +59,7 @@ const TodoCalendar = lazy(() =>
 const overviewNavItems = ['ภาพรวม']
 const serviceNavItems = ['View Task', 'Create Task', 'ปฏิทินงาน', 'RCA & Service Review']
 const operationsNavItems = ['Incident Log', 'CCTV', 'Preventive Maintenance', 'Asset & Licence', 'อุปกรณ์เสียหาย']
-const governanceNavItems = ['Activities Log', 'Audit Log']
+const governanceNavItems = ['Service Performance', 'Activities Log', 'Audit Log']
 const administrationNavItems = ['Property Setup', 'ตั้งค่ารายการ', 'Request Users', 'User Directory']
 
 function navigationLabel(item: string) {
@@ -82,6 +85,7 @@ const navIcons: Record<string, string> = {
   'Property Setup': 'M3 21h18 M5 21V7l7-4 7 4v14 M9 10h.01 M15 10h.01 M9 14h.01 M15 14h.01 M10 21v-3h4v3',
   'Activities Log': 'M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01',
   'Audit Log': 'M4 4h16v16H4z M8 8h8 M8 12h8 M8 16h5',
+  'Service Performance': 'M4 19V5 M4 19h16 M8 16v-4 M12 16V8 M16 16V5',
   'RCA & Service Review': 'M4 4h16v16H4z M8 8h8 M8 12h5 M8 16h7',
 }
 
@@ -255,7 +259,11 @@ function Portal() {
       (item === 'Asset & Licence' && canReadAssetAndLicense) ||
       (item === 'อุปกรณ์เสียหาย' && canReadDamagedAssets),
   )
-  const visibleGovernanceNavItems = canViewActivities ? governanceNavItems : []
+  const canReadPerformance =
+    isSuperAdmin || activeMembership?.role === 'supportEngineer' || activeMembership?.role === 'clientExecutive'
+  const visibleGovernanceNavItems = governanceNavItems.filter((item) =>
+    item === 'Service Performance' ? canReadPerformance : canViewActivities,
+  )
   const visibleAdministrationNavItems = administrationNavItems.filter(
     (item) =>
       (item === 'Property Setup' && isSuperAdmin) ||
@@ -484,6 +492,10 @@ function Portal() {
             ) : activeItem === 'Audit Log' ? (
               <div className="mt-6">
                 <AuditLogPage selectedPropertyId={selectedPropertyId} />
+              </div>
+            ) : activeItem === 'Service Performance' ? (
+              <div className="mt-6">
+                <ServicePerformancePage selectedPropertyId={selectedPropertyId} />
               </div>
             ) : activeItem === 'RCA & Service Review' ? (
               <div className="mt-6">

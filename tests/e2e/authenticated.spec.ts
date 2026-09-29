@@ -71,6 +71,7 @@ test('local Super Admin can open every visible portal page from grouped navigati
     'บำรุงรักษาเชิงป้องกัน',
     'อุปกรณ์และลิขสิทธิ์',
     'อุปกรณ์เสียหาย',
+    'รายงานผลงานบริการ',
     'บันทึกกิจกรรม',
     'บันทึก Audit Log',
     'ตั้งค่า Property',

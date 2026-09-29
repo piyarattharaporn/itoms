@@ -85,6 +85,17 @@ full-text search, trusted publication, notifications, and retention/export
 automation remain future backend work. See
 [`docs/architecture/known-error-from-rca.md`](docs/architecture/known-error-from-rca.md).
 
+Phase 0–6 Spark reporting adds a role-aware Service Performance workspace for
+IT Outsource, management, and authorized Property representatives. It reports
+bounded loaded Ticket/RCA rows by assignee, Property, category, location,
+quality signal, and selected period, and provides a manual CSV export. The
+report intentionally does not read an unlimited collection, call client-side
+SLA contractual, or claim customer feedback/reopen/first-time-fix data that is
+not yet collected. See
+[`docs/architecture/phase-0-6-spark-reporting.md`](docs/architecture/phase-0-6-spark-reporting.md)
+and the verification matrix at
+[`docs/testing/phase-0-6-spark-reporting.md`](docs/testing/phase-0-6-spark-reporting.md).
+
 ## Quality checks
 
 The repository includes the following repeatable QA commands:

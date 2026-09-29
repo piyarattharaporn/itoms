@@ -239,6 +239,62 @@ const english: Record<string, string> = {
 }
 // คำแปลที่ใช้ในหน้า Feature ต่าง ๆ เพิ่มไว้ส่วนกลางเพื่อให้เปลี่ยนภาษาได้สม่ำเสมอทั้งระบบ
 const englishFeature: Record<string, string> = {
+  'Service Performance': 'Service Performance',
+  'Spark bounded reporting': 'Spark bounded reporting',
+  'ติดตามคุณภาพและปริมาณงานตามช่วงเวลา โดยใช้เฉพาะข้อมูลที่โหลดแล้วและส่งออกแบบ Manual':
+    'Track service volume and quality by period using only loaded data with manual export.',
+  'Loaded rows': 'Loaded rows',
+  'Export current view': 'Export current view',
+  'Report period': 'Report period',
+  '7 days': '7 days',
+  '30 days': '30 days',
+  '90 days': '90 days',
+  'Team performance': 'Team performance',
+  'Property and workload': 'Property and workload',
+  'Quality and review': 'Quality and review',
+  'Tasks in period': 'Tasks in period',
+  Completed: 'Completed',
+  Open: 'Open',
+  Unassigned: 'Unassigned',
+  'SLA met': 'SLA met',
+  'Avg resolution': 'Avg resolution',
+  'Team performance by assignee': 'Team performance by assignee',
+  'ใช้ displayName เป็นหลัก และเก็บ UID ไว้เป็นข้อมูลอ้างอิงในระบบ':
+    'Use displayName as the primary label and retain UID as a system reference.',
+  'Current loaded period only': 'Current loaded period only',
+  Assignee: 'Assignee',
+  Assigned: 'Assigned',
+  'SLA breached': 'SLA breached',
+  'No assignee': 'No assignee',
+  'Property / scope': 'Property / scope',
+  'Problem category': 'Problem category',
+  'Location / asset': 'Location / asset',
+  tasks: 'tasks',
+  'Quality signals available now': 'Quality signals available now',
+  'Completed with resolution note': 'Completed with resolution note',
+  'Completed with RCA': 'Completed with RCA',
+  Cancelled: 'Cancelled',
+  'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to updatedAt.':
+    'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to updatedAt.',
+  'Quality roadmap': 'Quality roadmap',
+  'RCA coverage, resolution notes and SLA advisory are available.':
+    'RCA coverage, resolution notes and SLA advisory are available.',
+  'Customer rating, reopen count and first-time-fix need an approved data model and workflow.':
+    'Customer rating, reopen count and first-time-fix need an approved data model and workflow.',
+  'This Spark page is for operational reporting, not contractual SLA enforcement.':
+    'This Spark page is for operational reporting, not contractual SLA enforcement.',
+  'Spark limitation': 'Spark limitation',
+  'รายงานนี้อ่านข้อมูลเป็นหน้า ๆ ไม่เกิน 50 งานต่อครั้ง ตัวเลขจึงสะท้อนเฉพาะข้อมูลที่โหลดแล้ว กด Load more เพื่อขยายชุดข้อมูลก่อน Export ได้':
+    'This report reads pages of up to 50 tasks at a time. Metrics reflect loaded rows only; use Load more before exporting.',
+  'RCA page also has more records available.': 'More RCA records are available.',
+  Loaded: 'Loaded',
+  'in selected period': 'in selected period',
+  Refresh: 'Refresh',
+  'Load more': 'Load more',
+  ไม่มีสิทธิ์ดูรายงานผลงาน: 'You do not have access to the performance report.',
+  'รายงานนี้เปิดให้ทีม IT และผู้แทน Property ที่ได้รับสิทธิ์เท่านั้น':
+    'This report is available to authorized IT and Property representatives only.',
+  โหลดรายงานไม่สำเร็จ: 'Could not load the performance report.',
   'Task Board': 'Task Board',
   งานบริการ: 'Service delivery',
   'การปฏิบัติการ IT': 'IT operations',
@@ -1326,6 +1382,59 @@ const englishFeature: Record<string, string> = {
 
 // ค่าที่มาจาก enum ใน Firestore เป็นภาษาอังกฤษอยู่แล้ว จึงแปลกลับเฉพาะตอนแสดงใน UI ภาษาไทย
 const thaiFeature: Record<string, string> = {
+  'Service Performance': 'รายงานผลงานบริการ',
+  'Spark bounded reporting': 'รายงานแบบ Bounded บน Spark',
+  'ติดตามคุณภาพและปริมาณงานตามช่วงเวลา โดยใช้เฉพาะข้อมูลที่โหลดแล้วและส่งออกแบบ Manual':
+    'ติดตามคุณภาพและปริมาณงานตามช่วงเวลา โดยใช้เฉพาะข้อมูลที่โหลดแล้วและส่งออกแบบ Manual',
+  'Loaded rows': 'รายการที่โหลดแล้ว',
+  'Export current view': 'Export มุมมองปัจจุบัน',
+  'Report period': 'ช่วงเวลารายงาน',
+  '7 days': '7 วัน',
+  '30 days': '30 วัน',
+  '90 days': '90 วัน',
+  'Team performance': 'ผลงานทีม',
+  'Property and workload': 'Property และปริมาณงาน',
+  'Quality and review': 'คุณภาพและการทบทวน',
+  'Tasks in period': 'งานในช่วงเวลา',
+  Unassigned: 'ยังไม่มอบหมาย',
+  'SLA met': 'ทำได้ตาม SLA',
+  'Avg resolution': 'เวลาแก้ไขเฉลี่ย',
+  'Team performance by assignee': 'ผลงานทีมตามผู้รับผิดชอบ',
+  'ใช้ displayName เป็นหลัก และเก็บ UID ไว้เป็นข้อมูลอ้างอิงในระบบ':
+    'ใช้ displayName เป็นหลัก และเก็บ UID ไว้เป็นข้อมูลอ้างอิงในระบบ',
+  'Current loaded period only': 'เฉพาะข้อมูลที่โหลดในช่วงเวลาปัจจุบัน',
+  Assignee: 'ผู้รับผิดชอบ',
+  Assigned: 'มอบหมายแล้ว',
+  'SLA breached': 'เกิน SLA',
+  'No assignee': 'ยังไม่มอบหมาย',
+  'Property / scope': 'Property / ขอบเขต',
+  'Problem category': 'หมวดปัญหา',
+  'Location / asset': 'สถานที่ / อุปกรณ์',
+  tasks: 'งาน',
+  'Quality signals available now': 'ตัวชี้วัดคุณภาพที่มีในปัจจุบัน',
+  'Completed with resolution note': 'งานเสร็จพร้อมบันทึกวิธีแก้ไข',
+  'Completed with RCA': 'งานเสร็จพร้อม RCA',
+  'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to updatedAt.':
+    'จำนวน RCA อ้างอิงจากหน้า RCA แบบ Bounded ที่โหลดอยู่ เวลาแก้ไขเป็นค่าประมาณเชิงปฏิบัติการจาก createdAt ถึง updatedAt',
+  'Quality roadmap': 'แผนพัฒนาคุณภาพ',
+  'RCA coverage, resolution notes and SLA advisory are available.':
+    'มี RCA, บันทึกวิธีแก้ไข และตัวชี้วัด SLA แบบ Advisory แล้ว',
+  'Customer rating, reopen count and first-time-fix need an approved data model and workflow.':
+    'คะแนนลูกค้า จำนวนการเปิดงานซ้ำ และ First-time-fix ต้องออกแบบ Data model และ Workflow ก่อน',
+  'This Spark page is for operational reporting, not contractual SLA enforcement.':
+    'หน้านี้ใช้รายงานเชิงปฏิบัติการบน Spark ไม่ใช่การบังคับใช้ SLA ตามสัญญา',
+  'Spark limitation': 'ข้อจำกัด Spark',
+  'รายงานนี้อ่านข้อมูลเป็นหน้า ๆ ไม่เกิน 50 งานต่อครั้ง ตัวเลขจึงสะท้อนเฉพาะข้อมูลที่โหลดแล้ว กด Load more เพื่อขยายชุดข้อมูลก่อน Export ได้':
+    'รายงานนี้อ่านข้อมูลเป็นหน้า ๆ ไม่เกิน 50 งานต่อครั้ง ตัวเลขจึงสะท้อนเฉพาะข้อมูลที่โหลดแล้ว กด Load more เพื่อขยายชุดข้อมูลก่อน Export ได้',
+  'RCA page also has more records available.': 'ยังมีรายการ RCA เพิ่มเติม',
+  Loaded: 'โหลดแล้ว',
+  'in selected period': 'ในช่วงเวลาที่เลือก',
+  Refresh: 'โหลดใหม่',
+  'Load more': 'โหลดเพิ่ม',
+  ไม่มีสิทธิ์ดูรายงานผลงาน: 'ไม่มีสิทธิ์ดูรายงานผลงาน',
+  'รายงานนี้เปิดให้ทีม IT และผู้แทน Property ที่ได้รับสิทธิ์เท่านั้น':
+    'รายงานนี้เปิดให้ทีม IT และผู้แทน Property ที่ได้รับสิทธิ์เท่านั้น',
+  โหลดรายงานไม่สำเร็จ: 'โหลดรายงานไม่สำเร็จ',
   'RCA & Service Review': 'RCA & Service Review',
   'Known Error': 'Known Error',
   'Known Errors from RCA': 'Known Error จาก RCA',

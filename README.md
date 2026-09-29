@@ -76,6 +76,15 @@ extract. See [`docs/architecture/phase-fix-5.md`](docs/architecture/phase-fix-5.
 [`docs/operations/spark-manual-export-retention.md`](docs/operations/spark-manual-export-retention.md),
 and [`docs/testing/phase-fix-5-spark-operational-report.md`](docs/testing/phase-fix-5-spark-operational-report.md).
 
+The KEDB MVP creates a `knownErrors` record from an approved RCA inside the
+RCA & Service Review workflow. Known Errors are Property-scoped, start as
+Draft, and can be Published or Retired by Support Engineers and Super Admins.
+The source RCA remains canonical while the Known Error stores a reviewable
+snapshot. Search and counts are bounded to the records loaded in the browser;
+full-text search, trusted publication, notifications, and retention/export
+automation remain future backend work. See
+[`docs/architecture/known-error-from-rca.md`](docs/architecture/known-error-from-rca.md).
+
 ## Quality checks
 
 The repository includes the following repeatable QA commands:

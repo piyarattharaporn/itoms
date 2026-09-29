@@ -11,10 +11,16 @@ import {
 import { formatTicketProblem, priorities, type TicketRecord } from '../tickets/types'
 import {
   createRca,
+  createKnownError,
   getCompletedTasksPage,
+  getKnownErrorsPage,
   getRcaPage,
+  knownErrorStatuses,
   rcaStatuses,
+  updateKnownError,
   updateRca,
+  type KnownErrorRecord,
+  type KnownErrorStatus,
   type RcaPageCursor,
   type RcaRecord,
   type RcaStatus,
@@ -46,7 +52,20 @@ function emptyForm() {
   }
 }
 
+function emptyKnownErrorForm() {
+  return {
+    title: '',
+    symptoms: '',
+    rootCause: '',
+    workaround: '',
+    permanentFix: '',
+    ownerUid: '',
+    reviewDueDate: '',
+  }
+}
+
 type FormState = ReturnType<typeof emptyForm>
+type KnownErrorFormState = ReturnType<typeof emptyKnownErrorForm>
 
 export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyId: string }) {
   const { firebaseUser, profile, memberships, accessState } = useAuth()
@@ -73,6 +92,9 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
   const [rcas, setRcas] = useState<RcaRecord[]>([])
   const [rcaCursor, setRcaCursor] = useState<RcaPageCursor>(null)
   const [rcasMore, setRcasMore] = useState(false)
+  const [knownErrors, setKnownErrors] = useState<KnownErrorRecord[]>([])
+  const [knownErrorCursor, setKnownErrorCursor] = useState<RcaPageCursor>(null)
+  const [knownErrorsMore, setKnownErrorsMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -85,19 +107,33 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
   const [toDate, setToDate] = useState('')
   const [selectedTask, setSelectedTask] = useState<TicketRecord | null>(null)
   const [editingRca, setEditingRca] = useState<RcaRecord | null>(null)
+  const [selectedRcaForKnownError, setSelectedRcaForKnownError] = useState<RcaRecord | null>(null)
+  const [editingKnownError, setEditingKnownError] = useState<KnownErrorRecord | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
+  const [knownErrorForm, setKnownErrorForm] = useState<KnownErrorFormState>(emptyKnownErrorForm())
   const [status, setStatus] = useState<RcaStatus>('Draft')
+  const [knownErrorStatus, setKnownErrorStatus] = useState<KnownErrorStatus>('Draft')
   const [saving, setSaving] = useState(false)
+  const [savingKnownError, setSavingKnownError] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
   const [ownerOptions, setOwnerOptions] = useState<AssignableEngineer[]>([])
   const [ownerOptionsLoading, setOwnerOptionsLoading] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const ownerPropertyId = selectedTask?.propertyId ?? editingRca?.propertyId ?? ''
+  const ownerPropertyId =
+    selectedTask?.propertyId ??
+    editingRca?.propertyId ??
+    selectedRcaForKnownError?.propertyId ??
+    editingKnownError?.propertyId ??
+    ''
 
   useEffect(() => {
-    if (!canWrite || (!selectedTask && !editingRca) || !ownerPropertyId) {
+    if (
+      !canWrite ||
+      (!selectedTask && !editingRca && !selectedRcaForKnownError && !editingKnownError) ||
+      !ownerPropertyId
+    ) {
       setOwnerOptions([])
       setOwnerOptionsLoading(false)
       return
@@ -107,7 +143,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
       .then(setOwnerOptions)
       .catch(() => setOwnerOptions([]))
       .finally(() => setOwnerOptionsLoading(false))
-  }, [canWrite, editingRca, ownerPropertyId, selectedTask])
+  }, [canWrite, editingKnownError, editingRca, ownerPropertyId, selectedRcaForKnownError, selectedTask])
 
   const selectableOwners = useMemo(() => {
     const options = ownerOptions.slice()
@@ -121,6 +157,14 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
     return options.sort((a, b) => formatAssignableEngineerLabel(a).localeCompare(formatAssignableEngineerLabel(b)))
   }, [firebaseUser?.displayName, firebaseUser?.uid, form.ownerUid, ownerOptions, ownerPropertyId, profile?.displayName])
 
+  const knownErrorSelectableOwners = useMemo(() => {
+    const options = ownerOptions.slice()
+    if (knownErrorForm.ownerUid && !options.some((item) => item.uid === knownErrorForm.ownerUid)) {
+      options.push({ uid: knownErrorForm.ownerUid, displayName: knownErrorForm.ownerUid, propertyId: ownerPropertyId })
+    }
+    return options.sort((a, b) => formatAssignableEngineerLabel(a).localeCompare(formatAssignableEngineerLabel(b)))
+  }, [knownErrorForm.ownerUid, ownerOptions, ownerPropertyId])
+
   useEffect(() => {
     if (accessState === 'loading') return
     if (!canRead || (!allProperties && !selectedPropertyId)) {
@@ -133,14 +177,21 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
     setError(null)
     setTickets([])
     setRcas([])
+    setKnownErrors([])
     setTicketCursor(null)
     setRcaCursor(null)
+    setKnownErrorCursor(null)
     setTicketsMore(false)
     setRcasMore(false)
+    setKnownErrorsMore(false)
     setLastUpdated(null)
     let cancelled = false
-    void Promise.all([getCompletedTasksPage(ticketAccess, 25), getRcaPage(selectedPropertyId, allProperties, 25)])
-      .then(([ticketPage, rcaPage]) => {
+    void Promise.all([
+      getCompletedTasksPage(ticketAccess, 25),
+      getRcaPage(selectedPropertyId, allProperties, 25),
+      getKnownErrorsPage(selectedPropertyId, allProperties, 25),
+    ])
+      .then(([ticketPage, rcaPage, knownErrorPage]) => {
         if (cancelled) return
         setTickets(ticketPage.items)
         setTicketCursor(ticketPage.nextCursor)
@@ -148,6 +199,9 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
         setRcas(rcaPage.items)
         setRcaCursor(rcaPage.nextCursor)
         setRcasMore(rcaPage.hasMore)
+        setKnownErrors(knownErrorPage.items)
+        setKnownErrorCursor(knownErrorPage.nextCursor)
+        setKnownErrorsMore(knownErrorPage.hasMore)
         setLastUpdated(new Date())
       })
       .catch((cause) => {
@@ -197,10 +251,13 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
     [tickets],
   )
   const rcaByTask = useMemo(() => new Map(rcas.map((item) => [item.taskId, item])), [rcas])
+  const knownErrorByRca = useMemo(() => new Map(knownErrors.map((item) => [item.sourceRcaId, item])), [knownErrors])
 
   function openCreate(ticket: TicketRecord) {
     setSelectedTask(ticket)
     setEditingRca(null)
+    setSelectedRcaForKnownError(null)
+    setEditingKnownError(null)
     setStatus('Draft')
     setForm({ ...emptyForm(), ownerUid: firebaseUser?.uid ?? '' })
     setSavedMessage('')
@@ -209,6 +266,8 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
   function openEdit(rca: RcaRecord) {
     setEditingRca(rca)
     setSelectedTask(null)
+    setSelectedRcaForKnownError(null)
+    setEditingKnownError(null)
     setStatus(rca.status)
     setForm({
       incidentSummary: rca.incidentSummary,
@@ -228,6 +287,47 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
   function closeForm() {
     setSelectedTask(null)
     setEditingRca(null)
+  }
+
+  function openCreateKnownError(rca: RcaRecord) {
+    setSelectedTask(null)
+    setEditingRca(null)
+    setSelectedRcaForKnownError(rca)
+    setEditingKnownError(null)
+    setKnownErrorStatus('Draft')
+    setKnownErrorForm({
+      title: rca.taskTitle,
+      symptoms: rca.incidentSummary,
+      rootCause: rca.rootCause,
+      workaround: rca.correctiveAction,
+      permanentFix: rca.preventiveAction,
+      ownerUid: rca.ownerUid,
+      reviewDueDate: '',
+    })
+    setSavedMessage('')
+  }
+
+  function openEditKnownError(knownError: KnownErrorRecord) {
+    setSelectedTask(null)
+    setEditingRca(null)
+    setSelectedRcaForKnownError(null)
+    setEditingKnownError(knownError)
+    setKnownErrorStatus(knownError.status)
+    setKnownErrorForm({
+      title: knownError.title,
+      symptoms: knownError.symptoms,
+      rootCause: knownError.rootCause,
+      workaround: knownError.workaround,
+      permanentFix: knownError.permanentFix,
+      ownerUid: knownError.ownerUid,
+      reviewDueDate: knownError.reviewDueDate,
+    })
+    setSavedMessage('')
+  }
+
+  function closeKnownErrorForm() {
+    setSelectedRcaForKnownError(null)
+    setEditingKnownError(null)
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -278,6 +378,47 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
     }
   }
 
+  async function submitKnownError(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!firebaseUser || (!selectedRcaForKnownError && !editingKnownError)) return
+    if (!knownErrorForm.title.trim() || !knownErrorForm.symptoms.trim() || !knownErrorForm.rootCause.trim()) {
+      setError(t('กรุณากรอกชื่อ Known Error, อาการ และ Root Cause'))
+      return
+    }
+    setSavingKnownError(true)
+    setError(null)
+    try {
+      if (selectedRcaForKnownError) {
+        if (selectedRcaForKnownError.status !== 'Approved') {
+          throw new Error(t('ต้องอนุมัติ RCA ก่อนสร้าง Known Error'))
+        }
+        await createKnownError(firebaseUser.uid, {
+          propertyId: selectedRcaForKnownError.propertyId,
+          propertyCode: selectedRcaForKnownError.propertyCode,
+          sourceRcaId: selectedRcaForKnownError.id,
+          sourceTaskId: selectedRcaForKnownError.taskId,
+          taskTitle: selectedRcaForKnownError.taskTitle,
+          taskCategory: selectedRcaForKnownError.taskCategory,
+          ...knownErrorForm,
+        })
+        setSavedMessage(t('สร้าง Known Error Draft แล้ว'))
+      } else if (editingKnownError) {
+        await updateKnownError(editingKnownError.id, knownErrorForm, knownErrorStatus)
+        setSavedMessage(t('บันทึก Known Error แล้ว'))
+      }
+      closeKnownErrorForm()
+      const refreshed = await getKnownErrorsPage(selectedPropertyId, allProperties, 25)
+      setKnownErrors(refreshed.items)
+      setKnownErrorCursor(refreshed.nextCursor)
+      setKnownErrorsMore(refreshed.hasMore)
+      setLastUpdated(new Date())
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t('บันทึก Known Error ไม่สำเร็จ'))
+    } finally {
+      setSavingKnownError(false)
+    }
+  }
+
   async function loadMore() {
     if (loadingMore) return
     setLoadingMore(true)
@@ -293,6 +434,12 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
         setRcas((current) => [...current, ...page.items])
         setRcaCursor(page.nextCursor)
         setRcasMore(page.hasMore)
+      }
+      if (knownErrorsMore && knownErrorCursor) {
+        const page = await getKnownErrorsPage(selectedPropertyId, allProperties, 25, knownErrorCursor)
+        setKnownErrors((current) => [...current, ...page.items])
+        setKnownErrorCursor(page.nextCursor)
+        setKnownErrorsMore(page.hasMore)
       }
       setLastUpdated(new Date())
     } catch (cause) {
@@ -326,7 +473,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
             </p>
           </div>
           <span className="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800">
-            {tickets.length} {t('Task ที่โหลดแล้ว')} · {rcas.length} RCA
+            {tickets.length} {t('Task ที่โหลดแล้ว')} · {rcas.length} RCA · {knownErrors.length} Known Error
           </span>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -552,6 +699,131 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
         </form>
       )}
 
+      {(selectedRcaForKnownError || editingKnownError) && canWrite && (
+        <form
+          className="rounded-2xl border border-sky-200 bg-sky-50/50 p-5"
+          onSubmit={(event) => void submitKnownError(event)}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">
+                {editingKnownError ? t('แก้ไข Known Error') : t('สร้าง Known Error จาก RCA')}
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                {editingKnownError?.title || selectedRcaForKnownError?.taskTitle}
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                {t('RCA ต้นทาง')}: {editingKnownError?.sourceRcaId || selectedRcaForKnownError?.id}
+              </p>
+            </div>
+            <button
+              className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm"
+              onClick={closeKnownErrorForm}
+              type="button"
+            >
+              {t('ปิด')}
+            </button>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700 md:col-span-2">
+              {t('ชื่อ Known Error')}
+              <input
+                className="form-input mt-1 w-full"
+                onChange={(event) => setKnownErrorForm((current) => ({ ...current, title: event.target.value }))}
+                placeholder={t('หัวข้ออาการหรือปัญหาที่ค้นหาเจอได้ง่าย')}
+                required
+                value={knownErrorForm.title}
+              />
+            </label>
+            {(
+              [
+                ['symptoms', 'อาการ / Symptoms', 'อาการ เงื่อนไข และข้อความผิดพลาดที่พบ'],
+                ['rootCause', 'Root Cause', 'สาเหตุรากที่ยืนยันจาก RCA'],
+                ['workaround', 'Workaround', 'แนวทางชั่วคราวเพื่อให้บริการกลับมาใช้งานได้'],
+                ['permanentFix', 'Permanent Fix', 'แนวทางแก้ไขถาวรหรือแผนงานถัดไป'],
+              ] as const
+            ).map(([name, label, placeholder]) => (
+              <label className="text-sm font-medium text-slate-700 md:col-span-2" key={name}>
+                {t(label)}
+                <textarea
+                  className="form-textarea mt-1 min-h-24 w-full"
+                  onChange={(event) => setKnownErrorForm((current) => ({ ...current, [name]: event.target.value }))}
+                  placeholder={t(placeholder)}
+                  required={name === 'symptoms' || name === 'rootCause'}
+                  value={knownErrorForm[name]}
+                />
+              </label>
+            ))}
+            <label className="text-sm font-medium text-slate-700">
+              {t('ผู้รับผิดชอบ Known Error')}
+              <select
+                className="form-select mt-1 w-full"
+                onChange={(event) => setKnownErrorForm((current) => ({ ...current, ownerUid: event.target.value }))}
+                value={knownErrorForm.ownerUid}
+              >
+                <option value="">{t('ยังไม่กำหนด')}</option>
+                {knownErrorSelectableOwners.map((owner) => (
+                  <option key={owner.uid} value={owner.uid}>
+                    {formatAssignableEngineerLabel(owner)}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                {ownerOptionsLoading
+                  ? t('กำลังโหลดรายชื่อผู้รับผิดชอบ…')
+                  : t('เลือกจาก Support Engineer ของ Property นี้')}
+              </span>
+            </label>
+            <label className="text-sm font-medium text-slate-700">
+              {t('วันที่ทบทวน')}
+              <input
+                className="form-input mt-1 w-full"
+                onChange={(event) =>
+                  setKnownErrorForm((current) => ({ ...current, reviewDueDate: event.target.value }))
+                }
+                type="date"
+                value={knownErrorForm.reviewDueDate}
+              />
+            </label>
+            {editingKnownError && (
+              <label className="text-sm font-medium text-slate-700">
+                {t('สถานะ Known Error')}
+                <select
+                  className="form-select mt-1 w-full"
+                  onChange={(event) => setKnownErrorStatus(event.target.value as KnownErrorStatus)}
+                  value={knownErrorStatus}
+                >
+                  {knownErrorStatuses.map((item) => (
+                    <option key={item} value={item}>
+                      {t(item)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+            <p className="mr-auto text-xs text-slate-500">
+              {t('Known Error จะใช้ข้อมูล Snapshot จาก RCA ต้นทาง และเริ่มต้นเป็น Draft')}
+            </p>
+            <button
+              className="rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold"
+              onClick={closeKnownErrorForm}
+              type="button"
+            >
+              {t('ยกเลิก')}
+            </button>
+            <button
+              className="rounded-full bg-sky-700 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              disabled={savingKnownError}
+              type="submit"
+            >
+              {savingKnownError ? t('กำลังบันทึก…') : t('บันทึก Known Error')}
+            </button>
+          </div>
+        </form>
+      )}
+
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -576,6 +848,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
           <div className="grid gap-3 lg:grid-cols-2">
             {filteredTickets.map((ticket) => {
               const rca = rcaByTask.get(ticket.id)
+              const knownError = rca ? knownErrorByRca.get(rca.id) : null
               return (
                 <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" key={ticket.id}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -602,14 +875,38 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                         <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800">
                           RCA: {t(rca.status)}
                         </span>
+                        {knownError && (
+                          <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                            Known Error: {t(knownError.status)}
+                          </span>
+                        )}
                         {canWrite && (
-                          <button
-                            className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold"
-                            onClick={() => openEdit(rca)}
-                            type="button"
-                          >
-                            {t('แก้ไข RCA')}
-                          </button>
+                          <>
+                            <button
+                              className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold"
+                              onClick={() => openEdit(rca)}
+                              type="button"
+                            >
+                              {t('แก้ไข RCA')}
+                            </button>
+                            {knownError ? (
+                              <button
+                                className="rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-800"
+                                onClick={() => openEditKnownError(knownError)}
+                                type="button"
+                              >
+                                {t('แก้ไข Known Error')}
+                              </button>
+                            ) : rca.status === 'Approved' ? (
+                              <button
+                                className="rounded-full bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white"
+                                onClick={() => openCreateKnownError(rca)}
+                                type="button"
+                              >
+                                {t('สร้าง Known Error Draft')}
+                              </button>
+                            ) : null}
+                          </>
                         )}
                       </>
                     ) : canWrite ? (
@@ -648,6 +945,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                   <th className="px-3 py-2">{t('รหัสงาน')}</th>
                   <th className="px-3 py-2">{t('Property')}</th>
                   <th className="px-3 py-2">{t('สถานะ')}</th>
+                  <th className="px-3 py-2">{t('Known Error')}</th>
                   <th className="px-3 py-2">{t('อัปเดตล่าสุด')}</th>
                   <th className="px-3 py-2">{t('การดำเนินการ')}</th>
                 </tr>
@@ -663,6 +961,34 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                       <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800">
                         {t(rca.status)}
                       </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      {knownErrorByRca.get(rca.id) ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                            {t(knownErrorByRca.get(rca.id)!.status)}
+                          </span>
+                          {canWrite && (
+                            <button
+                              className="rounded-full border border-sky-300 px-2.5 py-1 text-xs font-semibold text-sky-800"
+                              onClick={() => openEditKnownError(knownErrorByRca.get(rca.id)!)}
+                              type="button"
+                            >
+                              {t('แก้ไข')}
+                            </button>
+                          )}
+                        </div>
+                      ) : rca.status === 'Approved' && canWrite ? (
+                        <button
+                          className="rounded-full border border-sky-300 px-2.5 py-1 text-xs font-semibold text-sky-800"
+                          onClick={() => openCreateKnownError(rca)}
+                          type="button"
+                        >
+                          {t('สร้าง Known Error Draft')}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">{t('ยังไม่มี Known Error')}</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-slate-500">{formatDate(rca.updatedAt)}</td>
                     <td className="px-3 py-3">
@@ -683,7 +1009,63 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
           </div>
         </section>
       )}
-      {(ticketsMore || rcasMore) && (
+      {knownErrors.length > 0 && (
+        <section className="rounded-2xl border border-sky-200 bg-sky-50/30 p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">{t('Known Errors จาก RCA')}</h3>
+              <p className="mt-1 text-sm text-slate-500">{t('รายการ Known Error ที่บันทึกจาก RCA ต้นทาง')}</p>
+            </div>
+            <span className="text-sm text-slate-500">
+              {knownErrors.length} {t('รายการที่พบ')}
+            </span>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-sky-200 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">{t('ชื่อ Known Error')}</th>
+                  <th className="px-3 py-2">{t('ประเภทปัญหา')}</th>
+                  <th className="px-3 py-2">{t('RCA ต้นทาง')}</th>
+                  <th className="px-3 py-2">{t('สถานะ')}</th>
+                  <th className="px-3 py-2">{t('วันที่ทบทวน')}</th>
+                  <th className="px-3 py-2">{t('การดำเนินการ')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {knownErrors.map((knownError) => (
+                  <tr className="border-b border-sky-100" key={knownError.id}>
+                    <td className="px-3 py-3">
+                      <p className="font-semibold">{knownError.title}</p>
+                      <p className="mt-1 max-w-sm text-xs text-slate-500">{knownError.symptoms}</p>
+                    </td>
+                    <td className="px-3 py-3">{t(knownError.taskCategory)}</td>
+                    <td className="px-3 py-3 font-mono text-xs">{knownError.sourceRcaId}</td>
+                    <td className="px-3 py-3">
+                      <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                        {t(knownError.status)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-slate-500">{knownError.reviewDueDate || t('ยังไม่กำหนด')}</td>
+                    <td className="px-3 py-3">
+                      {canWrite && (
+                        <button
+                          className="rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-800"
+                          onClick={() => openEditKnownError(knownError)}
+                          type="button"
+                        >
+                          {t('แก้ไข Known Error')}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {(ticketsMore || rcasMore || knownErrorsMore) && (
         <div className="text-center">
           <button
             className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold disabled:opacity-50"
@@ -697,7 +1079,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
       )}
       <p className="rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 text-xs leading-5 text-violet-900">
         {t(
-          'ข้อจำกัด MVP: งานและ RCA โหลดแบบ cursor pagination; Filter ยังทำงานเฉพาะข้อมูลหน้าที่โหลดแล้ว และ RCA จาก Client ยังไม่ใช่หลักฐาน tamper-proof จนกว่าจะมี Trusted Backend',
+          'ข้อจำกัด MVP: งาน, RCA และ Known Error โหลดแบบ cursor pagination; Filter ยังทำงานเฉพาะข้อมูลหน้าที่โหลดแล้ว และข้อมูลที่สร้างจาก Client ยังไม่ใช่หลักฐาน tamper-proof จนกว่าจะมี Trusted Backend',
         )}
       </p>
     </div>

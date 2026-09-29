@@ -11,6 +11,7 @@ const required = [
   ['tickets', 'propertyId:ASCENDING,updatedAt:DESCENDING'],
   ['tickets', 'propertyId:ASCENDING,requesterUid:ASCENDING,createdAt:DESCENDING'],
   ['rcaRecords', 'propertyId:ASCENDING,updatedAt:DESCENDING'],
+  ['knownErrors', 'propertyId:ASCENDING,updatedAt:DESCENDING'],
   ['auditEvents', 'propertyId:ASCENDING,createdAt:DESCENDING,__name__:DESCENDING'],
   ['assets', 'status:ASCENDING,updatedAt:DESCENDING'],
   ['assets', 'propertyId:ASCENDING,updatedAt:DESCENDING'],

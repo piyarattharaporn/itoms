@@ -22,6 +22,9 @@ import { getCompletedTicketPage, type TicketAccess, type TicketPageCursor } from
 export const rcaStatuses = ['Draft', 'In Review', 'Approved', 'Closed'] as const
 export type RcaStatus = (typeof rcaStatuses)[number]
 
+export const knownErrorStatuses = ['Draft', 'Published', 'Retired'] as const
+export type KnownErrorStatus = (typeof knownErrorStatuses)[number]
+
 export interface RcaRecord {
   id: string
   schemaVersion: 1
@@ -64,6 +67,44 @@ export interface RcaInput {
   dueDate: string
 }
 
+export interface KnownErrorRecord {
+  id: string
+  schemaVersion: 1
+  propertyId: string
+  propertyCode: string
+  sourceRcaId: string
+  sourceTaskId: string
+  taskTitle: string
+  taskCategory: string
+  title: string
+  symptoms: string
+  rootCause: string
+  workaround: string
+  permanentFix: string
+  ownerUid: string
+  reviewDueDate: string
+  status: KnownErrorStatus
+  createdBy: string
+  createdAt: Date | null
+  updatedAt: Date | null
+}
+
+export interface KnownErrorInput {
+  propertyId: string
+  propertyCode: string
+  sourceRcaId: string
+  sourceTaskId: string
+  taskTitle: string
+  taskCategory: string
+  title: string
+  symptoms: string
+  rootCause: string
+  workaround: string
+  permanentFix: string
+  ownerUid: string
+  reviewDueDate: string
+}
+
 export type RcaPageCursor = QueryDocumentSnapshot<DocumentData> | null
 
 function firestore() {
@@ -79,6 +120,10 @@ function asDate(value: unknown): Date | null {
 
 function asStatus(value: unknown): RcaStatus {
   return rcaStatuses.includes(value as RcaStatus) ? (value as RcaStatus) : 'Draft'
+}
+
+function asKnownErrorStatus(value: unknown): KnownErrorStatus {
+  return knownErrorStatuses.includes(value as KnownErrorStatus) ? (value as KnownErrorStatus) : 'Draft'
 }
 
 function parseRca(id: string, data: DocumentData): RcaRecord | null {
@@ -128,6 +173,48 @@ function parseRca(id: string, data: DocumentData): RcaRecord | null {
   }
 }
 
+function parseKnownError(id: string, data: DocumentData): KnownErrorRecord | null {
+  if (
+    data.schemaVersion !== 1 ||
+    typeof data.propertyId !== 'string' ||
+    typeof data.propertyCode !== 'string' ||
+    typeof data.sourceRcaId !== 'string' ||
+    typeof data.sourceTaskId !== 'string' ||
+    typeof data.taskTitle !== 'string' ||
+    typeof data.taskCategory !== 'string' ||
+    typeof data.title !== 'string' ||
+    typeof data.symptoms !== 'string' ||
+    typeof data.rootCause !== 'string' ||
+    typeof data.workaround !== 'string' ||
+    typeof data.permanentFix !== 'string' ||
+    typeof data.ownerUid !== 'string' ||
+    typeof data.reviewDueDate !== 'string' ||
+    typeof data.createdBy !== 'string'
+  )
+    return null
+  return {
+    id,
+    schemaVersion: 1,
+    propertyId: data.propertyId,
+    propertyCode: data.propertyCode,
+    sourceRcaId: data.sourceRcaId,
+    sourceTaskId: data.sourceTaskId,
+    taskTitle: data.taskTitle,
+    taskCategory: data.taskCategory,
+    title: data.title,
+    symptoms: data.symptoms,
+    rootCause: data.rootCause,
+    workaround: data.workaround,
+    permanentFix: data.permanentFix,
+    ownerUid: data.ownerUid,
+    reviewDueDate: data.reviewDueDate,
+    status: asKnownErrorStatus(data.status),
+    createdBy: data.createdBy,
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt),
+  }
+}
+
 export async function getCompletedTasksPage(access: TicketAccess, pageSize = 25, cursor: TicketPageCursor = null) {
   return getCompletedTicketPage(access, pageSize, cursor)
 }
@@ -149,6 +236,30 @@ export async function getRcaPage(
     .map((item) => parseRca(item.id, item.data()))
     .filter((item): item is RcaRecord => item !== null)
   recordUsageEvent('rca_page_loaded', { count: items.length, pageSize })
+  return {
+    items,
+    nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null,
+    hasMore: snapshot.docs.length === pageSize,
+  }
+}
+
+export async function getKnownErrorsPage(
+  propertyId: string,
+  allProperties: boolean,
+  pageSize = 25,
+  cursor: RcaPageCursor = null,
+): Promise<CursorPage<KnownErrorRecord>> {
+  pageSize = Math.min(Math.max(pageSize, 1), 50)
+  const constraints = [] as Parameters<typeof query>[1][]
+  if (!allProperties) constraints.push(where('propertyId', '==', propertyId))
+  constraints.push(orderBy('updatedAt', 'desc'))
+  if (cursor) constraints.push(startAfter(cursor))
+  constraints.push(limit(pageSize))
+  const snapshot = await getDocs(query(collection(firestore(), 'knownErrors'), ...constraints))
+  const items = snapshot.docs
+    .map((item) => parseKnownError(item.id, item.data()))
+    .filter((item): item is KnownErrorRecord => item !== null)
+  recordUsageEvent('known_error_page_loaded', { count: items.length, pageSize })
   return {
     items,
     nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null,
@@ -201,6 +312,54 @@ export async function updateRca(
     impact: input.impact?.trim(),
     correctiveAction: input.correctiveAction?.trim(),
     preventiveAction: input.preventiveAction?.trim(),
+    ownerUid: input.ownerUid?.trim(),
+    status,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function createKnownError(userUid: string, input: KnownErrorInput) {
+  const firestoreClient = firestore()
+  if (!userUid) throw new Error('กรุณาเข้าสู่ระบบใหม่')
+  const knownErrorRef = doc(firestoreClient, 'knownErrors', input.sourceRcaId)
+  await setDoc(knownErrorRef, {
+    schemaVersion: 1,
+    propertyId: input.propertyId,
+    propertyCode: input.propertyCode,
+    sourceRcaId: input.sourceRcaId,
+    sourceTaskId: input.sourceTaskId,
+    taskTitle: input.taskTitle.trim(),
+    taskCategory: input.taskCategory.trim(),
+    title: input.title.trim(),
+    symptoms: input.symptoms.trim(),
+    rootCause: input.rootCause.trim(),
+    workaround: input.workaround.trim(),
+    permanentFix: input.permanentFix.trim(),
+    ownerUid: input.ownerUid.trim(),
+    reviewDueDate: input.reviewDueDate,
+    status: 'Draft',
+    createdBy: userUid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return knownErrorRef.id
+}
+
+export async function updateKnownError(
+  id: string,
+  input: Partial<
+    Omit<KnownErrorInput, 'propertyId' | 'propertyCode' | 'sourceRcaId' | 'sourceTaskId' | 'taskTitle' | 'taskCategory'>
+  >,
+  status: KnownErrorStatus,
+) {
+  const firestoreClient = firestore()
+  await updateDoc(doc(firestoreClient, 'knownErrors', id), {
+    ...input,
+    title: input.title?.trim(),
+    symptoms: input.symptoms?.trim(),
+    rootCause: input.rootCause?.trim(),
+    workaround: input.workaround?.trim(),
+    permanentFix: input.permanentFix?.trim(),
     ownerUid: input.ownerUid?.trim(),
     status,
     updatedAt: serverTimestamp(),

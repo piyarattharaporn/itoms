@@ -876,6 +876,87 @@ describe('Ticket, Asset, and PM access', () => {
     )
   })
 
+  it('creates Known Error only from an approved RCA and keeps it Property-scoped', async () => {
+    const supportDb = testEnv.authenticatedContext('support-1').firestore()
+    const executiveDb = testEnv.authenticatedContext('executive-1').firestore()
+    const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
+    const approvedRca = {
+      schemaVersion: 1,
+      propertyId: 'PROP-1',
+      propertyCode: 'P1',
+      taskId: 'ticket-to-update',
+      taskTitle: 'Network / WiFi Connections · Office',
+      taskCategory: 'Network',
+      taskPriority: 'Medium',
+      taskCompletedAt: new Date('2026-09-24T00:00:00.000Z'),
+      incidentSummary: 'Network service was unavailable for the office.',
+      rootCause: 'The access point configuration was invalid.',
+      contributingFactors: 'A change was not peer reviewed.',
+      fiveWhys: 'Why did service fail? The access point rejected the configuration.',
+      impact: 'Office users could not access the network.',
+      downtimeMinutes: 30,
+      correctiveAction: 'Restored the previous configuration and verified connectivity.',
+      preventiveAction: 'Add peer review to the network change checklist.',
+      ownerUid: 'support-1',
+      dueDate: '2026-10-01',
+      status: 'Draft',
+      createdBy: 'support-1',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+    await assertSucceeds(setDoc(doc(supportDb, 'rcaRecords/rca-approved'), approvedRca))
+    await assertSucceeds(
+      updateDoc(doc(supportDb, 'rcaRecords/rca-approved'), {
+        status: 'Approved',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+    const validKnownError = {
+      schemaVersion: 1,
+      propertyId: 'PROP-1',
+      propertyCode: 'P1',
+      sourceRcaId: 'rca-approved',
+      sourceTaskId: 'ticket-to-update',
+      taskTitle: 'Network / WiFi Connections · Office',
+      taskCategory: 'Network',
+      title: 'Access point rejects configuration',
+      symptoms: 'Office users cannot connect after a configuration change.',
+      rootCause: 'The access point configuration is invalid.',
+      workaround: 'Restore the last known-good configuration.',
+      permanentFix: 'Add peer review to the network change checklist.',
+      ownerUid: 'support-1',
+      reviewDueDate: '2026-12-31',
+      status: 'Draft',
+      createdBy: 'support-1',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+    const knownErrorRef = doc(supportDb, 'knownErrors/rca-approved')
+    await assertSucceeds(setDoc(knownErrorRef, validKnownError))
+    await assertSucceeds(getDoc(doc(executiveDb, 'knownErrors/rca-approved')))
+    await assertFails(getDoc(doc(requesterDb, 'knownErrors/rca-approved')))
+    await assertSucceeds(updateDoc(knownErrorRef, { status: 'Published', updatedAt: serverTimestamp() }))
+    await assertFails(
+      setDoc(doc(supportDb, 'knownErrors/cross-property'), {
+        ...validKnownError,
+        sourceRcaId: 'rca-cross-property',
+        propertyId: 'PROP-2',
+        propertyCode: 'P2',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    )
+    await assertFails(
+      setDoc(doc(supportDb, 'knownErrors/injected'), {
+        ...validKnownError,
+        sourceRcaId: 'rca-injected',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        injectedField: true,
+      }),
+    )
+  })
+
   it('limits Asset reads to Support Engineers and allows read-only PM access for Property Executives', async () => {
     const supportDb = testEnv.authenticatedContext('support-1').firestore()
     const executiveDb = testEnv.authenticatedContext('executive-1').firestore()

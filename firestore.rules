@@ -1113,6 +1113,82 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function canReadKnownError(propertyId) {
+      return isSuperAdmin()
+        || hasPropertyRole(propertyId, 'supportEngineer')
+        || hasPropertyRole(propertyId, 'clientExecutive');
+    }
+
+    function sourceRcaIsApproved(record) {
+      let source = get(/databases/$(database)/documents/rcaRecords/$(record.sourceRcaId));
+      return source.data.propertyId == record.propertyId
+        && source.data.propertyCode == record.propertyCode
+        && source.data.taskId == record.sourceTaskId
+        && source.data.status == 'Approved';
+    }
+
+    function validKnownError(record) {
+      return record.keys().hasAll([
+          'schemaVersion', 'propertyId', 'propertyCode', 'sourceRcaId', 'sourceTaskId',
+          'taskTitle', 'taskCategory', 'title', 'symptoms', 'rootCause', 'workaround',
+          'permanentFix', 'ownerUid', 'reviewDueDate', 'status', 'createdBy', 'createdAt',
+          'updatedAt'
+        ])
+        && record.keys().hasOnly([
+          'schemaVersion', 'propertyId', 'propertyCode', 'sourceRcaId', 'sourceTaskId',
+          'taskTitle', 'taskCategory', 'title', 'symptoms', 'rootCause', 'workaround',
+          'permanentFix', 'ownerUid', 'reviewDueDate', 'status', 'createdBy', 'createdAt',
+          'updatedAt'
+        ])
+        && record.schemaVersion == 1
+        && record.propertyId is string && record.propertyId.size() > 0 && record.propertyId.size() <= 160
+        && record.propertyCode is string && record.propertyCode.size() > 0 && record.propertyCode.size() <= 40
+        && canUseProperty(record.propertyId, record.propertyCode)
+        && record.sourceRcaId is string && record.sourceRcaId.size() > 0 && record.sourceRcaId.size() <= 150
+        && record.sourceTaskId is string && record.sourceTaskId.size() > 0 && record.sourceTaskId.size() <= 150
+        && record.taskTitle is string && record.taskTitle.size() > 0 && record.taskTitle.size() <= 240
+        && record.taskCategory is string && record.taskCategory.size() > 0 && record.taskCategory.size() <= 120
+        && record.title is string && record.title.size() > 0 && record.title.size() <= 240
+        && record.symptoms is string && record.symptoms.size() > 0 && record.symptoms.size() <= 4000
+        && record.rootCause is string && record.rootCause.size() > 0 && record.rootCause.size() <= 4000
+        && record.workaround is string && record.workaround.size() <= 4000
+        && record.permanentFix is string && record.permanentFix.size() <= 4000
+        && record.ownerUid is string && record.ownerUid.size() <= 128
+        && validOptionalIsoDate(record.reviewDueDate)
+        && record.status in ['Draft', 'Published', 'Retired']
+        && record.createdBy is string && record.createdBy.size() > 0 && record.createdBy.size() <= 128
+        && record.createdAt is timestamp
+        && record.updatedAt is timestamp;
+    }
+
+    match /knownErrors/{knownErrorId} {
+      allow get, list: if canReadKnownError(resource.data.propertyId);
+      allow create: if signedIn()
+        && canManageProperty(request.resource.data.propertyId)
+        && request.resource.data.status == 'Draft'
+        && knownErrorId == request.resource.data.sourceRcaId
+        && sourceRcaIsApproved(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && validKnownError(request.resource.data);
+      allow update: if signedIn()
+        && canManageProperty(resource.data.propertyId)
+        && request.resource.data.propertyId == resource.data.propertyId
+        && request.resource.data.propertyCode == resource.data.propertyCode
+        && request.resource.data.sourceRcaId == resource.data.sourceRcaId
+        && request.resource.data.sourceTaskId == resource.data.sourceTaskId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'symptoms', 'rootCause', 'workaround', 'permanentFix', 'ownerUid',
+          'reviewDueDate', 'status', 'updatedAt'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && validKnownError(request.resource.data);
+      allow delete: if false;
+    }
+
     match /users/{uid} {
       allow get: if (signedIn() && request.auth.uid == uid) || isSuperAdmin();
       allow list: if isSuperAdmin();

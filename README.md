@@ -39,6 +39,14 @@ records after the check. Production mode requires an explicit project
 confirmation; never use it as a general data migration command. See
 [`docs/architecture/phase-fix-1-1.md`](docs/architecture/phase-fix-1-1.md).
 
+Phase Fix 2 adds cursor pagination to the primary Asset, Damaged Asset, PM,
+License, and Request User list pages. Each page loads 25 rows at a time and
+keeps the existing Property- and role-aware Rules. Search and summary counts on
+these pages are limited to rows loaded in the browser; see
+[`docs/architecture/phase-fix-2.md`](docs/architecture/phase-fix-2.md) and the
+verification report at
+[`docs/testing/phase-fix-2-read-scalability-report.md`](docs/testing/phase-fix-2-read-scalability-report.md).
+
 ## Quality checks
 
 The repository includes the following repeatable QA commands:

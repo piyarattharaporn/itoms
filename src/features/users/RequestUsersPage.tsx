@@ -5,11 +5,12 @@ import { defaultDepartments, subscribeToTicketCatalog } from '../tickets/ticketC
 import { subscribeToTicketAssets, type TicketAssetOption } from '../tickets/ticketAssetService'
 import {
   createRequestUser,
+  getRequestUserPage,
   setRequestUserActive,
-  subscribeToRequestUsers,
   updateRequestUserAsset,
   updateRequestUserName,
   type RequestUserRecord,
+  type RequestUserPageCursor,
 } from './requestUserService'
 
 export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: string }) {
@@ -40,6 +41,9 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
   const [savingAsset, setSavingAsset] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [nextCursor, setNextCursor] = useState<RequestUserPageCursor>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     if (selectedPropertyId !== 'all') setTargetPropertyId(selectedPropertyId)
@@ -89,24 +93,40 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
     }
     setLoading(true)
     setError(null)
-    return subscribeToRequestUsers(
-      allProperties ? 'all' : selectedPropertyId,
-      allProperties,
-      (items) => {
-        setUsers(items)
+    setUsers([])
+    setNextCursor(null)
+    setHasMore(false)
+    void getRequestUserPage(selectedPropertyId, allProperties, 25)
+      .then((page) => {
+        setUsers(page.items)
+        setNextCursor(page.nextCursor)
+        setHasMore(page.hasMore)
         setLoading(false)
-      },
-      () => {
+      })
+      .catch(() => {
         setError(t('โหลด Request User ไม่สำเร็จ ตรวจสอบ Firestore Rules และ Indexes'))
         setLoading(false)
-      },
-    )
-  }, [accessState, canManage, selectedPropertyId, allProperties])
+      })
+  }, [accessState, canManage, selectedPropertyId, allProperties, reloadKey])
 
-  const visibleUsers = useMemo(
-    () => users.slice().sort((a, b) => a.propertyCode.localeCompare(b.propertyCode) || a.email.localeCompare(b.email)),
-    [users],
-  )
+  async function loadMore() {
+    if (!nextCursor || loading) return
+    setLoading(true)
+    try {
+      const page = await getRequestUserPage(selectedPropertyId, allProperties, 25, nextCursor)
+      setUsers((current) => [...current, ...page.items])
+      setNextCursor(page.nextCursor)
+      setHasMore(page.hasMore)
+    } catch {
+      setError(t('โหลดรายการเพิ่มไม่สำเร็จ'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Keep Firestore cursor order stable across pages. A client-side sort by
+  // property/email would reorder page 2 ahead of rows from page 1.
+  const visibleUsers = useMemo(() => users, [users])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -134,6 +154,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
       setDepartment('')
       setAssetId('')
       setNotice(`เพิ่ม ${email.trim().toLocaleLowerCase()} ใน ${targetProperty.code} แล้ว`)
+      setReloadKey((value) => value + 1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'เพิ่ม Request User ไม่สำเร็จ')
     } finally {
@@ -147,6 +168,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
     try {
       await setRequestUserActive(user.id, !user.active)
       setNotice(`${user.email} ${user.active ? 'ถูกปิด' : 'เปิด'}รายการ Request User แล้ว`)
+      setReloadKey((value) => value + 1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'อัปเดตสถานะไม่สำเร็จ')
     }
@@ -168,6 +190,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
       await updateRequestUserName(user.id, nameDraft)
       setEditingNameId(null)
       setNotice(t('อัปเดตชื่อ Request User แล้ว'))
+      setReloadKey((value) => value + 1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('อัปเดตชื่อ Request User ไม่สำเร็จ'))
     } finally {
@@ -191,6 +214,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
       await updateRequestUserAsset(user.id, assetDraftId || null)
       setEditingAssetId(null)
       setNotice(t('อัปเดต Asset ของ Request User แล้ว'))
+      setReloadKey((value) => value + 1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('อัปเดต Asset ของ Request User ไม่สำเร็จ'))
     } finally {
@@ -202,7 +226,9 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
     () =>
       assetOptions.filter(
         (asset) =>
-          asset.propertyId === targetPropertyId && asset.department === department && !['Damaged', 'Retired'].includes(asset.status),
+          asset.propertyId === targetPropertyId &&
+          asset.department === department &&
+          !['Damaged', 'Retired'].includes(asset.status),
       ),
     [assetOptions, department, targetPropertyId],
   )
@@ -210,7 +236,9 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
   function assetsForUser(user: RequestUserRecord) {
     return assetOptions.filter(
       (asset) =>
-        asset.propertyId === user.propertyId && asset.department === user.department && !['Damaged', 'Retired'].includes(asset.status),
+        asset.propertyId === user.propertyId &&
+        asset.department === user.department &&
+        !['Damaged', 'Retired'].includes(asset.status),
     )
   }
 
@@ -388,7 +416,9 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <h2 className="font-semibold">{t('รายชื่อ Request User')}</h2>
-            <p className="mt-1 text-sm text-slate-500">{t('รายการเชื่อมโยงแผนกและ Property · สูงสุด 200 รายการ')}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {t('รายการเชื่อมโยงแผนกและ Property · แบ่งหน้า ครั้งละ 25 รายการ')}
+            </p>
           </div>
           <span className="rounded-full bg-lotus-50 px-3 py-1 text-xs font-semibold text-lotus-800">
             {visibleUsers.filter((user) => user.active).length} {t('ใช้งาน')}
@@ -404,7 +434,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
             {t(error)}
           </p>
         )}
-        {loading ? (
+        {loading && users.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500" role="status">
             {t('กำลังโหลดรายชื่อ…')}
           </p>
@@ -550,6 +580,19 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
             </table>
           </div>
         )}
+        {hasMore && (
+          <div className="mt-4 text-center">
+            <button
+              className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-lotus-700 hover:bg-lotus-50 disabled:opacity-50"
+              disabled={loading}
+              onClick={() => void loadMore()}
+              type="button"
+            >
+              {loading ? t('กำลังโหลด…') : t('โหลดรายการเพิ่ม')}
+            </button>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-slate-500">{t('ตัวกรองและจำนวนสรุปคำนวณจากข้อมูลที่โหลดแล้ว')}</p>
       </section>
     </div>
   )

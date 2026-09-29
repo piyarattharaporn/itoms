@@ -1,18 +1,22 @@
 import {
   collection,
   doc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
   runTransaction,
   serverTimestamp,
+  startAfter,
   updateDoc,
   where,
   type DocumentData,
   type QueryConstraint,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
+import type { CursorPage } from '../../lib/pagination'
 
 export interface RequestUserRecord {
   id: string
@@ -34,6 +38,8 @@ export interface RequestUserInput {
   department: string
   assetId?: string | null
 }
+
+export type RequestUserPageCursor = QueryDocumentSnapshot<DocumentData> | null
 
 function firestore() {
   if (!db) throw new Error('Firestore ยังไม่ได้ตั้งค่า กรุณาเปิด Firebase Emulator')
@@ -65,6 +71,29 @@ function parseRequestUser(id: string, data: DocumentData): RequestUserRecord | n
     assetId: typeof data.assetId === 'string' && data.assetId ? data.assetId : null,
     active: data.active,
     createdAt: asDate(data.createdAt),
+  }
+}
+
+export async function getRequestUserPage(
+  propertyId: string,
+  allProperties: boolean,
+  pageSize = 25,
+  cursor: RequestUserPageCursor = null,
+): Promise<CursorPage<RequestUserRecord>> {
+  const boundedPageSize = Math.min(Math.max(pageSize, 1), 50)
+  const constraints: QueryConstraint[] = []
+  if (!allProperties) constraints.push(where('propertyId', '==', propertyId))
+  constraints.push(orderBy('createdAt', 'desc'))
+  if (cursor) constraints.push(startAfter(cursor))
+  constraints.push(limit(boundedPageSize))
+  const snapshot = await getDocs(query(collection(firestore(), 'requestUsers'), ...constraints))
+  const items = snapshot.docs
+    .map((item) => parseRequestUser(item.id, item.data()))
+    .filter((item): item is RequestUserRecord => item !== null)
+  return {
+    items,
+    nextCursor: snapshot.docs.length === boundedPageSize ? snapshot.docs[snapshot.docs.length - 1] : null,
+    hasMore: snapshot.docs.length === boundedPageSize,
   }
 }
 

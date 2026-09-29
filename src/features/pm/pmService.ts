@@ -1,8 +1,22 @@
 import {
-  collection, doc, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp,
-  where, writeBatch, type DocumentData, type QueryConstraint,
+  collection,
+  doc,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  runTransaction,
+  serverTimestamp,
+  startAfter,
+  where,
+  writeBatch,
+  type DocumentData,
+  type QueryConstraint,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
+import type { CursorPage } from '../../lib/pagination'
 
 export type PmFrequency = 'Weekly' | 'Monthly' | 'Quarterly'
 export type PmOutcome = 'Completed' | 'Needs Attention'
@@ -38,6 +52,8 @@ export interface PmChecklistResult {
   checked: boolean
 }
 
+export type PmPageCursor = QueryDocumentSnapshot<DocumentData> | null
+
 function firestore() {
   if (!db) throw new Error('Firestore ยังไม่ได้เชื่อมต่อ กรุณาเปิด Firebase Emulator')
   return db
@@ -49,14 +65,20 @@ function isFrequency(value: unknown): value is PmFrequency {
 
 function parseSchedule(id: string, data: DocumentData): PmSchedule | null {
   if (
-    typeof data.propertyId !== 'string' || typeof data.propertyCode !== 'string' ||
-    typeof data.title !== 'string' || typeof data.location !== 'string' ||
-    !isFrequency(data.frequency) || !Array.isArray(data.checklistItems) ||
+    typeof data.propertyId !== 'string' ||
+    typeof data.propertyCode !== 'string' ||
+    typeof data.title !== 'string' ||
+    typeof data.location !== 'string' ||
+    !isFrequency(data.frequency) ||
+    !Array.isArray(data.checklistItems) ||
     !data.checklistItems.every((item: unknown) => typeof item === 'string') ||
-    typeof data.nextDueOn !== 'string' || typeof data.active !== 'boolean' ||
-    typeof data.createdBy !== 'string' || typeof data.lastRunOn !== 'string' ||
+    typeof data.nextDueOn !== 'string' ||
+    typeof data.active !== 'boolean' ||
+    typeof data.createdBy !== 'string' ||
+    typeof data.lastRunOn !== 'string' ||
     typeof data.lastRunId !== 'string'
-  ) return null
+  )
+    return null
   return {
     id,
     propertyId: data.propertyId,
@@ -73,13 +95,49 @@ function parseSchedule(id: string, data: DocumentData): PmSchedule | null {
   }
 }
 
-export function subscribeToSchedules(propertyId: string, allProperties: boolean, onSchedules: (items: PmSchedule[]) => void, onError: () => void) {
+export async function getSchedulePage(
+  propertyId: string,
+  allProperties: boolean,
+  pageSize = 25,
+  cursor: PmPageCursor = null,
+): Promise<CursorPage<PmSchedule>> {
+  const boundedPageSize = Math.min(Math.max(pageSize, 1), 50)
+  const constraints: QueryConstraint[] = []
+  if (!allProperties) constraints.push(where('propertyId', '==', propertyId))
+  constraints.push(orderBy('nextDueOn', 'asc'))
+  if (cursor) constraints.push(startAfter(cursor))
+  constraints.push(limit(boundedPageSize))
+  const snapshot = await getDocs(query(collection(firestore(), 'pmSchedules'), ...constraints))
+  const items = snapshot.docs
+    .map((item) => parseSchedule(item.id, item.data()))
+    .filter((item): item is PmSchedule => item !== null)
+  return {
+    items,
+    nextCursor: snapshot.docs.length === boundedPageSize ? snapshot.docs[snapshot.docs.length - 1] : null,
+    hasMore: snapshot.docs.length === boundedPageSize,
+  }
+}
+
+export function subscribeToSchedules(
+  propertyId: string,
+  allProperties: boolean,
+  onSchedules: (items: PmSchedule[]) => void,
+  onError: () => void,
+) {
   const constraints: QueryConstraint[] = []
   if (!allProperties) constraints.push(where('propertyId', '==', propertyId))
   constraints.push(orderBy('nextDueOn', 'asc'), limit(100))
-  return onSnapshot(query(collection(firestore(), 'pmSchedules'), ...constraints), (snapshot) => {
-    onSchedules(snapshot.docs.map((item) => parseSchedule(item.id, item.data())).filter((item): item is PmSchedule => item !== null))
-  }, onError)
+  return onSnapshot(
+    query(collection(firestore(), 'pmSchedules'), ...constraints),
+    (snapshot) => {
+      onSchedules(
+        snapshot.docs
+          .map((item) => parseSchedule(item.id, item.data()))
+          .filter((item): item is PmSchedule => item !== null),
+      )
+    },
+    onError,
+  )
 }
 
 function validateSchedule(input: PmScheduleInput): PmScheduleInput {
@@ -90,10 +148,13 @@ function validateSchedule(input: PmScheduleInput): PmScheduleInput {
     location: input.location.trim(),
     checklistItems: input.checklistItems.map((item) => item.trim()).filter(Boolean),
   }
-  if (!schedule.propertyId || !schedule.propertyCode || !schedule.title || !schedule.nextDueOn) throw new Error('กรุณากรอก Property, ชื่องาน และวันกำหนด PM')
+  if (!schedule.propertyId || !schedule.propertyCode || !schedule.title || !schedule.nextDueOn)
+    throw new Error('กรุณากรอก Property, ชื่องาน และวันกำหนด PM')
   if (schedule.title.length > 160 || schedule.location.length > 160) throw new Error('ชื่อหรือ Location ยาวเกินกำหนด')
-  if (schedule.checklistItems.length < 1 || schedule.checklistItems.length > 10) throw new Error('Checklist ต้องมี 1–10 รายการในรุ่นปัจจุบัน')
-  if (schedule.checklistItems.some((item) => item.length > 200)) throw new Error('Checklist แต่ละรายการต้องไม่เกิน 200 ตัวอักษร')
+  if (schedule.checklistItems.length < 1 || schedule.checklistItems.length > 10)
+    throw new Error('Checklist ต้องมี 1–10 รายการในรุ่นปัจจุบัน')
+  if (schedule.checklistItems.some((item) => item.length > 200))
+    throw new Error('Checklist แต่ละรายการต้องไม่เกิน 200 ตัวอักษร')
   if (!isFrequency(schedule.frequency)) throw new Error('รอบ PM ไม่ถูกต้อง')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(schedule.nextDueOn)) throw new Error('รูปแบบวันกำหนด PM ไม่ถูกต้อง')
   return schedule
@@ -102,21 +163,25 @@ function validateSchedule(input: PmScheduleInput): PmScheduleInput {
 export async function createSchedule(input: PmScheduleInput, actorUid: string) {
   const schedule = validateSchedule(input)
   const ref = doc(collection(firestore(), 'pmSchedules'))
-  await writeBatch(firestore()).set(ref, {
-    ...schedule,
-    createdBy: actorUid,
-    lastRunOn: '',
-    lastRunId: '',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }).commit()
+  await writeBatch(firestore())
+    .set(ref, {
+      ...schedule,
+      createdBy: actorUid,
+      lastRunOn: '',
+      lastRunId: '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    .commit()
   return ref.id
 }
 
 export async function updateSchedule(scheduleId: string, input: PmScheduleInput) {
   const schedule = validateSchedule(input)
   const ref = doc(firestore(), 'pmSchedules', scheduleId)
-  await writeBatch(firestore()).update(ref, { ...schedule, updatedAt: serverTimestamp() }).commit()
+  await writeBatch(firestore())
+    .update(ref, { ...schedule, updatedAt: serverTimestamp() })
+    .commit()
 }
 
 function nextDate(current: string, frequency: PmFrequency): string {

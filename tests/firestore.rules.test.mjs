@@ -145,6 +145,21 @@ describe('profile, membership and Property boundaries', () => {
     await assertFails(getDoc(doc(db, 'users/support-1')))
   })
 
+  it('allows a Client Executive to read scoped Support Engineer display names only', async () => {
+    const executiveDb = testEnv.authenticatedContext('executive-1').firestore()
+    const requesterDb = testEnv.authenticatedContext('requester-1').firestore()
+    const scopedSupportMemberships = query(
+      collection(executiveDb, 'memberships'),
+      where('propertyId', '==', 'PROP-1'),
+      where('role', '==', 'supportEngineer'),
+      where('active', '==', true),
+      orderBy('userId', 'asc'),
+      limit(50),
+    )
+    await assertSucceeds(getDocs(scopedSupportMemberships))
+    await assertFails(getDocs(query(collection(requesterDb, 'memberships'), where('propertyId', '==', 'PROP-1'))))
+  })
+
   it('denies client writes to profiles, memberships, and Properties', async () => {
     const db = testEnv.authenticatedContext('requester-1').firestore()
     await assertFails(setDoc(doc(db, 'users/requester-1'), { globalRole: 'superAdmin', active: true }))

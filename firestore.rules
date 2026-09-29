@@ -1202,7 +1202,10 @@ service cloud.firestore {
         || (hasActiveProfile() && resource.data.userId == request.auth.uid)
         || (hasActiveProfile() && resource.data.role == 'supportEngineer'
           && resource.data.active == true
-          && hasPropertyRole(resource.data.propertyId, 'supportEngineer'));
+          && hasPropertyRole(resource.data.propertyId, 'supportEngineer'))
+        || (hasActiveProfile() && resource.data.role == 'supportEngineer'
+          && resource.data.active == true
+          && hasPropertyRole(resource.data.propertyId, 'clientExecutive'));
       allow create, update, delete: if false;
     }
 

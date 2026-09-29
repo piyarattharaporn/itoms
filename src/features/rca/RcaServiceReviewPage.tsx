@@ -117,6 +117,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
   const [savingKnownError, setSavingKnownError] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
   const [ownerOptions, setOwnerOptions] = useState<AssignableEngineer[]>([])
+  const [assigneeDirectory, setAssigneeDirectory] = useState<AssignableEngineer[]>([])
   const [ownerOptionsLoading, setOwnerOptionsLoading] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -144,6 +145,24 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
       .catch(() => setOwnerOptions([]))
       .finally(() => setOwnerOptionsLoading(false))
   }, [canWrite, editingKnownError, editingRca, ownerPropertyId, selectedRcaForKnownError, selectedTask])
+
+  useEffect(() => {
+    if (accessState === 'loading' || !canRead || (!allProperties && !selectedPropertyId)) {
+      setAssigneeDirectory([])
+      return
+    }
+    let cancelled = false
+    void getAssignableEngineers(allProperties ? 'all' : selectedPropertyId, isSuperAdmin)
+      .then((engineers) => {
+        if (!cancelled) setAssigneeDirectory(engineers)
+      })
+      .catch(() => {
+        if (!cancelled) setAssigneeDirectory([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [accessState, allProperties, canRead, isSuperAdmin, selectedPropertyId])
 
   const selectableOwners = useMemo(() => {
     const options = ownerOptions.slice()
@@ -250,6 +269,19 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
     () => [...new Set(tickets.map((ticket) => ticket.assignedEngineerUid).filter(Boolean))].sort(),
     [tickets],
   )
+  const assigneeNames = useMemo(
+    () =>
+      new Map(
+        assigneeDirectory
+          .filter((engineer) => engineer.displayName && engineer.displayName !== engineer.uid)
+          .map((engineer) => [engineer.uid, formatAssignableEngineerLabel(engineer)]),
+      ),
+    [assigneeDirectory],
+  )
+
+  function displayAssignee(uid: string) {
+    return assigneeNames.get(uid) || t('ไม่พบชื่อผู้รับผิดชอบ')
+  }
   const rcaByTask = useMemo(() => new Map(rcas.map((item) => [item.taskId, item])), [rcas])
   const knownErrorByRca = useMemo(() => new Map(knownErrors.map((item) => [item.sourceRcaId, item])), [knownErrors])
 
@@ -526,7 +558,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
               <option value="">{t('ทั้งหมด')}</option>
               {assignees.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {displayAssignee(item)}
                 </option>
               ))}
             </select>
@@ -867,7 +899,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                     <span>{t(ticket.priority)}</span>
                     <span>· {formatDate(ticket.updatedAt)}</span>
-                    {ticket.assignedEngineerUid && <span>· {ticket.assignedEngineerUid}</span>}
+                    {ticket.assignedEngineerUid && <span>· {displayAssignee(ticket.assignedEngineerUid)}</span>}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {rca ? (

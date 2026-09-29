@@ -296,6 +296,7 @@ const englishFeature: Record<string, string> = {
     'Department and property links · 25 records per page.',
   'อัปเดต Dropdown Task จากรายการที่โหลด': 'Refresh Task dropdown from loaded records.',
   'เลือกจาก Support Engineer ของ Property นี้': 'Select a Support Engineer from this property.',
+  ไม่พบชื่อผู้รับผิดชอบ: 'Assignee name unavailable',
   'แสดง Asset ตามสิทธิ์ Property แบบแบ่งหน้า ครั้งละ 25 รายการ':
     'Assets are shown by Property access, 25 records per page.',
   'แสดง Asset เสียหาย/เลิกใช้งานแบบแบ่งหน้า ครั้งละ 25 รายการ; ตัวเลขสรุปเป็นข้อมูลที่โหลดแล้ว':

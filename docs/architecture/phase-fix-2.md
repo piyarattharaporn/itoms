@@ -5,9 +5,9 @@ Date: 2026-09-29
 ## Objective
 
 Reduce the risk of unbounded client reads on operational pages while keeping the
-Spark-only architecture and the existing Firestore Rules unchanged. This phase
-does not add a trusted backend, search service, Cloud Functions, or production
-deployment.
+Spark-only architecture and the existing Firestore Rules unchanged. The
+implementation does not add a trusted backend, search service, or Cloud
+Functions. Hosting release is handled separately after the verification gate.
 
 ## Implemented scope
 

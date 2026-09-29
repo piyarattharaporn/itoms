@@ -10,18 +10,15 @@ unbounded collection for their primary list view.
 
 ## Verification matrix
 
-| Area                      | Verification                                                     | Result                                                                                                               |
-| ------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| TypeScript/Vite           | `npm run build`                                                  | PASS                                                                                                                 |
-| Unit/contract/lint/format | `npm run test:quality`                                           | PASS                                                                                                                 |
-| Browser emulator suite    | `npm run test:e2e:emulator`                                      | PASS — 16/16                                                                                                         |
-| Firestore Rules           | Existing Phase Fix 1 gate                                        | PASS — 26/26; no Rules changed in this phase                                                                         |
-| Sampling E2E              | `npm run test:e2e:sampling`                                      | Environment startup was blocked while Auth Emulator port 19099 was not ready; no sampling assertion ran in the retry |
-| Changed-page review       | Asset, Damaged Asset, PM, License, Request User pagination paths | PASS by build and emulator regression coverage                                                                       |
-
-The sampling E2E limitation is an environment issue, not a failed application
-assertion. It must be rerun from a clean emulator process before using it as a
-release gate.
+| Area                      | Verification                                                     | Result                                               |
+| ------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------- |
+| TypeScript/Vite           | `npm run build`                                                  | PASS                                                 |
+| Unit/contract/lint/format | `npm run test:quality`                                           | PASS                                                 |
+| Browser emulator suite    | `npm run test:e2e:emulator`                                      | PASS — 16/16                                         |
+| Firestore Rules           | Existing Phase Fix 1 gate                                        | PASS — 26/26; no Rules changed in this phase         |
+| Sampling E2E              | `npm run test:e2e:sampling`                                      | PASS — 2/2 after clearing the stale emulator process |
+| Changed-page review       | Asset, Damaged Asset, PM, License, Request User pagination paths | PASS by build and emulator regression coverage       |
+| Production Hosting        | `https://itoms-v2.web.app` HTTP smoke check                      | PASS — HTTP 200 and security headers present         |
 
 ## Query safety checks
 
@@ -39,11 +36,13 @@ release gate.
 - The Asset dropdown repair action is page-scoped; create/update paths remain
   automatically synchronized.
 - Query indexes may still need to finish building in a new Firebase project.
-- No production deploy was performed as part of this phase.
+- Root Hosting requests currently return Firebase's default `max-age=3600`,
+  while `/index.html` is configured as no-cache. Hashed assets are immutable;
+  a future release may add an explicit root cache rule if immediate root-page
+  freshness is required.
 
 ## Release gate
 
-Before commit/deploy, rerun the sampling suite after confirming Auth and
-Firestore Emulator ports are free, then run the normal build/quality gates. If
-the user approves deployment, use the existing production-config guardrails and
-review the target project before invoking Firebase Hosting deployment.
+The release gate completed with clean emulator verification, build/quality
+checks, production-config preflight, commit `2c947d7`, Hosting deployment, and
+an HTTP 200 post-deploy smoke check.

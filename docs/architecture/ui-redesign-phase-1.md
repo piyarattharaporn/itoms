@@ -40,7 +40,7 @@ Typography ใช้ `Noto Sans Thai`, `IBM Plex Sans Thai` และ system fal
 รอบ redesign ล่าสุดนำ visual grammar ไปใช้กับโครงสร้างการทำงานหลักตาม reference ที่อนุมัติ:
 
 - top bar สี forest พร้อม context, global task search และ utility actions
-- compact icon rail บน Desktop และคืน label เต็มบน Mobile/หน้าจอแคบ
+- named navigation rail บน Desktop ที่แสดงไอคอน ชื่อเมนู และหมวดหมู่พร้อมกัน; Mobile ยังคงใช้เมนูแบบยุบได้
 - Dashboard ใช้ KPI rail, attention queue, incident pulse และ SLA panel ตามลำดับความสำคัญ
 - Task Board เปิดด้วย Table View เป็นค่าเริ่มต้นเพื่อรองรับข้อมูลมากขึ้น พร้อมคง List/Kanban ไว้
 - ไม่มีการเปลี่ยน schema, Firestore Rules, query contract, role model หรือ bounded/manual limitation

@@ -477,7 +477,7 @@ select.property-switcher-select {
 
 .portal-layout {
   max-width: 1536px !important;
-  grid-template-columns: 76px minmax(0, 1fr) !important;
+  grid-template-columns: 232px minmax(0, 1fr) !important;
   gap: 1.25rem !important;
 }
 
@@ -496,9 +496,9 @@ select.property-switcher-select {
 }
 
 .portal-nav-item {
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 3rem;
-  padding: 0.35rem !important;
+  padding: 0.35rem 0.5rem !important;
 }
 
 .portal-nav-item > span:first-child {
@@ -509,7 +509,11 @@ select.property-switcher-select {
 
 .portal-nav-text,
 .portal-nav-group-label {
-  display: none;
+  display: inline;
+}
+
+.portal-nav-group-label {
+  display: block;
 }
 
 .portal-sidebar nav > div > div:first-child {

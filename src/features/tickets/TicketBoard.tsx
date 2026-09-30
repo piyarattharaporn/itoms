@@ -65,6 +65,13 @@ function ticketDisplayId(ticket: TicketRecord) {
   return `${ticket.propertyCode}-${ticket.id.toUpperCase()}`
 }
 
+function assignedEngineerLabel(ticket: TicketRecord, engineers: AssignableEngineer[]) {
+  if (!ticket.assignedEngineerUid) return t('ยังไม่มอบหมาย')
+
+  const engineer = engineers.find((item) => item.uid === ticket.assignedEngineerUid)
+  return engineer ? formatAssignableEngineerLabel(engineer) : t('ไม่พบชื่อผู้รับผิดชอบ')
+}
+
 function ticketStatusTone(status: TicketStatus) {
   if (status === 'Completed') return 'border-emerald-200 bg-emerald-50 text-emerald-800'
   if (status === 'Cancelled') return 'border-slate-200 bg-slate-100 text-slate-600'
@@ -131,7 +138,6 @@ function TicketCard({
   const [error, setError] = useState<string | null>(null)
   const [assignmentSaving, setAssignmentSaving] = useState(false)
   const sla = getSlaSnapshot(ticket)
-  const assignedEngineer = engineers.find((engineer) => engineer.uid === ticket.assignedEngineerUid)
 
   async function updateStatus(status: TicketStatus) {
     setSaving(true)
@@ -225,13 +231,7 @@ function TicketCard({
         </div>
         <div>
           <dt className="inline">{t('ผู้รับผิดชอบ:')} </dt>
-          <dd className="inline break-all text-slate-700">
-            {ticket.assignedEngineerUid
-              ? assignedEngineer
-                ? formatAssignableEngineerLabel(assignedEngineer)
-                : ticket.assignedEngineerUid
-              : t('ยังไม่มอบหมาย')}
-          </dd>
+          <dd className="inline break-words text-slate-700">{assignedEngineerLabel(ticket, engineers)}</dd>
         </div>
         <div>
           <dt className="inline">{t('Response SLA:')} </dt>
@@ -1270,7 +1270,10 @@ export function TicketBoard({
         setError(cause instanceof Error ? cause.message : t('โหลด Task ไม่สำเร็จ'))
         setLoading(false)
       })
-    if (!isSuperAdmin && selectedMembership?.role === 'supportEngineer') {
+    if (
+      !isSuperAdmin &&
+      (selectedMembership?.role === 'supportEngineer' || selectedMembership?.role === 'clientExecutive')
+    ) {
       void getAssignableEngineers(selectedPropertyId)
         .then(setEngineers)
         .catch(() => setEngineers([]))
@@ -1606,10 +1609,8 @@ export function TicketBoard({
                                     </option>
                                   ))}
                                 </select>
-                              ) : ticket.assignedEngineerUid ? (
-                                ticket.assignedEngineerUid
                               ) : (
-                                t('ยังไม่มอบหมาย')
+                                assignedEngineerLabel(ticket, ticketEngineers)
                               )}
                             </td>
                             <td className="px-4 py-3">

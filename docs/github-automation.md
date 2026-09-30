@@ -41,7 +41,9 @@ For both environments, add the Firebase deploy credential as the secret:
 
 - `FIREBASE_SERVICE_ACCOUNT`
 
-The secret must be a dedicated deploy service-account JSON with only the Firebase permissions needed for the target project. Never commit that JSON or any `.env` file containing it.
+The secret value must be a dedicated deploy service-account JSON with only the Firebase permissions needed for the target project. Never commit that JSON, a Firebase CLI token, or any `.env` file containing credentials.
+
+Add it from **Repository Settings → Secrets and variables → Actions → New repository secret**. Paste the complete JSON value into `FIREBASE_SERVICE_ACCOUNT`. If the repository needs stronger separation, use different environment-level secrets for UAT and Production. Workload Identity Federation is preferable for a larger team because it avoids long-lived JSON keys.
 
 Configure required reviewers for the `production` Environment before enabling automatic Production triggers. UAT can deploy automatically because it is isolated from the live project. GitHub Environments support approval gates, branch restrictions, secrets, and deployment history.
 

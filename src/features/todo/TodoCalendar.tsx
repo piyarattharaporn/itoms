@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { getLocale, t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useAuth } from '../auth/AuthProvider'
 import { defaultTodoCategories, subscribeToTicketCatalog } from '../tickets/ticketCatalogService'
 import {
@@ -833,7 +834,7 @@ export function TodoCalendar({
                   value={formPropertyId}
                 >
                   <option value="">{t('เลือก Property')}</option>
-                  {properties.map((property) => (
+                  {sortByLabel(properties, (property) => `${property.code} · ${property.name}`).map((property) => (
                     <option key={property.id} value={property.id}>
                       {property.code} · {property.name}
                     </option>
@@ -865,7 +866,7 @@ export function TodoCalendar({
                   onChange={(event) => setKind(event.target.value as TodoKind)}
                   value={kind}
                 >
-                  {availableTodoCategories.map((category) => (
+                  {sortByLabel(availableTodoCategories, todoCategoryLabel).map((category) => (
                     <option key={category} value={category}>
                       {todoCategoryLabel(category)}
                     </option>
@@ -927,9 +928,18 @@ export function TodoCalendar({
                 onChange={(event) => setRecurrence(event.target.value as TodoRepeat)}
                 value={recurrence}
               >
-                <option value="None">{t('ไม่ทำซ้ำ')}</option>
-                <option value="Weekly">{t('ทุกสัปดาห์')}</option>
-                <option value="Monthly">{t('ทุกเดือน')}</option>
+                {sortByLabel(
+                  [
+                    { value: 'None', label: t('ไม่ทำซ้ำ') },
+                    { value: 'Weekly', label: t('ทุกสัปดาห์') },
+                    { value: 'Monthly', label: t('ทุกเดือน') },
+                  ],
+                  (item) => item.label,
+                ).map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
             </label>
             {kind === 'Meeting Room' && (

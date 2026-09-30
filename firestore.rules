@@ -789,7 +789,7 @@ service cloud.firestore {
           'schemaVersion', 'propertyId', 'propertyCode', 'requesterUid', 'requesterName',
           'requesterEmail', 'department', 'issueArea', 'location', 'assetId', 'problemCategory',
           'problemType', 'channel', 'priority', 'status', 'description', 'resolutionNotes',
-          'assignedEngineerUid', 'assignedAt', 'assignedByUid', 'createdAt', 'updatedAt', 'lastEventId'
+          'assignedEngineerUid', 'assignedAt', 'assignedByUid', 'completedAt', 'createdAt', 'updatedAt', 'lastEventId'
         ])
         && ticket.schemaVersion == 2
         && ticket.propertyId is string && ticket.propertyId.size() > 0 && ticket.propertyId.size() <= 160
@@ -813,6 +813,7 @@ service cloud.firestore {
         && ticket.assignedEngineerUid == ''
         && ticket.assignedAt == null
         && ticket.assignedByUid == ''
+        && (!ticket.keys().hasAny(['completedAt']) || ticket.completedAt == null)
         && ticket.createdAt == request.time
         && ticket.updatedAt == request.time
         && ticket.lastEventId is string && ticket.lastEventId.size() > 0 && ticket.lastEventId.size() <= 150;
@@ -820,7 +821,7 @@ service cloud.firestore {
 
     function validSparkStatusUpdate() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return changed.hasOnly(['status', 'resolutionNotes', 'updatedAt', 'lastEventId'])
+      return changed.hasOnly(['status', 'resolutionNotes', 'completedAt', 'updatedAt', 'lastEventId'])
         && request.resource.data.propertyId == resource.data.propertyId
         && request.resource.data.requesterUid == resource.data.requesterUid
         && request.resource.data.createdAt == resource.data.createdAt
@@ -834,9 +835,13 @@ service cloud.firestore {
         && (!resource.data.keys().hasAny(['assignedByUid']) || request.resource.data.assignedByUid == resource.data.assignedByUid)
         && (request.resource.data.status == 'Completed'
           ? request.resource.data.resolutionNotes is string && request.resource.data.resolutionNotes.size() >= 10 && request.resource.data.resolutionNotes.size() <= 4000
+            && request.resource.data.completedAt == request.time
           : (!resource.data.keys().hasAny(['resolutionNotes'])
             ? !request.resource.data.keys().hasAny(['resolutionNotes'])
-            : request.resource.data.resolutionNotes == resource.data.resolutionNotes));
+            : request.resource.data.resolutionNotes == resource.data.resolutionNotes)
+            && (!resource.data.keys().hasAny(['completedAt'])
+              ? !request.resource.data.keys().hasAny(['completedAt'])
+              : request.resource.data.completedAt == resource.data.completedAt));
     }
 
     function validSparkAssignmentUpdate() {

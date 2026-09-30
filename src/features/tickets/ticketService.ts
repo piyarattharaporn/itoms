@@ -115,6 +115,7 @@ function parseTicket(id: string, data: DocumentData): TicketRecord | null {
     assignedByUid: typeof data.assignedByUid === 'string' ? data.assignedByUid : '',
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt),
+    completedAt: asDate(data.completedAt),
     lastEventId: data.lastEventId,
     ...(typeof data.slaPolicyId === 'string' ? { slaPolicyId: data.slaPolicyId } : {}),
     ...(typeof data.slaPolicyVersion === 'string' ? { slaPolicyVersion: data.slaPolicyVersion } : {}),

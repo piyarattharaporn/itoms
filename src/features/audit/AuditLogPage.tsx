@@ -3,6 +3,7 @@ import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { ViewModeToggle, useDataViewMode } from '../../components/ViewModeToggle'
 import { getLocale, t } from '../../lib/i18n'
 import { useAuth } from '../auth/AuthProvider'
+import { resolveActivityActorLabels } from '../activity/activityLogService'
 import { getAuditPage, type AuditPageCursor, type AuditRecord } from './auditService'
 
 function dateTime(value: Date | null) {
@@ -13,6 +14,10 @@ function dateTime(value: Date | null) {
         timeZone: 'Asia/Bangkok',
       }).format(value)
     : t('กำลังบันทึกเวลา…')
+}
+
+function actorLabel(item: AuditRecord, labels: ReadonlyMap<string, string>) {
+  return labels.get(item.actorUid) || t('ไม่ระบุชื่อ')
 }
 
 export function AuditLogPage({ selectedPropertyId }: { selectedPropertyId: string }) {
@@ -27,6 +32,7 @@ export function AuditLogPage({ selectedPropertyId }: { selectedPropertyId: strin
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [actorLabels, setActorLabels] = useState<Map<string, string>>(new Map())
   const [viewMode, setViewMode] = useDataViewMode('itoms.auditLog.view')
   const [reloadKey, setReloadKey] = useState(0)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -64,6 +70,25 @@ export function AuditLogPage({ selectedPropertyId }: { selectedPropertyId: strin
     }
   }, [accessState, canRead, allProperties, selectedPropertyId, profile?.uid, isSuperAdmin, reloadKey])
 
+  useEffect(() => {
+    let cancelled = false
+    if (!profile || items.length === 0) {
+      setActorLabels(new Map())
+      return
+    }
+    void resolveActivityActorLabels(
+      items.map((item) => item.actorUid),
+      selectedPropertyId,
+      allProperties,
+      profile,
+    ).then((labels) => {
+      if (!cancelled) setActorLabels(labels)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [allProperties, items, profile, selectedPropertyId])
+
   async function loadMore() {
     if (!cursor || loading) return
     setLoading(true)
@@ -93,11 +118,11 @@ export function AuditLogPage({ selectedPropertyId }: { selectedPropertyId: strin
     return items.filter(
       (item) =>
         !term ||
-        [item.propertyCode, item.entityId, item.action, item.actorUid, item.summary].some((value) =>
+        [item.propertyCode, item.entityId, item.action, actorLabel(item, actorLabels), item.summary].some((value) =>
           value.toLocaleLowerCase().includes(term),
         ),
     )
-  }, [items, search])
+  }, [actorLabels, items, search])
   if (accessState === 'loading')
     return <p className="py-10 text-center text-sm text-slate-500">{t('กำลังตรวจสอบสิทธิ์…')}</p>
   if (!canRead)
@@ -176,7 +201,7 @@ export function AuditLogPage({ selectedPropertyId }: { selectedPropertyId: strin
                       <p className="mt-1 break-all text-[11px] text-slate-400">Correlation: {item.correlationId}</p>
                     )}
                   </td>
-                  <td className="max-w-48 break-all px-4 py-3 text-xs text-slate-600">{item.actorUid}</td>
+                  <td className="max-w-48 px-4 py-3 text-xs text-slate-600">{actorLabel(item, actorLabels)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">{dateTime(item.createdAt)}</td>
                 </tr>
               ))}
@@ -199,7 +224,7 @@ export function AuditLogPage({ selectedPropertyId }: { selectedPropertyId: strin
                   </div>
                   <p className="mt-2 text-sm font-medium text-slate-800">{item.summary}</p>
                   <p className="mt-1 break-all text-xs text-slate-500">
-                    {t('ผู้ดำเนินการ:')} {item.actorUid}
+                    {t('ผู้ดำเนินการ:')} {actorLabel(item, actorLabels)}
                   </p>
                   {item.correlationId && (
                     <p className="mt-1 break-all text-[11px] text-slate-400">Correlation: {item.correlationId}</p>

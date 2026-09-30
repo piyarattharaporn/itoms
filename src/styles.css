@@ -421,7 +421,8 @@ select.property-switcher-select {
 }
 
 .portal-command-area {
-  max-width: 31rem;
+  flex: 0 1 19rem;
+  max-width: 19rem;
 }
 
 .portal-command-search {
@@ -748,7 +749,8 @@ select.property-switcher-select {
   }
 
   .portal-command-area {
-    max-width: 22rem;
+    flex-basis: 14rem;
+    max-width: 14rem;
   }
 }
 
@@ -762,7 +764,8 @@ select.property-switcher-select {
   }
 
   .portal-command-area {
-    max-width: 19rem;
+    flex-basis: 12rem;
+    max-width: 12rem;
   }
 
   .portal-topbar-controls {

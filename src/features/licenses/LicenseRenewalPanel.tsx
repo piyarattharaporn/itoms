@@ -1,4 +1,5 @@
 import { getLanguage, t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { useAuth } from '../auth/AuthProvider'
@@ -108,7 +109,7 @@ function LicenseForm({
                 value={value.propertyId}
               >
                 <option value="">{t('เลือก Property')}</option>
-                {properties.map((property) => (
+                {sortByLabel(properties, (property) => `${property.code} · ${property.name}`).map((property) => (
                   <option key={property.id} value={property.id}>
                     {property.code} · {property.name}
                   </option>
@@ -154,7 +155,7 @@ function LicenseForm({
               onChange={(event) => update('licenseType', event.target.value as SoftwareLicenseInput['licenseType'])}
               value={value.licenseType}
             >
-              {licenseTypes.map((type) => (
+              {sortByLabel(licenseTypes, (type) => t(type)).map((type) => (
                 <option key={type} value={type}>
                   {t(type)}
                 </option>
@@ -200,7 +201,7 @@ function LicenseForm({
               onChange={(event) => update('status', event.target.value as SoftwareLicenseInput['status'])}
               value={value.status}
             >
-              {licenseStatuses.map((status) => (
+              {sortByLabel(licenseStatuses, (status) => t(status)).map((status) => (
                 <option key={status} value={status}>
                   {t(status)}
                 </option>

@@ -274,6 +274,7 @@ export async function changeTicketStatus(
       lastEventId: eventRef.id,
       ...sla,
       ...(nextStatus === 'Completed' ? { resolutionNotes } : {}),
+      ...(nextStatus === 'Completed' ? { completedAt: now } : {}),
     }
     transaction.update(ticketRef, update)
     transaction.create(eventRef, {
@@ -376,6 +377,7 @@ export async function createTicket(
       assignedEngineerUid: '',
       createdAt: now,
       updatedAt: FieldValue.serverTimestamp(),
+      completedAt: null,
       lastEventId: eventRef.id,
       ...sla,
     })

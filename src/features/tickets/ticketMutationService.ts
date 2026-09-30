@@ -73,6 +73,7 @@ export async function createTicketWithFirebase(user: User, input: Record<string,
     assignedByUid: '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    completedAt: null,
     lastEventId: eventRef.id,
   })
   batch.set(eventRef, {
@@ -122,6 +123,7 @@ export async function changeTicketStatusWithFirebase(user: User, ticket: TicketR
     transaction.update(ticketRef, {
       status: nextStatus,
       ...(nextStatus === 'Completed' ? { resolutionNotes: resolutionNotes.trim() } : {}),
+      ...(nextStatus === 'Completed' ? { completedAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp(),
       lastEventId: eventRef.id,
     })

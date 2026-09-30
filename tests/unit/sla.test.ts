@@ -27,6 +27,7 @@ function ticket(overrides: Partial<TicketRecord> = {}): TicketRecord {
     assignedByUid: '',
     createdAt: new Date('2026-09-28T00:00:00.000Z'),
     updatedAt: new Date('2026-09-28T00:00:00.000Z'),
+    completedAt: null,
     lastEventId: 'event-1',
     ...overrides,
   }

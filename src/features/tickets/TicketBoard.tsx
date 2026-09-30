@@ -1,4 +1,5 @@
 import { getLocale, t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import {
@@ -294,7 +295,7 @@ function TicketCard({
               value={ticket.assignedEngineerUid}
             >
               <option value="">{t('ยังไม่มอบหมาย')}</option>
-              {engineers.map((engineer) => (
+              {sortByLabel(engineers, formatAssignableEngineerLabel).map((engineer) => (
                 <option key={engineer.uid} value={engineer.uid}>
                   {formatAssignableEngineerLabel(engineer)}
                 </option>
@@ -315,7 +316,7 @@ function TicketCard({
               <option disabled value="">
                 {t('เลือกสถานะ')}
               </option>
-              {statusTransitions(ticket.status).map((status) => (
+              {sortByLabel(statusTransitions(ticket.status), (status) => t(status)).map((status) => (
                 <option key={status} value={status}>
                   {t(status)}
                 </option>
@@ -441,7 +442,7 @@ function TicketEditDialog({
               value={department}
             >
               <option value="">{t('ไม่ระบุ')}</option>
-              {catalog.departments.map((value) => (
+              {sortByLabel(catalog.departments, (value) => t(value)).map((value) => (
                 <option key={value} value={value}>
                   {t(value)}
                 </option>
@@ -465,7 +466,7 @@ function TicketEditDialog({
               onChange={(event) => setPriority(event.target.value as TicketRecord['priority'])}
               value={priority}
             >
-              {priorities.map((value) => (
+              {sortByLabel(priorities, (value) => t(value)).map((value) => (
                 <option key={value} value={value}>
                   {t(value)}
                 </option>
@@ -830,7 +831,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 <option disabled value="">
                   {t('เลือก Property')}
                 </option>
-                {properties.map((property) => (
+                {sortByLabel(properties, (property) => `${property.code} · ${property.name}`).map((property) => (
                   <option key={property.id} value={property.id}>
                     {property.code} · {property.name}
                   </option>
@@ -850,7 +851,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 onChange={(event) => setChannel(event.target.value)}
                 value={channel}
               >
-                {catalog.channels.map((value) => (
+                {sortByLabel(catalog.channels, formatTicketChannel).map((value) => (
                   <option key={value} value={value}>
                     {formatTicketChannel(value)}
                   </option>
@@ -874,12 +875,14 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                   value={selectedRequestUserId}
                 >
                   <option value="">{t('Request User')}</option>
-                  {requestUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name ? `${user.name} · ` : ''}
-                      {user.email} · {user.department}
-                    </option>
-                  ))}
+                  {sortByLabel(requestUsers, (user) => `${user.name ?? ''} · ${user.email} · ${user.department}`).map(
+                    (user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name ? `${user.name} · ` : ''}
+                        {user.email} · {user.department}
+                      </option>
+                    ),
+                  )}
                 </select>
                 <p className="mt-1 text-xs text-slate-500">
                   {requestUsersLoading
@@ -916,7 +919,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 onChange={(event) => setIssueArea(event.target.value as (typeof ticketIssueAreas)[number])}
                 value={issueArea}
               >
-                {ticketIssueAreas.map((value) => (
+                {sortByLabel(ticketIssueAreas, (value) => t(value)).map((value) => (
                   <option key={value} value={value}>
                     {t(value)}
                   </option>
@@ -934,7 +937,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 onChange={(event) => setPriority(event.target.value as (typeof priorities)[number])}
                 value={priority}
               >
-                {priorities.map((value) => (
+                {sortByLabel(priorities, (value) => t(value)).map((value) => (
                   <option key={value} value={value}>
                     {t(value)}
                   </option>
@@ -958,7 +961,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 value={problemCategory}
               >
                 <option value="">{t('เลือกหมวดปัญหา')}</option>
-                {problemCategories.map((category) => (
+                {sortByLabel(problemCategories, (category) => t(category)).map((category) => (
                   <option key={category} value={category}>
                     {t(category)}
                   </option>
@@ -982,7 +985,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 value={problemType}
               >
                 <option value="">{t('เลือกประเภทย่อย')}</option>
-                {problemTypesForCategory.map((value) => (
+                {sortByLabel(problemTypesForCategory, (value) => t(value)).map((value) => (
                   <option key={value} value={value}>
                     {t(value)}
                   </option>
@@ -1038,7 +1041,7 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 value={department}
               >
                 <option value="">{t('เลือกแผนกเพื่อกรอง Asset')}</option>
-                {catalog.departments.map((value) => (
+                {sortByLabel(catalog.departments, (value) => t(value)).map((value) => (
                   <option key={value} value={value}>
                     {t(value)}
                   </option>
@@ -1061,7 +1064,10 @@ function TicketCreateForm({ defaultPropertyId }: { defaultPropertyId: string }) 
                 value={manualAssetId ? '__manual__' : assetId}
               >
                 <option value="">{t('ไม่ระบุ Asset')}</option>
-                {selectableAssets.map((asset) => (
+                {sortByLabel(
+                  selectableAssets,
+                  (asset) => `${asset.name} · ${asset.assetTag} · ${asset.category} · ${asset.location}`,
+                ).map((asset) => (
                   <option key={asset.id} value={asset.id}>
                     {asset.name} · {asset.assetTag} ({asset.category}) · {asset.location}
                   </option>
@@ -1384,7 +1390,13 @@ export function TicketBoard({
       setTickets((current) =>
         current.map((item) =>
           item.id === completionTicket.id
-            ? { ...item, status: 'Completed', resolutionNotes: cleaned, updatedAt: new Date() }
+            ? {
+                ...item,
+                status: 'Completed',
+                resolutionNotes: cleaned,
+                completedAt: new Date(),
+                updatedAt: new Date(),
+              }
             : item,
         ),
       )
@@ -1447,7 +1459,7 @@ export function TicketBoard({
                   >
                     {mode === 'update' && <option value="active">{t('งานที่ยังเปิด')}</option>}
                     <option value="all">{t('ทุกสถานะ')}</option>
-                    {ticketStatuses.map((status) => (
+                    {sortByLabel(ticketStatuses, (status) => t(status)).map((status) => (
                       <option key={status} value={status}>
                         {t(status)}
                       </option>
@@ -1588,7 +1600,7 @@ export function TicketBoard({
                                   value={ticket.assignedEngineerUid}
                                 >
                                   <option value="">{t('ยังไม่มอบหมาย')}</option>
-                                  {ticketEngineers.map((engineer) => (
+                                  {sortByLabel(ticketEngineers, formatAssignableEngineerLabel).map((engineer) => (
                                     <option key={engineer.uid} value={engineer.uid}>
                                       {formatAssignableEngineerLabel(engineer)}
                                     </option>
@@ -1632,11 +1644,13 @@ export function TicketBoard({
                                   value=""
                                 >
                                   <option value="">{t('เปลี่ยนสถานะ')}</option>
-                                  {statusTransitions(ticket.status).map((status) => (
-                                    <option key={status} value={status}>
-                                      {t(status)}
-                                    </option>
-                                  ))}
+                                  {sortByLabel(statusTransitions(ticket.status), (status) => t(status)).map(
+                                    (status) => (
+                                      <option key={status} value={status}>
+                                        {t(status)}
+                                      </option>
+                                    ),
+                                  )}
                                 </select>
                               )}
                             </td>
@@ -1774,11 +1788,13 @@ export function TicketBoard({
                                   value=""
                                 >
                                   <option value="">{t('เลือกสถานะใหม่')}</option>
-                                  {statusTransitions(ticket.status).map((status) => (
-                                    <option key={status} value={status}>
-                                      {t(status)}
-                                    </option>
-                                  ))}
+                                  {sortByLabel(statusTransitions(ticket.status), (status) => t(status)).map(
+                                    (status) => (
+                                      <option key={status} value={status}>
+                                        {t(status)}
+                                      </option>
+                                    ),
+                                  )}
                                 </select>
                               </label>
                             )}

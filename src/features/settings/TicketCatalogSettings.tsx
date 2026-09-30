@@ -1,4 +1,5 @@
 import { t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { setPropertySlaPolicy } from '../property/propertySettingsService'
@@ -638,7 +639,7 @@ export function TicketCatalogSettings({ selectedPropertyId }: { selectedProperty
                   onChange={(event) => setPropertyId(event.target.value)}
                   value={propertyId}
                 >
-                  {properties.map((item) => (
+                  {sortByLabel(properties, (item) => `${item.code} · ${item.name}`).map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.code} · {item.name}
                     </option>

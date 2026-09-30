@@ -288,8 +288,8 @@ const englishFeature: Record<string, string> = {
   'Completed with resolution note': 'Completed with resolution note',
   'Completed with RCA': 'Completed with RCA',
   Cancelled: 'Cancelled',
-  'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to updatedAt.':
-    'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to updatedAt.',
+  'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to completedAt; completed tasks without completedAt are excluded.':
+    'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to completedAt; completed tasks without completedAt are excluded.',
   'Quality roadmap': 'Quality roadmap',
   'RCA coverage, resolution notes and SLA advisory are available.':
     'RCA coverage, resolution notes and SLA advisory are available.',
@@ -1425,6 +1425,7 @@ const thaiFeature: Record<string, string> = {
   'SLA met': 'ทำได้ตาม SLA',
   'Avg resolution': 'เวลาแก้ไขเฉลี่ย',
   'Team performance by assignee': 'ผลงานทีมตามผู้รับผิดชอบ',
+  'แสดงผลตามชื่อผู้รับผิดชอบ': 'Display results by assignee name',
   'ใช้ displayName เป็นหลัก และเก็บ UID ไว้เป็นข้อมูลอ้างอิงในระบบ':
     'ใช้ displayName เป็นหลัก และเก็บ UID ไว้เป็นข้อมูลอ้างอิงในระบบ',
   'Current loaded period only': 'เฉพาะข้อมูลที่โหลดในช่วงเวลาปัจจุบัน',
@@ -1439,8 +1440,8 @@ const thaiFeature: Record<string, string> = {
   'Quality signals available now': 'ตัวชี้วัดคุณภาพที่มีในปัจจุบัน',
   'Completed with resolution note': 'งานเสร็จพร้อมบันทึกวิธีแก้ไข',
   'Completed with RCA': 'งานเสร็จพร้อม RCA',
-  'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to updatedAt.':
-    'จำนวน RCA อ้างอิงจากหน้า RCA แบบ Bounded ที่โหลดอยู่ เวลาแก้ไขเป็นค่าประมาณเชิงปฏิบัติการจาก createdAt ถึง updatedAt',
+  'RCA count is based on the bounded RCA page currently loaded. Resolution time uses completedAt minus createdAt; completed tasks without completedAt are excluded.':
+    'จำนวน RCA อ้างอิงจากหน้า RCA แบบ Bounded ที่โหลดอยู่ เวลาแก้ไขคำนวณจาก completedAt ลบ createdAt และไม่นับงานเสร็จที่ไม่มี completedAt',
   'Quality roadmap': 'แผนพัฒนาคุณภาพ',
   'RCA coverage, resolution notes and SLA advisory are available.':
     'มี RCA, บันทึกวิธีแก้ไข และตัวชี้วัด SLA แบบ Advisory แล้ว',

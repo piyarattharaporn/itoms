@@ -92,9 +92,11 @@ beforeEach(async () => {
         priority: 'Medium',
         status: 'Pending',
         description: 'Network access is unavailable',
+        resolutionNotes: '',
         assignedEngineerUid: '',
         createdAt: new Date('2026-09-24T00:00:00.000Z'),
         updatedAt: new Date('2026-09-24T00:00:00.000Z'),
+        completedAt: null,
         lastEventId: 'old-event',
       }),
       setDoc(doc(db, 'assets/asset-1'), { propertyId: 'PROP-1' }),
@@ -366,6 +368,27 @@ describe('Ticket, Asset, and PM access', () => {
       createdAt: serverTimestamp(),
     })
     await assertSucceeds(updateBatch.commit())
+
+    const completionBatch = writeBatch(supportDb)
+    const completionEvent = doc(supportDb, 'tickets/ticket-to-update/events/completion-event')
+    completionBatch.update(doc(supportDb, 'tickets/ticket-to-update'), {
+      status: 'Completed',
+      resolutionNotes: 'Verified connectivity and restored service for the requester.',
+      completedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastEventId: completionEvent.id,
+    })
+    completionBatch.set(completionEvent, {
+      actorUid: 'support-1',
+      fromStatus: 'In Progress',
+      toStatus: 'Completed',
+      note: 'Completed with a recorded completion timestamp',
+      type: 'statusChanged',
+      createdAt: serverTimestamp(),
+    })
+    await assertSucceeds(completionBatch.commit())
+    const completedTicket = await assertSucceeds(getDoc(doc(supportDb, 'tickets/ticket-to-update')))
+    assert.ok(completedTicket.data().completedAt)
 
     const requesterUpdate = writeBatch(requesterDb)
     const forbiddenEvent = doc(requesterDb, 'tickets/ticket-to-update/events/requester-event')

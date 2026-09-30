@@ -298,9 +298,7 @@ export function ServicePerformancePage({ selectedPropertyId }: { selectedPropert
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h3 className="text-lg font-semibold text-ink">{t('Team performance by assignee')}</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {t('ใช้ displayName เป็นหลัก และเก็บ UID ไว้เป็นข้อมูลอ้างอิงในระบบ')}
-              </p>
+              <p className="mt-1 text-sm text-slate-500">{t('แสดงผลตามชื่อผู้รับผิดชอบ')}</p>
             </div>
             <span className="text-xs text-slate-500">{t('Current loaded period only')}</span>
           </div>
@@ -321,9 +319,6 @@ export function ServicePerformancePage({ selectedPropertyId }: { selectedPropert
                   <tr key={row.uid} className="hover:bg-slate-50">
                     <td className="px-3 py-3">
                       <p className="font-semibold text-ink">{row.displayName}</p>
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        {row.uid === 'unassigned' ? t('No assignee') : row.uid}
-                      </p>
                     </td>
                     <td className="px-3 py-3 font-semibold">{row.assigned}</td>
                     <td className="px-3 py-3">{row.completed}</td>
@@ -403,7 +398,7 @@ export function ServicePerformancePage({ selectedPropertyId }: { selectedPropert
             </div>
             <p className="mt-4 text-xs leading-5 text-slate-500">
               {t(
-                'RCA count is based on the bounded RCA page currently loaded. Resolution time is an operational estimate from createdAt to updatedAt.',
+                'RCA count is based on the bounded RCA page currently loaded. Resolution time uses completedAt minus createdAt; completed tasks without completedAt are excluded.',
               )}
             </p>
           </section>

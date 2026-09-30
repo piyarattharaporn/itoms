@@ -354,7 +354,7 @@ function PendingTickets({
   return (
     <section
       aria-labelledby="dashboard-attention-heading"
-      className="dashboard-panel dashboard-command-panel h-fit rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
+      className="dashboard-panel dashboard-command-panel h-fit rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/30 sm:p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -377,7 +377,7 @@ function PendingTickets({
         </div>
       </div>
       {groups.length === 0 ? (
-        <div className="dashboard-empty-state mt-4 flex flex-col gap-3 rounded-xl bg-emerald-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="dashboard-empty-state mt-3 flex flex-col gap-3 rounded-xl bg-emerald-50/80 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <span
               aria-hidden="true"
@@ -398,7 +398,7 @@ function PendingTickets({
           </button>
         </div>
       ) : (
-        <div className="mt-4 space-y-5">
+        <div className="mt-3 space-y-4">
           {groups.map((group) => (
             <div key={group.key}>
               <div className="mb-1 flex items-center gap-2">
@@ -412,7 +412,7 @@ function PendingTickets({
               <ul className="space-y-2">
                 {group.tickets.slice(0, 3).map((ticket) => (
                   <li
-                    className={`dashboard-ticket-item dashboard-ticket-item-${group.tone} grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-3.5 sm:py-3`}
+                    className={`dashboard-ticket-item dashboard-ticket-item-${group.tone} grid gap-3 p-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-3 sm:py-2.5`}
                     key={ticket.id}
                   >
                     <button
@@ -1112,8 +1112,8 @@ export function ExecutiveDashboard({
     const active = filtered.filter(isActive)
     const completed = filtered.filter((ticket) => ticket.status === 'Completed')
     const durations = completed
-      .filter((ticket) => ticket.createdAt && ticket.updatedAt)
-      .map((ticket) => ticket.updatedAt!.getTime() - ticket.createdAt!.getTime())
+      .filter((ticket) => ticket.createdAt && ticket.completedAt)
+      .map((ticket) => ticket.completedAt!.getTime() - ticket.createdAt!.getTime())
       .filter((duration) => duration >= 0)
     const averageCloseTime = durations.length
       ? durations.reduce((sum, duration) => sum + duration, 0) / durations.length

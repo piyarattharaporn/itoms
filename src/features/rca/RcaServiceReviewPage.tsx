@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { getLocale, t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useAuth } from '../auth/AuthProvider'
 import { getSlaSnapshot } from '../tickets/sla'
 import {
@@ -526,7 +527,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
               value={category}
             >
               <option value="">{t('ทั้งหมด')}</option>
-              {categories.map((item) => (
+              {sortByLabel(categories, (item) => t(item)).map((item) => (
                 <option key={item} value={item}>
                   {t(item)}
                 </option>
@@ -541,7 +542,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
               value={priority}
             >
               <option value="">{t('ทั้งหมด')}</option>
-              {priorities.map((item) => (
+              {sortByLabel(priorities, (item) => t(item)).map((item) => (
                 <option key={item} value={item}>
                   {t(item)}
                 </option>
@@ -556,7 +557,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
               value={assignee}
             >
               <option value="">{t('ทั้งหมด')}</option>
-              {assignees.map((item) => (
+              {sortByLabel(assignees, displayAssignee).map((item) => (
                 <option key={item} value={item}>
                   {displayAssignee(item)}
                 </option>
@@ -571,8 +572,17 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
               value={slaFilter}
             >
               <option value="all">{t('ทั้งหมด')}</option>
-              <option value="breached">{t('เกิน SLA')}</option>
-              <option value="notBreached">{t('ไม่เกิน SLA')}</option>
+              {sortByLabel(
+                [
+                  { value: 'breached', label: t('เกิน SLA') },
+                  { value: 'notBreached', label: t('ไม่เกิน SLA') },
+                ],
+                (item) => item.label,
+              ).map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-medium text-slate-700">
@@ -687,7 +697,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                 value={form.ownerUid}
               >
                 <option value="">{t('ยังไม่กำหนด')}</option>
-                {selectableOwners.map((owner) => (
+                {sortByLabel(selectableOwners, formatAssignableEngineerLabel).map((owner) => (
                   <option key={owner.uid} value={owner.uid}>
                     {formatAssignableEngineerLabel(owner)}
                   </option>
@@ -707,7 +717,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                   onChange={(event) => setStatus(event.target.value as RcaStatus)}
                   value={status}
                 >
-                  {rcaStatuses.map((item) => (
+                  {sortByLabel(rcaStatuses, (item) => t(item)).map((item) => (
                     <option key={item} value={item}>
                       {t(item)}
                     </option>
@@ -794,7 +804,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                 value={knownErrorForm.ownerUid}
               >
                 <option value="">{t('ยังไม่กำหนด')}</option>
-                {knownErrorSelectableOwners.map((owner) => (
+                {sortByLabel(knownErrorSelectableOwners, formatAssignableEngineerLabel).map((owner) => (
                   <option key={owner.uid} value={owner.uid}>
                     {formatAssignableEngineerLabel(owner)}
                   </option>
@@ -825,7 +835,7 @@ export function RcaServiceReviewPage({ selectedPropertyId }: { selectedPropertyI
                   onChange={(event) => setKnownErrorStatus(event.target.value as KnownErrorStatus)}
                   value={knownErrorStatus}
                 >
-                  {knownErrorStatuses.map((item) => (
+                  {sortByLabel(knownErrorStatuses, (item) => t(item)).map((item) => (
                     <option key={item} value={item}>
                       {t(item)}
                     </option>

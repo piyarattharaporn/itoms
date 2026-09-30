@@ -105,8 +105,8 @@ export function buildPerformanceSnapshot(
         existing.breached += 1
       }
     }
-    if (isCompleted && ticket.createdAt && ticket.updatedAt && ticket.updatedAt >= ticket.createdAt) {
-      resolutionMinutes += Math.round((ticket.updatedAt.getTime() - ticket.createdAt.getTime()) / 60000)
+    if (isCompleted && ticket.createdAt && ticket.completedAt && ticket.completedAt >= ticket.createdAt) {
+      resolutionMinutes += Math.round((ticket.completedAt.getTime() - ticket.createdAt.getTime()) / 60000)
       resolvedCount += 1
     }
     byEngineer.set(engineerKey, existing)

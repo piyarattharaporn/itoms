@@ -1,4 +1,5 @@
 import { getLanguage, getLocale, t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import {
@@ -435,7 +436,7 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
               onChange={(event) => setTargetPropertyId(event.target.value)}
               value={targetPropertyId}
             >
-              {enabledProperties.map((property) => (
+              {sortByLabel(enabledProperties, (property) => `${property.code} · ${property.name}`).map((property) => (
                 <option key={property.id} value={property.id}>
                   {property.code} · {property.name}
                 </option>
@@ -845,8 +846,17 @@ export function CctvDailyCheckPanel({ selectedPropertyId }: { selectedPropertyId
                           }
                           value={nvr.online ? 'online' : 'offline'}
                         >
-                          <option value="online">{t('Online')}</option>
-                          <option value="offline">{t('Offline')}</option>
+                          {sortByLabel(
+                            [
+                              { value: 'online', label: t('Online') },
+                              { value: 'offline', label: t('Offline') },
+                            ],
+                            (item) => item.label,
+                          ).map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
                         </select>
                       </label>
                       <label className="text-sm font-medium text-slate-600">

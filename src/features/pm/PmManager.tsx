@@ -1,4 +1,5 @@
 import { getLocale, t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { useAuth } from '../auth/AuthProvider'
@@ -113,7 +114,7 @@ function ScheduleForm({
               <option disabled value="">
                 {t('เลือก Property')}
               </option>
-              {properties.map((property) => (
+              {sortByLabel(properties, (property) => `${property.code} · ${property.name}`).map((property) => (
                 <option key={property.id} value={property.id}>
                   {property.code} · {property.name}
                 </option>
@@ -156,9 +157,18 @@ function ScheduleForm({
             onChange={(event) => setFrequency(event.target.value as PmFrequency)}
             value={frequency}
           >
-            <option value="Weekly">{t('รายสัปดาห์')}</option>
-            <option value="Monthly">{t('รายเดือน')}</option>
-            <option value="Quarterly">{t('รายไตรมาส')}</option>
+            {sortByLabel(
+              [
+                { value: 'Weekly', label: t('รายสัปดาห์') },
+                { value: 'Monthly', label: t('รายเดือน') },
+                { value: 'Quarterly', label: t('รายไตรมาส') },
+              ],
+              (item) => item.label,
+            ).map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
           </select>
         </div>
         <div>

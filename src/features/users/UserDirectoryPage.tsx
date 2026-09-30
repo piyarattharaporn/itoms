@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { t, tKey } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useAuth } from '../auth/AuthProvider'
 import type { PropertyRole } from '../auth/types'
 import {
@@ -227,8 +228,17 @@ export function UserDirectoryPage() {
               value={roleFilter}
             >
               <option value="all">{t('ทุก Role')}</option>
-              <option value="superAdmin">{t('Super Admin')}</option>
-              <option value="member">{t('สมาชิก')}</option>
+              {sortByLabel(
+                [
+                  { value: 'superAdmin' as const, label: t('Super Admin') },
+                  { value: 'member' as const, label: t('สมาชิก') },
+                ],
+                (item) => item.label,
+              ).map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-medium text-slate-700" htmlFor="user-directory-property-role">
@@ -240,9 +250,18 @@ export function UserDirectoryPage() {
               value={propertyRoleFilter}
             >
               <option value="all">{t('ทุก Role')}</option>
-              <option value="supportEngineer">{propertyRoleLabel('supportEngineer')}</option>
-              <option value="clientExecutive">{t('Client Executive')}</option>
-              <option value="requester">{t('Requester')}</option>
+              {sortByLabel(
+                [
+                  { value: 'supportEngineer' as const, label: propertyRoleLabel('supportEngineer') },
+                  { value: 'clientExecutive' as const, label: t('Client Executive') },
+                  { value: 'requester' as const, label: t('Requester') },
+                ],
+                (item) => item.label,
+              ).map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </label>
         </div>

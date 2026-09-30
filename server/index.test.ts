@@ -106,6 +106,19 @@ describe('Phase 3–6 trusted boundary', () => {
 
     const unscopedSummary = await fetch(`${baseUrl}/v1/sla-summary`, { headers })
     assert.equal(unscopedSummary.status, 400)
+
+    const completed = await fetch(`${baseUrl}/v1/tickets/server-ticket/status`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        nextStatus: 'Completed',
+        resolutionNotes: 'Verified the network service and restored connectivity for the requester.',
+        idempotencyKey: 'phase-fix-completed-at-001',
+      }),
+    })
+    assert.equal(completed.status, 200)
+    const completedTicket = (await adminDb.doc('tickets/server-ticket').get()).data() ?? {}
+    assert.ok(completedTicket.completedAt)
   })
 
   it('creates a Ticket through the trusted boundary and rejects injected fields', async () => {

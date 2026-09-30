@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getLanguage, setLanguage, tKey, type Language } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 
 export function LanguageSwitcher() {
   const [language, setCurrentLanguage] = useState<Language>(getLanguage)
@@ -19,8 +20,17 @@ export function LanguageSwitcher() {
         onChange={(event) => setLanguage(event.target.value as Language)}
         value={language}
       >
-        <option value="th">{tKey('common.thai')}</option>
-        <option value="en">{tKey('common.english')}</option>
+        {sortByLabel(
+          [
+            { value: 'th', label: tKey('common.thai') },
+            { value: 'en', label: tKey('common.english') },
+          ],
+          (item) => item.label,
+        ).map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
       </select>
     </label>
   )

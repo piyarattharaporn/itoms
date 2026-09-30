@@ -1,4 +1,5 @@
 import { t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { ViewModeToggle, useDataViewMode } from '../../components/ViewModeToggle'
@@ -150,7 +151,7 @@ function AssetForm({
                   <option disabled value="">
                     {t('เลือก Property')}
                   </option>
-                  {properties.map((property) => (
+                  {sortByLabel(properties, (property) => `${property.code} · ${property.name}`).map((property) => (
                     <option key={property.id} value={property.id}>
                       {property.code} · {property.name}
                     </option>
@@ -194,8 +195,17 @@ function AssetForm({
                 onChange={(event) => change('ownershipType', event.target.value as AssetInput['ownershipType'])}
                 value={asset.ownershipType}
               >
-                <option value="Owned">{t('เป็นเจ้าของ')}</option>
-                <option value="Leased">{t('อุปกรณ์เช่า')}</option>
+                {sortByLabel(
+                  [
+                    { value: 'Owned', label: t('เป็นเจ้าของ') },
+                    { value: 'Leased', label: t('อุปกรณ์เช่า') },
+                  ],
+                  (item) => item.label,
+                ).map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -224,7 +234,7 @@ function AssetForm({
                     {t(asset.category)} {t('(ประเภทเดิม)')}
                   </option>
                 )}
-                {assetCategories.map((category) => (
+                {sortByLabel(assetCategories, (category) => t(category)).map((category) => (
                   <option key={category} value={category}>
                     {t(category)}
                   </option>
@@ -248,7 +258,7 @@ function AssetForm({
                     {asset.department} {t('(แผนกเดิม)')}
                   </option>
                 )}
-                {departments.map((department) => (
+                {sortByLabel(departments, (department) => t(department)).map((department) => (
                   <option key={department}>{department}</option>
                 ))}
               </select>
@@ -457,10 +467,19 @@ function AssetForm({
                 onChange={(event) => change('status', event.target.value as AssetStatus)}
                 value={asset.status}
               >
-                <option value="In Service">{t('In Service')}</option>
-                <option value="Damaged">{t('Damaged')}</option>
-                <option value="Under Repair">{t('Under Repair')}</option>
-                <option value="Retired">{t('Retired')}</option>
+                {sortByLabel(
+                  [
+                    { value: 'In Service', label: t('In Service') },
+                    { value: 'Damaged', label: t('Damaged') },
+                    { value: 'Under Repair', label: t('Under Repair') },
+                    { value: 'Retired', label: t('Retired') },
+                  ],
+                  (item) => item.label,
+                ).map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="min-w-0">
@@ -474,9 +493,18 @@ function AssetForm({
                 value={asset.serviceType}
               >
                 <option value="">{t('ไม่ระบุ')}</option>
-                <option value="Internal Repair">{t('ซ่อมภายใน')}</option>
-                <option value="Warranty Claim">{t('ส่งเคลมประกัน')}</option>
-                <option value="Vendor Repair">{t('ส่งซ่อม Vendor')}</option>
+                {sortByLabel(
+                  [
+                    { value: 'Internal Repair', label: t('ซ่อมภายใน') },
+                    { value: 'Warranty Claim', label: t('ส่งเคลมประกัน') },
+                    { value: 'Vendor Repair', label: t('ส่งซ่อม Vendor') },
+                  ],
+                  (item) => item.label,
+                ).map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
               </select>
             </div>
             {asset.serviceType && (

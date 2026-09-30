@@ -1,4 +1,5 @@
 import { t } from '../../lib/i18n'
+import { sortByLabel } from '../../lib/sortOptions'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataFreshnessBar } from '../../components/DataFreshnessBar'
 import { useAuth } from '../auth/AuthProvider'
@@ -314,7 +315,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
                   value={targetPropertyId}
                 >
                   <option value="">{t('เลือก Property')}</option>
-                  {properties.map((item) => (
+                  {sortByLabel(properties, (item) => `${item.code} · ${item.name}`).map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.code} · {item.name}
                     </option>
@@ -361,7 +362,7 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
                 value={department}
               >
                 <option value="">{t('เลือกแผนก')}</option>
-                {departments.map((value) => (
+                {sortByLabel(departments, (value) => t(value)).map((value) => (
                   <option key={value} value={value}>
                     {t(value)}
                   </option>
@@ -378,11 +379,13 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
                 value={assetId}
               >
                 <option value="">{t('ไม่ระบุอุปกรณ์ · จับคู่ภายหลังได้')}</option>
-                {formAssets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.name} · {asset.assetTag} · {asset.location}
-                  </option>
-                ))}
+                {sortByLabel(formAssets, (asset) => `${asset.name} · ${asset.assetTag} · ${asset.location}`).map(
+                  (asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.name} · {asset.assetTag} · {asset.location}
+                    </option>
+                  ),
+                )}
               </select>
               <span className="mt-1 block text-xs font-normal text-slate-500">
                 {assetOptionsLoading
@@ -527,11 +530,13 @@ export function RequestUsersPage({ selectedPropertyId }: { selectedPropertyId: s
                             value={assetDraftId}
                           >
                             <option value="">{t('ไม่ระบุอุปกรณ์ · จับคู่ภายหลังได้')}</option>
-                            {assetsForUser(user).map((asset) => (
-                              <option key={asset.id} value={asset.id}>
-                                {asset.name} · {asset.assetTag}
-                              </option>
-                            ))}
+                            {sortByLabel(assetsForUser(user), (asset) => `${asset.name} · ${asset.assetTag}`).map(
+                              (asset) => (
+                                <option key={asset.id} value={asset.id}>
+                                  {asset.name} · {asset.assetTag}
+                                </option>
+                              ),
+                            )}
                           </select>
                           <button
                             className="rounded-full bg-lotus-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"

@@ -142,6 +142,7 @@ function Portal() {
   const [commandSearch, setCommandSearch] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [profileImageFailed, setProfileImageFailed] = useState(false)
   const mobileMenuButton = useRef<HTMLButtonElement>(null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
   const profileMenuTrigger = useRef<HTMLButtonElement>(null)
@@ -213,6 +214,10 @@ function Portal() {
     }
   }, [profileMenuOpen])
 
+  useEffect(() => {
+    setProfileImageFailed(false)
+  }, [firebaseUser?.photoURL])
+
   if (accessState === 'loading') {
     return (
       <main className="flex min-h-screen items-center justify-center text-sm text-slate-600" role="status">
@@ -260,11 +265,13 @@ function Portal() {
   const activeMembership = memberships.find((membership) => membership.propertyId === selectedPropertyId)
   const profileDisplayName =
     profile?.displayName?.trim() || firebaseUser?.displayName?.trim() || firebaseUser?.email || t('ผู้ใช้')
+  const profilePhotoUrl = firebaseUser?.photoURL && !profileImageFailed ? firebaseUser.photoURL : null
   const profileEmail = profile?.email || firebaseUser?.email || '—'
   const profileRole = isSuperAdmin ? t('Super Admin') : t(activeMembership?.role ?? 'Member')
   const profilePropertyAccess = isSuperAdmin
     ? t('ทุก Property')
     : properties.map((property) => `${property.code} · ${property.name}`).join(', ') || t('ยังไม่มี Property')
+
   const canManageCatalog = isSuperAdmin || activeMembership?.role === 'supportEngineer'
   const canCreateTicket = canManageCatalog || activeMembership?.role === 'requester'
   const canViewActivities = canManageCatalog
@@ -416,7 +423,17 @@ function Portal() {
                 type="button"
               >
                 <span className="portal-user-avatar flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
-                  {profileDisplayName.slice(0, 1).toUpperCase()}
+                  {profilePhotoUrl ? (
+                    <img
+                      alt=""
+                      className="h-full w-full rounded-full object-cover"
+                      onError={() => setProfileImageFailed(true)}
+                      referrerPolicy="no-referrer"
+                      src={profilePhotoUrl}
+                    />
+                  ) : (
+                    profileDisplayName.slice(0, 1).toUpperCase()
+                  )}
                 </span>
                 <span className="portal-profile-trigger-name hidden min-w-0 truncate sm:inline">
                   {profileDisplayName}

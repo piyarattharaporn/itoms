@@ -47,6 +47,7 @@ export interface TicketRecord {
   assignedByUid: string
   createdAt: Date | null
   updatedAt: Date | null
+  completedAt: Date | null
   lastEventId: string
   slaPolicyId?: string
   slaPolicyVersion?: string

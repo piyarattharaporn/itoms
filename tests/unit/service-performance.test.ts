@@ -31,6 +31,7 @@ function ticket(overrides: Partial<TicketRecord> = {}): TicketRecord {
     assignedByUid: '',
     createdAt: new Date('2026-09-01T00:00:00.000Z'),
     updatedAt: new Date('2026-09-01T01:00:00.000Z'),
+    completedAt: null,
     lastEventId: 'event-1',
     ...overrides,
   }
@@ -44,7 +45,8 @@ describe('service performance reporting', () => {
           id: 'one',
           assignedEngineerUid: 'eng-1',
           status: 'Completed',
-          updatedAt: new Date('2026-09-01T02:00:00.000Z'),
+          completedAt: new Date('2026-09-01T02:00:00.000Z'),
+          updatedAt: new Date('2026-09-03T02:00:00.000Z'),
         }),
         ticket({ id: 'two', assignedEngineerUid: 'eng-1', status: 'Pending', location: 'Office' }),
         ticket({ id: 'three', status: 'Cancelled', propertyCode: 'P2' }),
@@ -58,6 +60,11 @@ describe('service performance reporting', () => {
     expect(snapshot.open).toBe(1)
     expect(snapshot.cancelled).toBe(1)
     expect(snapshot.unassigned).toBe(1)
+    expect(snapshot.averageResolutionMinutes).toBe(120)
+    expect(
+      buildPerformanceSnapshot([ticket({ status: 'Completed', updatedAt: new Date('2026-09-04T00:00:00.000Z') })])
+        .averageResolutionMinutes,
+    ).toBeNull()
     expect(snapshot.byEngineer[0]).toMatchObject({ displayName: 'Aom', assigned: 2, completed: 1, open: 1 })
     expect(snapshot.byProperty).toEqual(expect.arrayContaining([{ label: 'P1', count: 2, share: 67 }]))
   })

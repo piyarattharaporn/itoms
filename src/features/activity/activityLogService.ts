@@ -11,6 +11,8 @@ import {
   type QueryConstraint,
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
+import type { UserProfile } from '../auth/types'
+import { getAssignableEngineers } from '../tickets/ticketService'
 
 export interface ActivityRecord {
   id: string
@@ -24,6 +26,45 @@ export interface ActivityRecord {
   note: string
   action: string
   createdAt: Date | null
+}
+
+export async function resolveActivityActorLabels(
+  actorUids: string[],
+  propertyId: string,
+  allProperties: boolean,
+  viewer: Pick<UserProfile, 'uid' | 'displayName' | 'globalRole'>,
+) {
+  const labels = new Map<string, string>()
+  if (viewer.displayName.trim()) labels.set(viewer.uid, viewer.displayName.trim())
+
+  const uniqueActorUids = [...new Set(actorUids.filter(Boolean))].filter((uid) => !labels.has(uid))
+  if (uniqueActorUids.length === 0) return labels
+
+  if (viewer.globalRole === 'superAdmin') {
+    const resolvedProfiles = await Promise.all(
+      uniqueActorUids.map(async (uid) => {
+        try {
+          const snapshot = await getDoc(doc(firestore(), 'users', uid))
+          const displayName = snapshot.data()?.displayName
+          return typeof displayName === 'string' && displayName.trim() ? ([uid, displayName.trim()] as const) : null
+        } catch {
+          return null
+        }
+      }),
+    )
+    resolvedProfiles.forEach((entry) => {
+      if (entry) labels.set(entry[0], entry[1])
+    })
+    return labels
+  }
+
+  if (!allProperties && propertyId) {
+    const engineers = await getAssignableEngineers(propertyId)
+    engineers.forEach((engineer) => {
+      if (engineer.displayName.trim()) labels.set(engineer.uid, engineer.displayName.trim())
+    })
+  }
+  return labels
 }
 
 function firestore() {

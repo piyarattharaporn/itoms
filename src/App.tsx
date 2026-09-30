@@ -141,7 +141,10 @@ function Portal() {
   const [ticketSearch, setTicketSearch] = useState('')
   const [commandSearch, setCommandSearch] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const mobileMenuButton = useRef<HTMLButtonElement>(null)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+  const profileMenuTrigger = useRef<HTMLButtonElement>(null)
 
   function selectNavigationItem(item: string) {
     setActiveItem(item)
@@ -189,6 +192,27 @@ function Portal() {
     if (activeItem === 'CCTV' && (!hasCctvRole || !cctvEnabledForSelectedProperty)) setActiveItem('ภาพรวม')
   }, [activeItem, cctvEnabledForSelectedProperty, isSuperAdmin, memberships, selectedPropertyId])
 
+  useEffect(() => {
+    if (!profileMenuOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) setProfileMenuOpen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setProfileMenuOpen(false)
+        profileMenuTrigger.current?.focus()
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [profileMenuOpen])
+
   if (accessState === 'loading') {
     return (
       <main className="flex min-h-screen items-center justify-center text-sm text-slate-600" role="status">
@@ -234,6 +258,13 @@ function Portal() {
 
   const activeProperty = properties.find((property) => property.id === selectedPropertyId)
   const activeMembership = memberships.find((membership) => membership.propertyId === selectedPropertyId)
+  const profileDisplayName =
+    profile?.displayName?.trim() || firebaseUser?.displayName?.trim() || firebaseUser?.email || t('ผู้ใช้')
+  const profileEmail = profile?.email || firebaseUser?.email || '—'
+  const profileRole = isSuperAdmin ? t('Super Admin') : t(activeMembership?.role ?? 'Member')
+  const profilePropertyAccess = isSuperAdmin
+    ? t('ทุก Property')
+    : properties.map((property) => `${property.code} · ${property.name}`).join(', ') || t('ยังไม่มี Property')
   const canManageCatalog = isSuperAdmin || activeMembership?.role === 'supportEngineer'
   const canCreateTicket = canManageCatalog || activeMembership?.role === 'requester'
   const canViewActivities = canManageCatalog
@@ -338,7 +369,14 @@ function Portal() {
           </div>
           <div className="portal-command-area order-3 flex w-full items-center gap-3 lg:order-2 lg:w-auto">
             <label className="portal-command-search flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3">
-              <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
                 <circle cx="11" cy="11" r="7" />
                 <path d="m20 20-4-4" />
               </svg>
@@ -358,10 +396,6 @@ function Portal() {
                 value={commandSearch}
               />
             </label>
-            <div aria-hidden="true" className="hidden items-center gap-2 text-white/80 lg:flex">
-              <span className="portal-utility-icon">!</span>
-              <span className="portal-utility-icon">?</span>
-            </div>
           </div>
           <div className="portal-topbar-controls order-2 flex flex-wrap items-center justify-end gap-2 sm:gap-4 lg:order-3">
             <LanguageSwitcher />
@@ -371,16 +405,69 @@ function Portal() {
               properties={properties}
               selectedPropertyId={selectedPropertyId}
             />
-            <div className="portal-user-avatar hidden h-9 w-9 items-center justify-center rounded-full text-sm font-semibold lg:flex" title={profile?.displayName || firebaseUser?.email || ''}>
-              {(profile?.displayName || firebaseUser?.email || 'U').slice(0, 1).toUpperCase()}
+            <div className="portal-profile-menu relative" ref={profileMenuRef}>
+              <button
+                aria-expanded={profileMenuOpen}
+                aria-haspopup="dialog"
+                aria-label={t('User menu')}
+                className="portal-profile-trigger flex min-h-10 max-w-[15rem] items-center gap-2 rounded-full border border-line px-2 py-1.5 text-left text-sm font-semibold text-ink hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-lotus-300"
+                onClick={() => setProfileMenuOpen((open) => !open)}
+                ref={profileMenuTrigger}
+                type="button"
+              >
+                <span className="portal-user-avatar flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+                  {profileDisplayName.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="portal-profile-trigger-name hidden min-w-0 truncate sm:inline">
+                  {profileDisplayName}
+                </span>
+                <svg
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 text-slate-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  viewBox="0 0 24 24"
+                >
+                  <path d={profileMenuOpen ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} />
+                </svg>
+              </button>
+              {profileMenuOpen && (
+                <div
+                  aria-label={t('User detail')}
+                  className="portal-profile-dropdown absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-line bg-white p-4 text-ink shadow-xl shadow-slate-900/10"
+                  role="dialog"
+                >
+                  <div className="border-b border-line pb-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      {t('User detail')}
+                    </p>
+                    <p className="mt-2 truncate text-base font-semibold">{profileDisplayName}</p>
+                    <p className="mt-1 truncate text-sm text-slate-500">{profileEmail}</p>
+                  </div>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="text-slate-500">{t('Role')}</dt>
+                      <dd className="text-right font-medium">{profileRole}</dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <dt className="text-slate-500">{t('Property access')}</dt>
+                      <dd className="max-w-[13rem] text-right font-medium">{profilePropertyAccess}</dd>
+                    </div>
+                  </dl>
+                  <button
+                    className="portal-profile-sign-out mt-4 min-h-10 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold"
+                    onClick={() => {
+                      setProfileMenuOpen(false)
+                      void signOut()
+                    }}
+                    type="button"
+                  >
+                    {tKey('common.signOut')}
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              className="portal-sign-out min-h-10 rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-lotus-300"
-              onClick={() => void signOut()}
-              type="button"
-            >
-              {tKey('common.signOut')}
-            </button>
           </div>
         </div>
       </header>
@@ -421,10 +508,32 @@ function Portal() {
         </aside>
 
         <section className="portal-main min-w-0 break-words pt-1">
-          <p className="portal-breadcrumb text-sm font-medium text-lotus-700">
-            {activeProperty ? `${activeProperty.code} · ${activeProperty.name}` : t('ทุก Property')}
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{navigationLabel(activeItem)}</h1>
+          {activeItem === 'ภาพรวม' ? (
+            <div className="portal-overview-heading flex flex-wrap items-end justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="portal-scope-title truncate text-2xl font-semibold tracking-tight">
+                  {activeProperty ? `${activeProperty.code} · ${activeProperty.name}` : t('ทุก Property')}
+                </h1>
+                <p className="portal-breadcrumb mt-1 text-sm font-medium text-lotus-700">{tKey('nav.overview')}</p>
+              </div>
+              <div className="portal-summary-date shrink-0 rounded-xl border border-line bg-white px-4 py-2.5">
+                <p className="text-xs text-slate-500">{t('วันที่สรุป')}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">
+                  {new Intl.DateTimeFormat(getLanguage() === 'th' ? 'th-TH' : 'en-US', {
+                    dateStyle: 'medium',
+                    timeZone: 'Asia/Bangkok',
+                  }).format(new Date())}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="portal-breadcrumb text-sm font-medium text-lotus-700">
+                {activeProperty ? `${activeProperty.code} · ${activeProperty.name}` : t('ทุก Property')}
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{navigationLabel(activeItem)}</h1>
+            </>
+          )}
           <Suspense
             fallback={
               <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500" role="status">
@@ -435,7 +544,6 @@ function Portal() {
             {activeItem === 'ภาพรวม' ? (
               <div className="mt-6">
                 <ExecutiveDashboard
-                  onCreateTicket={() => setActiveItem('Create Task')}
                   onOpenCctv={() => setActiveItem('CCTV')}
                   onOpenTicket={(ticket: TicketRecord) => {
                     setTicketSearch(`${ticket.propertyCode}-${ticket.id.toUpperCase()}`)

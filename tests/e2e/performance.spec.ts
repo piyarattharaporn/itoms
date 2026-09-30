@@ -5,7 +5,7 @@ async function signInAsLocalAdmin(page: Page) {
   await page.getByLabel('อีเมล').fill('local.admin@example.test')
   await page.getByLabel('รหัสผ่าน').fill('LocalAdmin123!')
   await page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ออกจากระบบ', exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'เมนูผู้ใช้', exact: true })).toBeVisible({ timeout: 15_000 })
 }
 
 test('dashboard initial load stays within the local performance budget', async ({ page }) => {
@@ -50,7 +50,11 @@ test('dashboard stays responsive at the validation viewport sizes', async ({ pag
       dimensions.viewportWidth + 1,
     )
     expect(dimensions.bodyWidth, `${viewport.name} body overflow`).toBeLessThanOrEqual(dimensions.viewportWidth + 1)
-    await page.getByRole('button', { name: 'ออกจากระบบ', exact: true }).click()
+    await page.getByRole('button', { name: 'เมนูผู้ใช้', exact: true }).click()
+    await page
+      .getByRole('dialog', { name: 'รายละเอียดผู้ใช้', exact: true })
+      .getByRole('button', { name: 'ออกจากระบบ', exact: true })
+      .click()
     await expect(page.getByLabel('อีเมล')).toBeVisible()
   }
 })

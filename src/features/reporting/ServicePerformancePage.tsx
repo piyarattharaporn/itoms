@@ -6,11 +6,36 @@ import { getRcaPage } from '../rca/rcaService'
 import { buildPerformanceCsv, buildPerformanceSnapshot, formatDurationMinutes } from './servicePerformance'
 import { getLocale, t } from '../../lib/i18n'
 
-type Period = '7' | '30' | '90'
+type Period = '7' | '30' | '90' | 'custom'
 type ReportView = 'team' | 'property' | 'quality'
 
 function dateLabel(value: Date | null): string {
   return value ? value.toLocaleDateString(getLocale(), { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+}
+
+function localDateInputValue(value: Date): string {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseDateInput(value: string, endOfDay = false): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return null
+  const [, year, month, day] = match
+  const parsed = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0,
+  )
+  return parsed.getFullYear() === Number(year) && parsed.getMonth() === Number(month) - 1 && parsed.getDate() === Number(day)
+    ? parsed
+    : null
 }
 
 function inPeriod(ticket: TicketRecord, start: Date, end: Date) {
@@ -47,6 +72,12 @@ export function ServicePerformancePage({ selectedPropertyId }: { selectedPropert
   const [rcaTaskIds, setRcaTaskIds] = useState<Set<string>>(new Set())
   const [rcaHasMore, setRcaHasMore] = useState(false)
   const [period, setPeriod] = useState<Period>('30')
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const start = new Date()
+    start.setDate(start.getDate() - 30)
+    return localDateInputValue(start)
+  })
+  const [customEndDate, setCustomEndDate] = useState(() => localDateInputValue(new Date()))
   const [view, setView] = useState<ReportView>('team')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -96,14 +127,26 @@ export function ServicePerformancePage({ selectedPropertyId }: { selectedPropert
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, canRead])
 
-  const { start, end } = useMemo(() => {
+  const { start, end, hasValidRange } = useMemo(() => {
+    if (period === 'custom') {
+      const customStart = parseDateInput(customStartDate)
+      const customEnd = parseDateInput(customEndDate, true)
+      return {
+        start: customStart,
+        end: customEnd,
+        hasValidRange: Boolean(customStart && customEnd && customStart <= customEnd),
+      }
+    }
     const endDate = new Date()
     const startDate = new Date(endDate)
     startDate.setDate(startDate.getDate() - Number(period))
     startDate.setHours(0, 0, 0, 0)
-    return { start: startDate, end: endDate }
-  }, [period])
-  const periodTickets = useMemo(() => tickets.filter((ticket) => inPeriod(ticket, start, end)), [tickets, start, end])
+    return { start: startDate, end: endDate, hasValidRange: true }
+  }, [period, customStartDate, customEndDate])
+  const periodTickets = useMemo(
+    () => (hasValidRange && start && end ? tickets.filter((ticket) => inPeriod(ticket, start, end)) : []),
+    [tickets, start, end, hasValidRange],
+  )
   const snapshot = useMemo(
     () => buildPerformanceSnapshot(periodTickets, engineerLabels),
     [periodTickets, engineerLabels],
@@ -162,18 +205,52 @@ export function ServicePerformancePage({ selectedPropertyId }: { selectedPropert
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <span className="mr-1 text-sm font-semibold text-slate-600">{t('Report period')}</span>
-          {(['7', '30', '90'] as Period[]).map((value) => (
+          {(['7', '30', '90', 'custom'] as Period[]).map((value) => (
             <button
               className={`min-h-10 rounded-full border px-4 py-2 text-sm font-semibold ${period === value ? 'border-lotus-700 bg-lotus-700 text-white' : 'border-line bg-white text-slate-600 hover:bg-slate-50'}`}
               key={value}
               onClick={() => setPeriod(value)}
               type="button"
             >
-              {value === '7' ? t('7 days') : value === '30' ? t('30 days') : t('90 days')}
+              {value === '7'
+                ? t('7 days')
+                : value === '30'
+                  ? t('30 days')
+                  : value === '90'
+                    ? t('90 days')
+                    : t('Custom range')}
             </button>
           ))}
+          {period === 'custom' && (
+            <div className="flex flex-wrap items-end gap-2 rounded-2xl bg-slate-50 p-3">
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">
+                {t('From date')}
+                <input
+                  aria-label={t('From date')}
+                  className="min-h-10 rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-lotus-600 focus:ring-2 focus:ring-lotus-100"
+                  max={customEndDate}
+                  onChange={(event) => setCustomStartDate(event.target.value)}
+                  type="date"
+                  value={customStartDate}
+                />
+              </label>
+              <span className="pb-2 text-sm text-slate-400">—</span>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">
+                {t('To date')}
+                <input
+                  aria-label={t('To date')}
+                  className="min-h-10 rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-lotus-600 focus:ring-2 focus:ring-lotus-100"
+                  max={localDateInputValue(new Date())}
+                  min={customStartDate}
+                  onChange={(event) => setCustomEndDate(event.target.value)}
+                  type="date"
+                  value={customEndDate}
+                />
+              </label>
+            </div>
+          )}
           <span className="text-sm text-slate-500">
-            {dateLabel(start)} — {dateLabel(end)}
+            {hasValidRange ? `${dateLabel(start)} — ${dateLabel(end)}` : t('กรุณาเลือกช่วงวันที่ให้ถูกต้อง')}
           </span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-4">

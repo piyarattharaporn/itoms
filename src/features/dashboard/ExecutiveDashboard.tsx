@@ -395,29 +395,43 @@ function PendingTickets({
                 <h3 className="text-xs font-semibold text-slate-600">{group.label}</h3>
                 <span className="text-xs tabular-nums text-slate-400">{group.tickets.length}</span>
               </div>
-              <ul className="divide-y divide-slate-100">
+              <ul className="space-y-2">
                 {group.tickets.slice(0, 3).map((ticket) => (
-                  <li className="flex flex-wrap items-center justify-between gap-3 py-3" key={ticket.id}>
+                  <li
+                    className={`dashboard-ticket-item dashboard-ticket-item-${group.tone} grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-3.5 sm:py-3`}
+                    key={ticket.id}
+                  >
                     <button
                       aria-label={`${t('เปิด Task')} ${ticket.propertyCode}-${ticket.id.toUpperCase()} ${t('เพื่อดูและอัปเดต')}`}
-                      className="group min-w-0 flex-1 rounded-lg text-left hover:text-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-300"
+                      className="group min-w-0 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-lotus-300"
                       onClick={() => onOpenTicket(ticket)}
                       type="button"
                     >
-                      <p className="truncate text-sm font-semibold">
-                        {ticket.propertyCode}-{ticket.id.toUpperCase()}{' '}
-                        <span className="font-normal text-slate-700">
-                          · {formatTicketProblem(ticket.problemCategory, ticket.problemType)}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="text-[11px] font-bold tracking-[0.08em] text-lotus-700">
+                          {ticket.propertyCode}-{ticket.id.toUpperCase()}
+                        </p>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200/80">
+                          {t(ticket.priority)}
                         </span>
+                      </div>
+                      <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-900 group-hover:text-lotus-800">
+                        {formatTicketProblem(ticket.problemCategory, ticket.problemType)}
                       </p>
-                      <p className="mt-1 truncate text-xs text-slate-500">
-                        {ticket.location || t('ไม่ระบุสถานที่')}
-                        {ticket.assetId ? ` · ${t('Asset')} ${ticket.assetId}` : ''} ·{' '}
-                        {formatTicketChannel(ticket.channel)} ·{' '}
-                        {ticket.requesterName || ticket.requesterEmail || t('ไม่ระบุผู้แจ้ง')}
-                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span className="max-w-full truncate">{ticket.location || t('ไม่ระบุสถานที่')}</span>
+                        {ticket.assetId && (
+                          <span className="max-w-full truncate">
+                            {t('Asset')} {ticket.assetId}
+                          </span>
+                        )}
+                        <span>{formatTicketChannel(ticket.channel)}</span>
+                        <span className="max-w-full truncate">
+                          {ticket.requesterName || ticket.requesterEmail || t('ไม่ระบุผู้แจ้ง')}
+                        </span>
+                      </div>
                     </button>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center justify-between gap-2 sm:flex-col sm:items-end">
                       <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClasses[group.tone]}`}>
                         {group.label}
                       </span>
@@ -944,7 +958,6 @@ function RepairAssets({
 
 export function ExecutiveDashboard({
   selectedPropertyId,
-  onCreateTicket,
   onOpenCctv,
   onOpenTicket,
   onViewTickets,
@@ -955,7 +968,6 @@ export function ExecutiveDashboard({
   showCctv = true,
 }: {
   selectedPropertyId: string
-  onCreateTicket: () => void
   onOpenCctv: () => void
   onOpenTicket: (ticket: TicketRecord) => void
   onViewTickets: () => void
@@ -1192,35 +1204,16 @@ export function ExecutiveDashboard({
   return (
     <div className="portal-dashboard space-y-6">
       <section className="dashboard-hero rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div className="max-w-2xl">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              {t('ภาพรวมงานบริการ IT')}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              {t('สแกนงานค้าง สุขภาพระบบ และรายการที่ควรติดตามในหน้าเดียว')}
-            </p>
-            <p className="mt-3 text-xs text-slate-500">
-              {t('ข้อมูลล่าสุด')} · {tickets.length} {t('งาน')} · {t('นับจาก Task ที่โหลดได้')}
-            </p>
-          </div>
-          <div className="flex w-full flex-col items-stretch gap-2 sm:w-48">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-left">
-              <p className="text-xs text-slate-500">{t('วันที่สรุป')}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-800">
-                {new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }).format(
-                  new Date(),
-                )}
-              </p>
-            </div>
-            <button
-              className="min-h-11 w-full rounded-full bg-lotus-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-400 focus:ring-offset-2"
-              onClick={onCreateTicket}
-              type="button"
-            >
-              {t('สร้าง Task')}
-            </button>
-          </div>
+        <div className="max-w-2xl">
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+            {t('ภาพรวมงานบริการ IT')}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {t('สแกนงานค้าง สุขภาพระบบ และรายการที่ควรติดตามในหน้าเดียว')}
+          </p>
+          <p className="mt-3 text-xs text-slate-500">
+            {t('ข้อมูลล่าสุด')} · {tickets.length} {t('งาน')} · {t('นับจาก Task ที่โหลดได้')}
+          </p>
         </div>
         <div
           className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4"
@@ -1327,7 +1320,7 @@ export function ExecutiveDashboard({
             />
           </div>
 
-          <div className="dashboard-command-grid grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+          <div className="dashboard-command-grid grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
             <div className="dashboard-command-primary min-w-0">
               <PendingTickets onOpenTicket={onOpenTicket} onViewAll={onViewTickets} tickets={tickets} />
             </div>

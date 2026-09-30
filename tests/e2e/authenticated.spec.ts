@@ -6,7 +6,7 @@ async function signInAsLocalAdmin(page: Page) {
   await page.getByLabel('อีเมล').fill('local.admin@example.test')
   await page.getByLabel('รหัสผ่าน').fill('LocalAdmin123!')
   await page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ออกจากระบบ', exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'เมนูผู้ใช้', exact: true })).toBeVisible({ timeout: 15_000 })
 }
 
 test('signs in against the Firebase Emulator and reaches the portal shell', async ({ page }) => {
@@ -22,6 +22,26 @@ test('authenticated portal shell has no WCAG A/AA violations', async ({ page }) 
   await signInAsLocalAdmin(page)
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
   expect(results.violations).toEqual([])
+})
+
+test('profile menu shows account context and closes with Escape or outside click', async ({ page }) => {
+  await signInAsLocalAdmin(page)
+
+  const profileTrigger = page.getByRole('button', { name: 'เมนูผู้ใช้', exact: true })
+  await profileTrigger.click()
+  const profileDialog = page.getByRole('dialog', { name: 'รายละเอียดผู้ใช้', exact: true })
+  await expect(profileDialog).toBeVisible()
+  await expect(profileDialog).toContainText('local.admin@example.test')
+  await expect(profileDialog).toContainText('ผู้ดูแลระบบสูงสุด')
+  await expect(profileDialog).toContainText('ทุก Property')
+
+  await page.keyboard.press('Escape')
+  await expect(profileDialog).not.toBeVisible()
+
+  await profileTrigger.click()
+  await expect(profileDialog).toBeVisible()
+  await page.mouse.click(10, 120)
+  await expect(profileDialog).not.toBeVisible()
 })
 
 test('authenticated portal shell has no horizontal overflow on mobile', async ({ page }) => {
@@ -84,7 +104,11 @@ test('local Super Admin can open every visible portal page from grouped navigati
     const navigationButton = page.getByRole('button', { name: pageName, exact: true })
     await expect(navigationButton).toBeVisible()
     await navigationButton.click()
-    await expect(page.getByRole('heading', { name: pageName, exact: true }).first()).toBeVisible()
+    if (pageName === 'ภาพรวม') {
+      await expect(page.getByRole('heading', { name: 'ทุก Property', exact: true }).first()).toBeVisible()
+    } else {
+      await expect(page.getByRole('heading', { name: pageName, exact: true }).first()).toBeVisible()
+    }
     await expect(page.locator('main').first()).toBeVisible()
     if (pageName === 'กระดานงาน') {
       await expect(page.getByRole('heading', { name: 'งาน Task ที่ต้องดำเนินการ', exact: true })).toBeVisible()
@@ -150,6 +174,7 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
   await signInAsLocalAdmin(page)
 
   await expect(page.getByRole('heading', { name: 'ภาพรวมงานบริการ IT', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'ทุก Property', exact: true })).toBeVisible()
   const kpiRail = page.locator('main').locator('div.grid').filter({ hasText: 'งานที่ยังเปิดอยู่' }).first()
   await expect(kpiRail.getByText('เลยกำหนด', { exact: true }).first()).toBeVisible()
   await expect(kpiRail.getByText('ใกล้ครบกำหนด', { exact: true }).first()).toBeVisible()
@@ -164,13 +189,8 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
   ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'สุขภาพงานบริการและทรัพย์สิน', exact: true })).toBeVisible()
 
-  const summaryDate = page.getByText('วันที่สรุป', { exact: true }).locator('..')
-  const createTaskButton = page.getByRole('button', { name: 'สร้าง Task', exact: true }).first()
-  const summaryDateBox = await summaryDate.boundingBox()
-  const createTaskButtonBox = await createTaskButton.boundingBox()
-  expect(summaryDateBox).not.toBeNull()
-  expect(createTaskButtonBox).not.toBeNull()
-  expect(createTaskButtonBox!.y).toBeGreaterThan(summaryDateBox!.y + summaryDateBox!.height)
+  await expect(page.getByText('วันที่สรุป', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'สร้าง Task', exact: true })).toHaveCount(0)
 
   const details = page.locator('details').filter({ hasText: 'รายละเอียดเพิ่มเติม' })
   await expect(details).toBeVisible()
@@ -190,8 +210,25 @@ test('dashboard follows the ITOMS operational hierarchy', async ({ page }) => {
   await details.locator('summary').click()
   await expect(details).toHaveAttribute('open', '')
 
-  await page.getByRole('button', { name: 'สร้าง Task', exact: true }).first().click()
+  await page.getByRole('button', { name: 'Create Task', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Create Task', exact: true })).toBeVisible()
+})
+
+test('Service Performance supports a custom report range', async ({ page }) => {
+  await signInAsLocalAdmin(page)
+  await page.getByRole('button', { name: 'รายงานผลงานบริการ', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'รายงานผลงานบริการ', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'กำหนดช่วงเอง', exact: true }).click()
+  const fromDate = page.getByLabel('วันที่เริ่มต้น', { exact: true })
+  const toDate = page.getByLabel('วันที่สิ้นสุด', { exact: true })
+  await expect(fromDate).toBeVisible()
+  await expect(toDate).toBeVisible()
+
+  await fromDate.fill('2026-09-01')
+  await toDate.fill('2026-09-15')
+  await expect(fromDate).toHaveValue('2026-09-01')
+  await expect(toDate).toHaveValue('2026-09-15')
 })
 
 test('task and calendar pages follow the ITOMS workspace hierarchy', async ({ page }) => {

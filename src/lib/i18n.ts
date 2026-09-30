@@ -239,6 +239,16 @@ const english: Record<string, string> = {
 }
 // คำแปลที่ใช้ในหน้า Feature ต่าง ๆ เพิ่มไว้ส่วนกลางเพื่อให้เปลี่ยนภาษาได้สม่ำเสมอทั้งระบบ
 const englishFeature: Record<string, string> = {
+  'User menu': 'User menu',
+  'User detail': 'User detail',
+  Role: 'Role',
+  'Property access': 'Property access',
+  Member: 'Member',
+  supportEngineer: 'IT Support Engineer',
+  clientExecutive: 'Client Executive',
+  requester: 'Requester',
+  ผู้ใช้: 'User',
+  'ยังไม่มี Property': 'No property assigned',
   'Service Performance': 'Service Performance',
   'Spark bounded reporting': 'Spark bounded reporting',
   'ติดตามคุณภาพและปริมาณงานตามช่วงเวลา โดยใช้เฉพาะข้อมูลที่โหลดแล้วและส่งออกแบบ Manual':
@@ -249,6 +259,10 @@ const englishFeature: Record<string, string> = {
   '7 days': '7 days',
   '30 days': '30 days',
   '90 days': '90 days',
+  'Custom range': 'Custom range',
+  'From date': 'From date',
+  'To date': 'To date',
+  'กรุณาเลือกช่วงวันที่ให้ถูกต้อง': 'Select a valid date range.',
   'Team performance': 'Team performance',
   'Property and workload': 'Property and workload',
   'Quality and review': 'Quality and review',
@@ -1382,6 +1396,13 @@ const englishFeature: Record<string, string> = {
 
 // ค่าที่มาจาก enum ใน Firestore เป็นภาษาอังกฤษอยู่แล้ว จึงแปลกลับเฉพาะตอนแสดงใน UI ภาษาไทย
 const thaiFeature: Record<string, string> = {
+  'User menu': 'เมนูผู้ใช้',
+  'User detail': 'รายละเอียดผู้ใช้',
+  Role: 'บทบาท',
+  'Property access': 'Property ที่เข้าถึง',
+  Member: 'สมาชิก',
+  ผู้ใช้: 'ผู้ใช้',
+  'ยังไม่มี Property': 'ยังไม่มี Property',
   'Service Performance': 'รายงานผลงานบริการ',
   'Spark bounded reporting': 'รายงานแบบ Bounded บน Spark',
   'ติดตามคุณภาพและปริมาณงานตามช่วงเวลา โดยใช้เฉพาะข้อมูลที่โหลดแล้วและส่งออกแบบ Manual':
@@ -1392,6 +1413,10 @@ const thaiFeature: Record<string, string> = {
   '7 days': '7 วัน',
   '30 days': '30 วัน',
   '90 days': '90 วัน',
+  'Custom range': 'กำหนดช่วงเอง',
+  'From date': 'วันที่เริ่มต้น',
+  'To date': 'วันที่สิ้นสุด',
+  'กรุณาเลือกช่วงวันที่ให้ถูกต้อง': 'กรุณาเลือกช่วงวันที่ให้ถูกต้อง',
   'Team performance': 'ผลงานทีม',
   'Property and workload': 'Property และปริมาณงาน',
   'Quality and review': 'คุณภาพและการทบทวน',

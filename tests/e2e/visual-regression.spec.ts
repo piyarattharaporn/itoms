@@ -8,7 +8,7 @@ async function signInAsLocalAdmin(page: Page) {
   await page.getByLabel('อีเมล').fill('local.admin@example.test')
   await page.getByLabel('รหัสผ่าน').fill('LocalAdmin123!')
   await page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ออกจากระบบ', exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'เมนูผู้ใช้', exact: true })).toBeVisible({ timeout: 15_000 })
 }
 
 test.describe('ITOMS representative page visual regression', () => {

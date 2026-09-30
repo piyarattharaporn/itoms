@@ -5,7 +5,7 @@ async function signInAsLocalAdmin(page: Page) {
   await page.getByLabel('อีเมล').fill('local.admin@example.test')
   await page.getByLabel('รหัสผ่าน').fill('LocalAdmin123!')
   await page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'ออกจากระบบ', exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'เมนูผู้ใช้', exact: true })).toBeVisible({ timeout: 15_000 })
 }
 
 async function openMenu(page: Page, name: string) {
@@ -62,6 +62,7 @@ test('sampling data covers every ITOMS menu and operational area', async ({ page
   await expect(page.getByText(/WiFi|CCTV/).first()).toBeVisible()
   await page.getByRole('button', { name: 'ตาราง', exact: true }).click()
   await expect(page.locator('table').first()).toBeVisible()
+  await expect(page.getByText('Narin Support Engineer', { exact: true }).first()).toBeVisible()
 
   await openMenu(page, 'บันทึก Audit Log')
   await expect(page.getByText('สร้าง Task ตัวอย่าง Network / WiFi', { exact: true })).toBeVisible()

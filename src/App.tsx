@@ -139,6 +139,7 @@ function Portal() {
   const [selectedPropertyId, setSelectedPropertyId] = useState(isSuperAdmin ? 'all' : '')
   const [cctvEnabledForSelectedProperty, setCctvEnabledForSelectedProperty] = useState(true)
   const [ticketSearch, setTicketSearch] = useState('')
+  const [commandSearch, setCommandSearch] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const mobileMenuButton = useRef<HTMLButtonElement>(null)
 
@@ -271,7 +272,7 @@ function Portal() {
       (item === 'User Directory' && isSuperAdmin),
   )
   const navItemClass = (active: boolean) =>
-    `group flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${active ? 'bg-lotus-50 text-lotus-800 ring-1 ring-lotus-100 shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`
+    `portal-nav-item group flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${active ? 'bg-lotus-50 text-lotus-800 ring-1 ring-lotus-100 shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`
   const selectNavigationItemWithContext = (item: string) => {
     if (['Create Task', 'Update Task', 'View Task'].includes(item)) setTicketSearch('')
     selectNavigationItem(item)
@@ -280,9 +281,12 @@ function Portal() {
     items.map((item) => (
       <button
         aria-current={activeItem === item ? 'page' : undefined}
+        aria-label={navigationLabel(item)}
         className={navItemClass(activeItem === item)}
+        data-active={activeItem === item ? 'true' : 'false'}
         key={item}
         onClick={() => selectNavigationItemWithContext(item)}
+        title={navigationLabel(item)}
         type="button"
       >
         <span
@@ -290,27 +294,29 @@ function Portal() {
         >
           <NavigationIcon item={item} />
         </span>
-        {navigationLabel(item)}
+        <span className="portal-nav-text">{navigationLabel(item)}</span>
       </button>
     ))
   const renderNavigationGroup = (label: string, items: string[]) =>
     items.length > 0 ? (
       <div key={label}>
         <div className="mb-2 mt-5 border-t border-line pt-4">
-          <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{t(label)}</p>
+          <p className="portal-nav-group-label px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            {t(label)}
+          </p>
         </div>
         {renderNavigationItems(items)}
       </div>
     ) : null
 
   return (
-    <main className="min-h-screen bg-canvas text-ink">
-      <header className="sticky top-0 z-40 border-b border-line bg-white/95 shadow-sm shadow-slate-200/40 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
+    <main className="portal-app min-h-screen bg-canvas text-ink">
+      <header className="portal-topbar sticky top-0 z-40 border-b border-line bg-white/95 shadow-sm shadow-slate-200/40 backdrop-blur">
+        <div className="portal-topbar-inner mx-auto flex max-w-[1536px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="portal-brand flex min-w-0 items-center gap-3">
             <div
               aria-hidden="true"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lotus-600 text-white"
+              className="portal-brand-mark flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lotus-600 text-white"
             >
               <svg
                 className="h-5 w-5"
@@ -325,12 +331,39 @@ function Portal() {
                 <path d="M8 21h8M12 16v5M6 7h12" />
               </svg>
             </div>
-            <div className="min-w-0 break-words">
+            <div className="portal-brand-copy min-w-0 break-words">
               <p className="font-semibold tracking-tight">{tKey('app.name')}</p>
               <p className="text-xs text-slate-500">{profile?.displayName || firebaseUser?.email}</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+          <div className="portal-command-area order-3 flex w-full items-center gap-3 lg:order-2 lg:w-auto">
+            <label className="portal-command-search flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3">
+              <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-4-4" />
+              </svg>
+              <span className="sr-only">{t('ค้นหา Task')}</span>
+              <input
+                aria-label={t('ค้นหา Task')}
+                className="min-h-9 min-w-0 flex-1 border-0 bg-transparent px-0 py-1 text-sm outline-none placeholder:text-white/60 focus:ring-0"
+                onChange={(event) => setCommandSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && commandSearch.trim()) {
+                    setTicketSearch(commandSearch.trim())
+                    setActiveItem(canManageCatalog ? 'Update Task' : 'View Task')
+                    setCommandSearch('')
+                  }
+                }}
+                placeholder={t('ค้นหา Task…')}
+                value={commandSearch}
+              />
+            </label>
+            <div aria-hidden="true" className="hidden items-center gap-2 text-white/80 lg:flex">
+              <span className="portal-utility-icon">!</span>
+              <span className="portal-utility-icon">?</span>
+            </div>
+          </div>
+          <div className="portal-topbar-controls order-2 flex flex-wrap items-center justify-end gap-2 sm:gap-4 lg:order-3">
             <LanguageSwitcher />
             <PropertySwitcher
               allowAll={isSuperAdmin}
@@ -338,8 +371,11 @@ function Portal() {
               properties={properties}
               selectedPropertyId={selectedPropertyId}
             />
+            <div className="portal-user-avatar hidden h-9 w-9 items-center justify-center rounded-full text-sm font-semibold lg:flex" title={profile?.displayName || firebaseUser?.email || ''}>
+              {(profile?.displayName || firebaseUser?.email || 'U').slice(0, 1).toUpperCase()}
+            </div>
             <button
-              className="min-h-10 rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-lotus-300"
+              className="portal-sign-out min-h-10 rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-lotus-300"
               onClick={() => void signOut()}
               type="button"
             >
@@ -349,10 +385,10 @@ function Portal() {
         </div>
       </header>
 
-      <div className="mx-auto grid min-w-0 max-w-7xl grid-cols-1 gap-4 px-4 py-5 sm:px-6 md:gap-6 md:py-7 lg:px-8 md:grid-cols-[232px_minmax(0,1fr)]">
+      <div className="portal-layout mx-auto grid min-w-0 max-w-7xl grid-cols-1 gap-4 px-4 py-5 sm:px-6 md:gap-6 md:py-7 lg:px-8 md:grid-cols-[232px_minmax(0,1fr)]">
         <aside
           aria-label={t('เมนูหลัก')}
-          className="min-w-0 md:sticky md:top-[5.75rem] md:max-h-[calc(100vh-6.5rem)] md:self-start"
+          className="portal-sidebar min-w-0 md:sticky md:top-[5.75rem] md:max-h-[calc(100vh-6.5rem)] md:self-start"
           onKeyDown={(event) => {
             if (event.key === 'Escape' && mobileMenuOpen) {
               setMobileMenuOpen(false)
@@ -384,8 +420,8 @@ function Portal() {
           </nav>
         </aside>
 
-        <section className="min-w-0 break-words pt-1">
-          <p className="text-sm font-medium text-lotus-700">
+        <section className="portal-main min-w-0 break-words pt-1">
+          <p className="portal-breadcrumb text-sm font-medium text-lotus-700">
             {activeProperty ? `${activeProperty.code} · ${activeProperty.name}` : t('ทุก Property')}
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{navigationLabel(activeItem)}</h1>

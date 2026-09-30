@@ -75,7 +75,7 @@ function BarList({
   const overflowCount = rows.slice(maxRows).reduce((sum, row) => sum + row.count, 0)
   const displayRows = overflowCount > 0 ? [...visibleRows, { label: t('อื่น ๆ'), count: overflowCount }] : visibleRows
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+    <section className="dashboard-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-semibold text-slate-800">{title}</h2>
         {totalCount !== undefined && (
@@ -142,7 +142,7 @@ function TaskControlSummary({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+    <section className="dashboard-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-slate-800">{t('การมอบหมายและความสำคัญ')}</h2>
@@ -252,12 +252,14 @@ function Metric({
   note,
   tone = 'neutral',
   icon,
+  className = '',
 }: {
   label: string
   value: string | number
   note: string
   tone?: 'neutral' | 'warning' | 'danger' | 'success'
   icon: MetricIconName
+  className?: string
 }) {
   const color =
     tone === 'warning'
@@ -281,7 +283,7 @@ function Metric({
           : 'text-sky-800'
   return (
     <article
-      className={`relative overflow-hidden rounded-2xl border-l-4 p-4 shadow-sm shadow-slate-200/30 sm:p-5 ${color.surface} ${color.marker.replace('bg-', 'border-l-')}`}
+      className={`relative overflow-hidden rounded-2xl border-l-4 p-4 shadow-sm shadow-slate-200/30 sm:p-5 ${color.surface} ${color.marker.replace('bg-', 'border-l-')} ${className}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -352,7 +354,7 @@ function PendingTickets({
   return (
     <section
       aria-labelledby="dashboard-attention-heading"
-      className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
+      className="dashboard-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -460,7 +462,7 @@ function IncidentOperations({
   return (
     <section
       aria-labelledby="dashboard-incidents-heading"
-      className="rounded-2xl border border-rose-100 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
+      className="dashboard-panel rounded-2xl border border-rose-100 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
@@ -591,7 +593,7 @@ function StatusSnapshot({ rows }: { rows: Array<{ status: string; count: number 
     Cancelled: 'bg-slate-300',
   }
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+    <section className="dashboard-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">{t('Task flow')}</p>
@@ -655,7 +657,7 @@ function SlaOperations({
 }) {
   const metRate = summary.eligible ? `${Math.round((summary.met / summary.eligible) * 100)}%` : t('ยังประเมินไม่ได้')
   return (
-    <section className="rounded-2xl border border-violet-100 bg-violet-50/50 p-5 shadow-sm shadow-slate-200/30 sm:p-6">
+    <section className="dashboard-panel rounded-2xl border border-violet-100 bg-violet-50/50 p-5 shadow-sm shadow-slate-200/30 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="mt-1 font-semibold text-slate-900">{t('ติดตาม SLA')}</h2>
@@ -737,7 +739,7 @@ function DistributionCard({
   const total = rows.reduce((sum, row) => sum + row.count, 0)
   const chartRows = rows.filter((row) => row.count > 0)
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+    <section className="dashboard-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{eyebrow}</p>
       <div className="mt-1 flex items-start justify-between gap-4">
         <div>
@@ -837,7 +839,7 @@ function TaskTrendChart({ buckets, grouping }: { buckets: TrendBucket[]; groupin
   const maxCount = Math.max(1, ...buckets.map((bucket) => bucket.count))
   const groupingLabel = grouping === 'day' ? 'รายวัน' : grouping === 'week' ? 'รายสัปดาห์' : 'รายเดือน'
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+    <section className="dashboard-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">{t('Task trend')}</p>
@@ -897,7 +899,7 @@ function RepairAssets({
     (asset) => asset.expectedReturnOn && asset.expectedReturnOn < bangkokToday(),
   ).length
   return (
-    <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/30">
+    <section className="dashboard-panel flex min-w-0 flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/30">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="mt-1 font-semibold text-slate-900">{t('อุปกรณ์ที่ส่งซ่อม')}</h3>
@@ -1188,8 +1190,8 @@ export function ExecutiveDashboard({
   }, [tickets, period, customStartDate, customEndDate])
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-7">
+    <div className="portal-dashboard space-y-6">
+      <section className="dashboard-hero rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-2xl">
             <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
@@ -1293,8 +1295,9 @@ export function ExecutiveDashboard({
         </p>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="dashboard-metric-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Metric
+              className="dashboard-metric"
               icon="alert"
               label={t('เลยกำหนด')}
               value={data.overdue}
@@ -1324,12 +1327,18 @@ export function ExecutiveDashboard({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            <PendingTickets onOpenTicket={onOpenTicket} onViewAll={onViewTickets} tickets={tickets} />
+          <div className="dashboard-command-grid grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+            <div className="dashboard-command-primary min-w-0">
+              <PendingTickets onOpenTicket={onOpenTicket} onViewAll={onViewTickets} tickets={tickets} />
+            </div>
             {canReadIncidents && (
-              <IncidentOperations incidents={incidents} loading={incidentLoading} onViewAll={onViewIncidents} />
+              <div className="dashboard-command-secondary min-w-0">
+                <IncidentOperations incidents={incidents} loading={incidentLoading} onViewAll={onViewIncidents} />
+              </div>
             )}
-            <SlaOperations summary={data.slaSummary} />
+            <div className="dashboard-command-wide min-w-0 xl:col-span-2">
+              <SlaOperations summary={data.slaSummary} />
+            </div>
           </div>
 
           {canReadTodos && <TodoDashboardPreview onOpen={onViewTodo} selectedPropertyId={selectedPropertyId} />}

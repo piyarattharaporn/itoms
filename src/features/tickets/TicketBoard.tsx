@@ -1192,8 +1192,8 @@ export function TicketBoard({
   const [search, setSearch] = useState(initialSearch)
   const [view, setView] = useState<'list' | 'table' | 'kanban'>(() => {
     if (typeof window === 'undefined') return 'list'
-    const stored = window.localStorage.getItem('itoms.taskBoard.view')
-    return stored === 'table' || stored === 'kanban' || stored === 'list' ? stored : 'list'
+    const stored = window.localStorage.getItem('itoms.taskBoard.view.v2')
+    return stored === 'table' || stored === 'kanban' || stored === 'list' ? stored : 'table'
   })
   const [mobileKanbanStatus, setMobileKanbanStatus] = useState<TicketStatus>('Pending')
   const [completionTicket, setCompletionTicket] = useState<TicketRecord | null>(null)
@@ -1206,7 +1206,7 @@ export function TicketBoard({
   const [engineers, setEngineers] = useState<AssignableEngineer[]>([])
 
   useEffect(() => {
-    window.localStorage.setItem('itoms.taskBoard.view', view)
+    window.localStorage.setItem('itoms.taskBoard.view.v2', view)
   }, [view])
 
   const isSuperAdmin = profile?.globalRole === 'superAdmin'
@@ -1398,7 +1398,7 @@ export function TicketBoard({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="ticket-board space-y-6">
       {mode === 'create' ? (
         canCreate ? (
           <TicketCreateForm defaultPropertyId={selectedPropertyId} />
@@ -1409,10 +1409,10 @@ export function TicketBoard({
         )
       ) : (
         <>
-          <section className="overflow-hidden rounded-[1.75rem] border border-line bg-white shadow-sm shadow-slate-200/40">
-            <div className="border-b border-line bg-canvas px-5 py-5 sm:px-6">
+          <section className="ticket-board-shell overflow-hidden rounded-[1.75rem] border border-line bg-white shadow-sm shadow-slate-200/40">
+            <div className="ticket-board-header border-b border-line bg-canvas px-5 py-5 sm:px-6">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-lotus-700">
                     {mode === 'update' ? t('Action queue') : t('Task management')}
                   </p>
@@ -1484,7 +1484,7 @@ export function TicketBoard({
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <div className="ticket-board-summary mt-4 flex flex-wrap gap-2 text-xs">
                 <span className="rounded-full border border-line bg-white px-3 py-1.5 text-muted">
                   {t('Results')} <strong className="ml-1 tabular-nums text-ink">{visibleTickets.length}</strong>
                 </span>
@@ -1503,7 +1503,7 @@ export function TicketBoard({
               </div>
             </div>
 
-            <div className="p-4 sm:p-6">
+            <div className="ticket-board-content p-4 sm:p-6">
               {error && (
                 <p
                   className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-800"

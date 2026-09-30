@@ -4,13 +4,16 @@
 
 :root {
   color-scheme: light;
-  --color-canvas: #f4f7f4;
+  --color-canvas: #f2f6f3;
   --color-surface: #ffffff;
-  --color-ink: #26312c;
-  --color-muted: #5d6b63;
-  --color-border: #dce5de;
-  --color-brand: #47765c;
-  --color-brand-soft: #e8f1eb;
+  --color-ink: #172a23;
+  --color-muted: #5d7066;
+  --color-border: #d5e2da;
+  --color-brand: #25634a;
+  --color-brand-strong: #174b38;
+  --color-brand-soft: #e4f1e9;
+  --color-attention: #c68419;
+  --color-danger: #c54c55;
   --color-message: #7552a2;
   font-family:
     'Noto Sans Thai',
@@ -35,6 +38,144 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* Shared product frame: a quiet operations console rather than a collection
+   of unrelated cards. Page-specific Tailwind classes remain available, but
+   these primitives give every feature the same visual grammar. */
+.portal-app {
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+
+.portal-topbar {
+  position: relative;
+  border-bottom-color: var(--color-border) !important;
+  background: rgb(255 255 255 / 0.94) !important;
+  box-shadow: 0 8px 28px -24px rgb(23 74 56 / 0.45) !important;
+}
+
+.portal-topbar::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--color-brand-strong);
+  content: '';
+}
+
+.portal-brand-mark {
+  border-radius: 0.875rem !important;
+  background: var(--color-brand-strong) !important;
+  box-shadow: 0 8px 18px -12px rgb(23 75 56 / 0.75);
+}
+
+.portal-layout {
+  max-width: 1440px !important;
+}
+
+.portal-sidebar {
+  border-color: var(--color-border) !important;
+  background: rgb(255 255 255 / 0.92) !important;
+  box-shadow: 0 20px 40px -34px rgb(23 74 56 / 0.55) !important;
+}
+
+.portal-sidebar nav {
+  scrollbar-width: thin;
+  scrollbar-color: #c7d9ce transparent;
+}
+
+.portal-nav-item {
+  position: relative;
+  border-radius: 0.8rem !important;
+  color: #56685f !important;
+}
+
+.portal-nav-item:hover {
+  background: #f1f7f3 !important;
+  color: var(--color-brand-strong) !important;
+}
+
+.portal-nav-item[data-active='true'] {
+  background: #e8f3ed !important;
+  color: var(--color-brand-strong) !important;
+  box-shadow: inset 3px 0 0 var(--color-brand);
+}
+
+.portal-nav-item[data-active='true'] > span {
+  background: #ffffff !important;
+  color: var(--color-brand) !important;
+}
+
+.portal-nav-group-label {
+  color: #52675c !important;
+  letter-spacing: 0.12em !important;
+}
+
+.portal-main {
+  min-width: 0;
+}
+
+.portal-main > .portal-breadcrumb {
+  color: var(--color-brand) !important;
+  letter-spacing: 0.01em;
+}
+
+.portal-main > h1 {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.portal-dashboard {
+  --dashboard-panel-radius: 1.15rem;
+}
+
+.portal-dashboard .dashboard-hero {
+  border-color: var(--color-border) !important;
+  border-radius: 1.35rem !important;
+  border-top: 3px solid var(--color-brand) !important;
+  background: var(--color-surface) !important;
+  box-shadow: 0 18px 38px -32px rgb(23 74 56 / 0.5) !important;
+}
+
+.portal-dashboard .dashboard-panel {
+  border-color: var(--color-border) !important;
+  border-radius: var(--dashboard-panel-radius) !important;
+  box-shadow: 0 14px 32px -30px rgb(23 74 56 / 0.48) !important;
+}
+
+.portal-dashboard .dashboard-section-label {
+  color: var(--color-brand) !important;
+}
+
+.portal-dashboard .dashboard-metric {
+  border-radius: 0.95rem !important;
+  box-shadow: none !important;
+}
+
+.portal-dashboard .dashboard-metric strong,
+.portal-dashboard .dashboard-metric p.text-3xl,
+.portal-dashboard .dashboard-metric p.text-4xl {
+  letter-spacing: -0.04em;
+}
+
+.portal-dashboard .dashboard-table-note {
+  border-left: 3px solid var(--color-attention);
+  background: #fff9ed;
+}
+
+@media (max-width: 767px) {
+  .portal-topbar {
+    position: sticky;
+  }
+
+  .portal-sidebar {
+    box-shadow: none !important;
+  }
+
+  .portal-dashboard .dashboard-hero {
+    border-radius: 1.05rem !important;
+  }
 }
 
 button {
@@ -209,4 +350,345 @@ select.property-switcher-select {
   max-width: min(14rem, 52vw);
   padding-right: 3rem;
   text-overflow: ellipsis;
+}
+
+/* Command-centre presentation layer. The existing feature components keep
+   their contracts; this layer changes the information architecture's rhythm
+   without changing permissions, queries, or data semantics. */
+.portal-topbar {
+  color: #eff8f2;
+  border-bottom-color: #174b38 !important;
+  background: linear-gradient(105deg, #0d2f24 0%, #174b38 62%, #1f5b43 100%) !important;
+  box-shadow: 0 14px 36px -28px rgb(8 42 30 / 0.9) !important;
+}
+
+.portal-topbar::before {
+  height: 0 !important;
+}
+
+.portal-topbar-inner {
+  min-height: 4.25rem;
+}
+
+@media (min-width: 768px) {
+  .portal-topbar-inner {
+    flex-wrap: nowrap !important;
+  }
+
+  .portal-brand {
+    flex: 1 1 15rem;
+  }
+
+  .portal-command-area {
+    flex: 0 1 28rem;
+  }
+
+  .portal-topbar-controls {
+    flex: 0 1 auto;
+  }
+}
+
+.portal-brand-mark {
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.1) !important;
+  box-shadow: none;
+}
+
+.portal-brand-copy p:first-child {
+  color: #f4fbf6;
+}
+
+.portal-brand-copy p:last-child {
+  color: rgb(229 245 235 / 0.7) !important;
+}
+
+.portal-topbar-controls label > span {
+  color: rgb(229 245 235 / 0.72) !important;
+}
+
+.portal-topbar-controls select,
+.portal-topbar .property-switcher-select {
+  border-color: rgb(255 255 255 / 0.28) !important;
+  background-color: rgb(255 255 255 / 0.1) !important;
+  color: #f4fbf6 !important;
+}
+
+.portal-topbar option {
+  color: #172a23;
+  background: #ffffff;
+}
+
+.portal-command-area {
+  max-width: 31rem;
+}
+
+.portal-command-search {
+  min-height: 2.5rem;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.12);
+  color: #f4fbf6;
+}
+
+.portal-command-search:focus-within {
+  border-color: rgb(255 255 255 / 0.42);
+  background: rgb(255 255 255 / 0.18);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.1);
+}
+
+.portal-command-search input,
+.portal-command-search input:focus {
+  min-height: 2rem !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #f4fbf6 !important;
+  box-shadow: none !important;
+}
+
+.portal-utility-icon {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.portal-sign-out {
+  border-color: rgb(255 255 255 / 0.28) !important;
+  background: transparent !important;
+  color: #f4fbf6 !important;
+}
+
+.portal-sign-out:hover {
+  background: rgb(255 255 255 / 0.12) !important;
+}
+
+.portal-user-avatar {
+  border: 2px solid rgb(255 255 255 / 0.52);
+  background: #e5f2e9;
+  color: #174b38;
+}
+
+.portal-layout {
+  max-width: 1536px !important;
+  grid-template-columns: 76px minmax(0, 1fr) !important;
+  gap: 1.25rem !important;
+}
+
+.portal-sidebar {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.portal-sidebar nav {
+  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 20px 42px -34px rgb(23 74 56 / 0.7);
+  padding: 0.5rem;
+}
+
+.portal-nav-item {
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.35rem !important;
+}
+
+.portal-nav-item > span:first-child {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.8rem;
+}
+
+.portal-nav-text,
+.portal-nav-group-label {
+  display: none;
+}
+
+.portal-sidebar nav > div > div:first-child {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+}
+
+.portal-main > .portal-breadcrumb {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portal-main > h1 {
+  margin-top: 0.25rem;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+
+.portal-dashboard {
+  gap: 1rem !important;
+}
+
+.portal-dashboard .dashboard-hero {
+  border-top: 0 !important;
+  border-radius: 1rem !important;
+  padding: 1.25rem !important;
+  box-shadow: 0 16px 38px -34px rgb(23 74 56 / 0.9) !important;
+}
+
+.portal-dashboard .dashboard-hero h2 {
+  font-size: 1.55rem;
+}
+
+.portal-dashboard .dashboard-metric-grid {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: 0 16px 38px -34px rgb(23 74 56 / 0.8);
+  gap: 0 !important;
+}
+
+.portal-dashboard .dashboard-metric {
+  min-height: 8.4rem;
+  border: 0 !important;
+  border-right: 1px solid #e5eee8 !important;
+  border-radius: 0 !important;
+  padding: 1.1rem !important;
+}
+
+.portal-dashboard .dashboard-metric:last-child {
+  border-right: 0 !important;
+}
+
+.portal-dashboard .dashboard-panel {
+  border-radius: 1rem !important;
+  box-shadow: 0 14px 34px -32px rgb(23 74 56 / 0.8) !important;
+}
+
+.portal-dashboard .dashboard-panel > header,
+.portal-dashboard .dashboard-panel > div:first-child {
+  letter-spacing: -0.01em;
+}
+
+.ticket-board-shell {
+  border-radius: 1rem !important;
+  box-shadow: 0 18px 40px -34px rgb(23 74 56 / 0.85) !important;
+}
+
+.ticket-board-header {
+  background: #ffffff !important;
+}
+
+.ticket-board-header h2 {
+  font-size: 1.5rem;
+}
+
+.ticket-board-content {
+  background: #fbfdfb;
+}
+
+.ticket-board-content table {
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-board-content table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #edf5ef;
+}
+
+@media (max-width: 767px) {
+  .portal-topbar-inner {
+    align-items: flex-start;
+  }
+
+  .portal-command-area {
+    max-width: none;
+  }
+
+  .portal-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .portal-sidebar nav {
+    border-radius: 1rem;
+  }
+
+  .portal-nav-item {
+    justify-content: flex-start;
+    min-height: 2.9rem;
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  .portal-nav-text,
+  .portal-nav-group-label {
+    display: inline;
+  }
+
+  .portal-nav-group-label {
+    color: #52675c !important;
+  }
+
+  .portal-sidebar nav > div > div:first-child {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+  }
+
+  .portal-dashboard .dashboard-metric {
+    border-bottom: 1px solid #e5eee8 !important;
+    border-right: 0 !important;
+  }
+
+  .portal-dashboard .dashboard-metric:last-child {
+    border-bottom: 0 !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1120px) {
+  .portal-topbar-controls label > span {
+    display: none;
+  }
+
+  .portal-command-area {
+    max-width: 22rem;
+  }
+}
+
+@media (min-width: 1121px) and (max-width: 1279px) {
+  .portal-topbar-inner {
+    gap: 0.75rem !important;
+  }
+
+  .portal-brand {
+    flex-basis: 12rem;
+  }
+
+  .portal-command-area {
+    max-width: 19rem;
+  }
+
+  .portal-topbar-controls {
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .portal-topbar-controls label > span {
+    display: none;
+  }
+
+  .portal-topbar .property-switcher-select {
+    width: 11rem;
+    max-width: 11rem;
+  }
+
+  .portal-sign-out {
+    padding-inline: 0.75rem !important;
+  }
 }

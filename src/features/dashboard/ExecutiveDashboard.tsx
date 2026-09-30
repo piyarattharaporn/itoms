@@ -1394,7 +1394,7 @@ export function ExecutiveDashboard({
             />
           </div>
 
-          <div className="dashboard-command-grid grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
+          <div className="dashboard-command-grid grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
             <div className="dashboard-command-primary min-w-0">
               <PendingTickets onOpenTicket={onOpenTicket} onViewAll={onViewTickets} tickets={tickets} />
             </div>

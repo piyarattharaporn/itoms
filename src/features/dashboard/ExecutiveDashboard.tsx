@@ -311,6 +311,65 @@ const statusColors: Record<string, string> = {
   Cancelled: 'bg-slate-100 text-slate-600',
 }
 
+const slaSortOrder = {
+  breached: 0,
+  dueSoon: 1,
+  critical: 2,
+  paused: 3,
+  onTrack: 4,
+  notStarted: 5,
+  met: 6,
+} as const
+
+type DashboardSlaTone = 'danger' | 'warning' | 'critical' | 'paused' | 'on-track'
+
+function formatDashboardDueAt(date: Date | null) {
+  if (!date) return null
+  return new Intl.DateTimeFormat(getLocale(), {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Bangkok',
+  }).format(date)
+}
+
+function getSlaPresentation(ticket: TicketRecord) {
+  const snapshot = getSlaSnapshot(ticket)
+  const state = ticket.priority === 'Critical' && snapshot.state === 'onTrack' ? 'critical' : snapshot.state
+  const label =
+    state === 'breached'
+      ? t('เลยกำหนด')
+      : state === 'dueSoon'
+        ? t('ใกล้ครบกำหนด')
+        : state === 'critical'
+          ? t('Critical')
+          : state === 'paused'
+            ? t('หยุดนับ SLA')
+            : state === 'notStarted'
+              ? t('รอเริ่ม SLA')
+              : t('อยู่ใน SLA')
+  const tone: DashboardSlaTone =
+    state === 'breached'
+      ? 'danger'
+      : state === 'dueSoon'
+        ? 'warning'
+        : state === 'critical'
+          ? 'critical'
+          : state === 'paused'
+            ? 'paused'
+            : 'on-track'
+  const dueAt = formatDashboardDueAt(snapshot.dueAt)
+  return {
+    snapshot,
+    state,
+    label,
+    tone,
+    dueLabel: dueAt ? `${t('ครบกำหนด:')} ${dueAt}` : t('ยังประเมินไม่ได้'),
+    rank: slaSortOrder[state],
+  }
+}
+
 function PendingTickets({
   tickets,
   onOpenTicket,
@@ -320,36 +379,24 @@ function PendingTickets({
   onOpenTicket: (ticket: TicketRecord) => void
   onViewAll: () => void
 }) {
-  const groupForTicket = (ticket: TicketRecord) => {
-    const snapshot = getSlaSnapshot(ticket)
-    if (snapshot.state === 'breached') return { key: 'overdue', label: t('เลยกำหนด'), tone: 'danger' as const }
-    if (snapshot.state === 'dueSoon') return { key: 'risk', label: t('ใกล้ครบกำหนด'), tone: 'warning' as const }
-    if (ticket.priority === 'Critical') return { key: 'critical', label: t('Critical'), tone: 'critical' as const }
-    return null
-  }
-  const groups = (['overdue', 'risk', 'critical'] as const)
-    .map((key) => {
-      const groupTickets = tickets
-        .filter(isActive)
-        .filter((ticket) => groupForTicket(ticket)?.key === key)
-        .sort(
-          (a, b) =>
-            priorityOrder[a.priority] - priorityOrder[b.priority] ||
-            (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
-        )
-      return {
-        key,
-        label: key === 'overdue' ? t('เลยกำหนด') : key === 'risk' ? t('ใกล้ครบกำหนด') : t('Critical'),
-        tone: key === 'overdue' ? ('danger' as const) : key === 'risk' ? ('warning' as const) : ('critical' as const),
-        tickets: groupTickets,
-      }
-    })
-    .filter((group) => group.tickets.length > 0)
-  const visibleCount = groups.reduce((total, group) => total + Math.min(group.tickets.length, 3), 0)
-  const toneClasses = {
+  const openTickets = tickets
+    .filter(isActive)
+    .map((ticket) => ({ ticket, sla: getSlaPresentation(ticket) }))
+    .sort(
+      (a, b) =>
+        a.sla.rank - b.sla.rank ||
+        (a.sla.snapshot.dueAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+          (b.sla.snapshot.dueAt?.getTime() ?? Number.MAX_SAFE_INTEGER) ||
+        priorityOrder[a.ticket.priority] - priorityOrder[b.ticket.priority] ||
+        (a.ticket.createdAt?.getTime() ?? 0) - (b.ticket.createdAt?.getTime() ?? 0),
+    )
+  const visibleTickets = openTickets.slice(0, 5)
+  const slaToneClasses = {
     danger: 'bg-rose-50 text-rose-800',
     warning: 'bg-amber-50 text-amber-800',
     critical: 'bg-red-50 text-red-800',
+    paused: 'bg-indigo-50 text-indigo-800',
+    'on-track': 'bg-emerald-50 text-emerald-800',
   }
   return (
     <section
@@ -359,13 +406,13 @@ function PendingTickets({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-slate-900" id="dashboard-attention-heading">
-            {t('งานที่ต้องติดตาม')}
+            {t('งานที่ยังไม่เสร็จ')}
           </h2>
-          <p className="mt-1 text-sm text-slate-500">{t('เรียงตามกำหนด SLA และความสำคัญ')}</p>
+          <p className="mt-1 text-sm text-slate-500">{t('งานเปิดทั้งหมด เรียง SLA ก่อน')}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
-            {t('เปิดอยู่')} {tickets.filter(isActive).length}
+            {t('เปิดอยู่')} {openTickets.length}
           </span>
           <button
             className="min-h-10 rounded-full px-3 py-1.5 text-xs font-semibold text-lotus-700 hover:bg-lotus-50 focus:outline-none focus:ring-2 focus:ring-lotus-300"
@@ -376,7 +423,7 @@ function PendingTickets({
           </button>
         </div>
       </div>
-      {groups.length === 0 ? (
+      {openTickets.length === 0 ? (
         <div className="dashboard-empty-state mt-3 flex flex-col gap-3 rounded-xl bg-emerald-50/80 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <span
@@ -386,7 +433,7 @@ function PendingTickets({
               ✓
             </span>
             <div>
-              <p className="font-semibold text-emerald-900">{t('ไม่มี Task ค้างในรายการที่โหลด')}</p>
+              <p className="font-semibold text-emerald-900">{t('ไม่มีงานที่ยังไม่เสร็จจากรายการที่โหลด')}</p>
             </div>
           </div>
           <button
@@ -398,74 +445,66 @@ function PendingTickets({
           </button>
         </div>
       ) : (
-        <div className="mt-3 space-y-4">
-          {groups.map((group) => (
-            <div key={group.key}>
-              <div className="mb-1 flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className={`h-2.5 w-2.5 rounded-full ${group.tone === 'danger' ? 'bg-rose-600' : group.tone === 'warning' ? 'bg-amber-500' : 'bg-red-600'}`}
-                />
-                <h3 className="text-xs font-semibold text-slate-600">{group.label}</h3>
-                <span className="text-xs tabular-nums text-slate-400">{group.tickets.length}</span>
-              </div>
-              <ul className="space-y-2">
-                {group.tickets.slice(0, 3).map((ticket) => (
-                  <li
-                    className={`dashboard-ticket-item dashboard-ticket-item-${group.tone} grid gap-3 p-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-3 sm:py-2.5`}
-                    key={ticket.id}
+        <>
+          <ul className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-100">
+            {visibleTickets.map(({ ticket, sla }) => (
+              <li
+                className={`dashboard-ticket-item dashboard-ticket-item-${sla.tone} grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-4 sm:py-3`}
+                key={ticket.id}
+              >
+                <button
+                  aria-label={`${t('เปิด Task')} ${ticket.propertyCode}-${ticket.id.toUpperCase()} ${t('เพื่อดูและอัปเดต')}`}
+                  className="group min-w-0 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-lotus-300"
+                  onClick={() => onOpenTicket(ticket)}
+                  type="button"
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="text-[11px] font-bold tracking-[0.08em] text-lotus-700">
+                      {ticket.propertyCode}-{ticket.id.toUpperCase()}
+                    </p>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200/80">
+                      {t(ticket.priority)}
+                    </span>
+                  </div>
+                  <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-900 group-hover:text-lotus-800">
+                    {formatTicketProblem(ticket.problemCategory, ticket.problemType)}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <span className="max-w-full truncate">
+                      {ticket.propertyCode} · {ticket.location || t('ไม่ระบุสถานที่')}
+                    </span>
+                    {ticket.assetId && (
+                      <span className="max-w-full truncate">
+                        {t('Asset')} {ticket.assetId}
+                      </span>
+                    )}
+                    <span>{formatTicketChannel(ticket.channel)}</span>
+                    <span className="max-w-full truncate">
+                      {ticket.requesterName || ticket.requesterEmail || t('ไม่ระบุผู้แจ้ง')}
+                    </span>
+                  </div>
+                </button>
+                <div className="flex shrink-0 items-center justify-between gap-2 sm:flex-col sm:items-end">
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${slaToneClasses[sla.tone]}`}>
+                    {sla.label}
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColors[ticket.status] ?? 'bg-slate-100 text-slate-700'}`}
                   >
-                    <button
-                      aria-label={`${t('เปิด Task')} ${ticket.propertyCode}-${ticket.id.toUpperCase()} ${t('เพื่อดูและอัปเดต')}`}
-                      className="group min-w-0 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-lotus-300"
-                      onClick={() => onOpenTicket(ticket)}
-                      type="button"
-                    >
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="text-[11px] font-bold tracking-[0.08em] text-lotus-700">
-                          {ticket.propertyCode}-{ticket.id.toUpperCase()}
-                        </p>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200/80">
-                          {t(ticket.priority)}
-                        </span>
-                      </div>
-                      <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-900 group-hover:text-lotus-800">
-                        {formatTicketProblem(ticket.problemCategory, ticket.problemType)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                        <span className="max-w-full truncate">{ticket.location || t('ไม่ระบุสถานที่')}</span>
-                        {ticket.assetId && (
-                          <span className="max-w-full truncate">
-                            {t('Asset')} {ticket.assetId}
-                          </span>
-                        )}
-                        <span>{formatTicketChannel(ticket.channel)}</span>
-                        <span className="max-w-full truncate">
-                          {ticket.requesterName || ticket.requesterEmail || t('ไม่ระบุผู้แจ้ง')}
-                        </span>
-                      </div>
-                    </button>
-                    <div className="flex shrink-0 items-center justify-between gap-2 sm:flex-col sm:items-end">
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClasses[group.tone]}`}>
-                        {group.label}
-                      </span>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[ticket.status] ?? 'bg-slate-100 text-slate-700'}`}
-                      >
-                        {t(ticket.status)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-      {groups.length > 0 && tickets.filter(isActive).length > visibleCount && (
-        <p className="mt-3 text-xs text-slate-400">
-          {t('และอีก')} {tickets.filter(isActive).length - visibleCount} {t('งานที่ยังเปิด')}
-        </p>
+                    {t(ticket.status)}
+                  </span>
+                  <span className="text-[11px] text-slate-400">{sla.dueLabel}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+            <span>
+              {t('แสดง')} {visibleTickets.length} {t('จาก')} {openTickets.length} {t('งานเปิดจากรายการที่โหลด')}
+            </span>
+            {openTickets.length > visibleTickets.length && <span>{t('กดดูรายการทั้งหมดเพื่อดูงานที่เหลือ')}</span>}
+          </div>
+        </>
       )}
     </section>
   )

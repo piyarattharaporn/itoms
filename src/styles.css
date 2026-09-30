@@ -575,6 +575,14 @@ select.property-switcher-select {
   border-left-color: #dc2626;
 }
 
+.dashboard-ticket-item-paused {
+  border-left-color: #6366f1;
+}
+
+.dashboard-ticket-item-on-track {
+  border-left-color: #059669;
+}
+
 .portal-sidebar nav > div > div:first-child {
   margin-top: 0.55rem;
   padding-top: 0.55rem;

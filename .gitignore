@@ -10,6 +10,7 @@ test-results/
 .env.*
 !.env.example
 !.env.production.example
+!.env.uat.example
 firebase-debug*.log
 firestore-debug.log
 ui-debug.log

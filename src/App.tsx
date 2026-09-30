@@ -5,6 +5,7 @@ import { PropertySwitcher } from './features/property/PropertySwitcher'
 import { LanguageSwitcher } from './features/property/LanguageSwitcher'
 import { subscribeToPropertyCctvSetting } from './features/property/propertySettingsService'
 import type { TicketRecord } from './features/tickets/types'
+import { isUatEnvironment } from './lib/environment'
 
 const SignInForm = lazy(() => import('./features/auth/SignInForm').then((module) => ({ default: module.SignInForm })))
 const TicketBoard = lazy(() =>
@@ -349,7 +350,10 @@ function Portal() {
 
   return (
     <main className="portal-app min-h-screen bg-canvas text-ink">
-      <header className="portal-topbar sticky top-0 z-40 border-b border-line bg-white/95 shadow-sm shadow-slate-200/40 backdrop-blur">
+      <header
+        className={`portal-topbar ${isUatEnvironment ? 'portal-topbar-uat' : ''} sticky top-0 z-40 border-b border-line bg-white/95 shadow-sm shadow-slate-200/40 backdrop-blur`}
+        data-environment={isUatEnvironment ? 'uat' : 'production'}
+      >
         <div className="portal-topbar-inner mx-auto flex max-w-[1536px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="portal-brand flex min-w-0 items-center gap-3">
             <div
@@ -371,7 +375,10 @@ function Portal() {
             </div>
             <div className="portal-brand-copy min-w-0 break-words">
               <p className="font-semibold tracking-tight">{tKey('app.name')}</p>
-              <p className="text-xs text-slate-500">{profile?.displayName || firebaseUser?.email}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs text-slate-500">{profile?.displayName || firebaseUser?.email}</p>
+                {isUatEnvironment && <span className="portal-environment-badge">UAT / SANDBOX</span>}
+              </div>
             </div>
           </div>
           <div className="portal-command-area order-3 flex w-full items-center gap-3 lg:order-2 lg:w-auto">

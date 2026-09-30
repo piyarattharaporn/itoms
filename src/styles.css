@@ -366,6 +366,66 @@ select.property-switcher-select {
   height: 0 !important;
 }
 
+.portal-topbar-uat {
+  position: relative;
+  overflow: visible;
+  border-bottom-color: #facc15 !important;
+  background: #30364f !important;
+  color: #fffdf0;
+}
+
+.portal-topbar-uat::before {
+  z-index: 2;
+  height: 0.875rem !important;
+  background: repeating-linear-gradient(45deg, #facc15 0, #facc15 1.5rem, #252b40 1.5rem, #252b40 3rem);
+}
+
+.portal-topbar-uat .portal-topbar-inner {
+  padding-top: 1.75rem !important;
+}
+
+.portal-topbar-uat .portal-brand-copy p:first-child,
+.portal-topbar-uat .portal-topbar-controls label > span {
+  color: #fffdf0 !important;
+}
+
+.portal-topbar-uat .portal-brand-copy p:last-child {
+  color: rgb(255 253 240 / 0.72) !important;
+}
+
+.portal-topbar-uat .portal-brand-mark {
+  border-color: rgb(250 204 21 / 0.62);
+  background: rgb(250 204 21 / 0.16) !important;
+  color: #facc15;
+}
+
+.portal-topbar-uat .portal-topbar-controls select,
+.portal-topbar-uat .portal-topbar .property-switcher-select,
+.portal-topbar-uat .portal-command-search {
+  border-color: rgb(250 204 21 / 0.42) !important;
+  background-color: rgb(255 255 255 / 0.08) !important;
+}
+
+.portal-topbar-uat .portal-profile-trigger {
+  border-color: #facc15;
+  background: #fffdf0;
+  color: #252b40;
+}
+
+.portal-environment-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgb(250 204 21 / 0.7);
+  border-radius: 999px;
+  background: rgb(250 204 21 / 0.16);
+  color: #fde68a;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  padding: 0.25rem 0.45rem;
+}
+
 .portal-topbar-inner {
   min-height: 4.25rem;
 }

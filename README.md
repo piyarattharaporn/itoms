@@ -29,6 +29,8 @@ The team-facing Thai user guides are maintained in [`docs/user-guide/`](docs/use
 - [`Quick Start`](docs/user-guide/quick-start-th.md) for first-time users.
 - [`ITOMS User Manual`](docs/user-guide/itoms-user-manual-th.md) for role-based workflows, reports, SLA, Incident, RCA, Known Error, Asset, and Spark limitations.
 
+The isolated acceptance environment is documented in [`docs/uat-sandbox.md`](docs/uat-sandbox.md). It uses the `itoms-uat` Firebase project, synthetic sampling data, and a visible UAT/Sandbox navbar marker.
+
 Phase 7 adds production configuration guardrails and go-live runbooks. The Firebase project and App Check enforcement are configured in Console, and the static application is deployed to `https://itoms-v2.web.app`. Before every approved production build, run `npm run check:production-config` after loading `.env.production`; the command validates configuration locally and never deploys. See [`docs/architecture/spark-only-production.md`](docs/architecture/spark-only-production.md).
 
 To persist local emulator data between sessions, run `npm run emulators:import`. Emulator data, `.env.local`, and production env files are ignored by Git. Never import production data into the local emulator.

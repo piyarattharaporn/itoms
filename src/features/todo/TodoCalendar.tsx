@@ -171,7 +171,7 @@ export function TodoDashboardPreview({
 
   if (!canRead) return null
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
+    <section className="dashboard-todo-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-violet-700">{t('ปฏิทินงาน')}</p>
@@ -279,7 +279,7 @@ function TodoPreviewColumn({
           count: 'bg-slate-200 text-slate-700',
         }
   return (
-    <section aria-label={title} className={`rounded-2xl border p-4 ${colors.panel}`}>
+    <section aria-label={title} className={`dashboard-todo-column rounded-2xl border p-4 ${colors.panel}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${colors.icon}`}>

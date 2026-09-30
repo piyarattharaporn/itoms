@@ -283,14 +283,14 @@ function Metric({
           : 'text-sky-800'
   return (
     <article
-      className={`relative overflow-hidden rounded-2xl border-l-4 p-4 shadow-sm shadow-slate-200/30 sm:p-5 ${color.surface} ${color.marker.replace('bg-', 'border-l-')} ${className}`}
+      className={`dashboard-kpi relative overflow-hidden rounded-2xl border-l-4 p-4 shadow-sm shadow-slate-200/30 sm:p-5 ${color.surface} ${color.marker.replace('bg-', 'border-l-')} ${className}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span aria-hidden="true" className={`h-7 w-7 shrink-0 ${watermarkColor}`}>
             <MetricIcon name={icon} />
           </span>
-          <p className="truncate text-sm font-medium text-slate-600">{label}</p>
+          <p className="break-words text-sm font-medium leading-4 text-slate-600">{label}</p>
         </div>
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color.marker}`} aria-hidden="true" />
       </div>
@@ -354,7 +354,7 @@ function PendingTickets({
   return (
     <section
       aria-labelledby="dashboard-attention-heading"
-      className="dashboard-panel rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
+      className="dashboard-panel dashboard-command-panel h-fit rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -377,9 +377,23 @@ function PendingTickets({
         </div>
       </div>
       {groups.length === 0 ? (
-        <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
-          <p className="font-semibold">{t('ไม่มี Task ค้างในรายการที่โหลด')}</p>
-          <button className="mt-2 font-semibold underline underline-offset-4" onClick={onViewAll} type="button">
+        <div className="dashboard-empty-state mt-4 flex flex-col gap-3 rounded-xl bg-emerald-50/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-emerald-700"
+            >
+              ✓
+            </span>
+            <div>
+              <p className="font-semibold text-emerald-900">{t('ไม่มี Task ค้างในรายการที่โหลด')}</p>
+            </div>
+          </div>
+          <button
+            className="shrink-0 self-start rounded-lg px-2 py-1 text-sm font-semibold text-emerald-800 underline underline-offset-4 hover:bg-white/70 sm:self-auto"
+            onClick={onViewAll}
+            type="button"
+          >
             {t('ดูรายการทั้งหมด')}
           </button>
         </div>
@@ -476,7 +490,7 @@ function IncidentOperations({
   return (
     <section
       aria-labelledby="dashboard-incidents-heading"
-      className="dashboard-panel rounded-2xl border border-rose-100 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
+      className="dashboard-panel dashboard-command-panel h-fit rounded-2xl border border-rose-100 bg-white p-5 shadow-sm shadow-slate-200/30 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
@@ -518,78 +532,54 @@ function IncidentOperations({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)]">
-        <div className="min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-slate-800">{t('เหตุที่ยังไม่กู้คืน')}</h3>
-            <span className="text-xs tabular-nums text-slate-400">
-              {active.length} {t('เหตุ')}
-            </span>
-          </div>
-          {loading ? (
-            <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500" role="status">
-              {t('กำลังโหลด Incident…')}
-            </p>
-          ) : visibleIncidents.length === 0 ? (
-            <div className="mt-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
-              <p className="font-semibold">{t('ไม่มีเหตุที่ยังเปิดอยู่')}</p>
-              <p className="mt-1 text-xs text-emerald-700">{t('ไม่พบเหตุขัดข้องที่ต้องติดตามในข้อมูลที่โหลด')}</p>
-            </div>
-          ) : (
-            <ul className="mt-2 divide-y divide-slate-100">
-              {visibleIncidents.map((incident) => (
-                <li className="flex items-start justify-between gap-3 py-3" key={incident.id}>
-                  <button
-                    className="min-w-0 flex-1 rounded-lg text-left hover:text-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-300"
-                    onClick={onViewAll}
-                    type="button"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-500">{incident.propertyCode}</span>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                        {t(incident.type)}
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${incident.impact === 'Critical' ? 'bg-red-50 text-red-800' : incident.impact === 'High' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600'}`}
-                      >
-                        {t(incident.impact)}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-sm font-semibold text-slate-800">{incident.title}</p>
-                    <p className="mt-1 truncate text-xs text-slate-500">{incident.location}</p>
-                  </button>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${incident.status === 'Monitoring' ? 'bg-amber-50 text-amber-800' : 'bg-rose-50 text-rose-800'}`}
-                  >
-                    {t(incident.status)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+      <div className="mt-5">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-slate-800">{t('เหตุที่ยังไม่กู้คืน')}</h3>
+          <span className="text-xs tabular-nums text-slate-400">
+            {active.length} {t('เหตุ')}
+          </span>
         </div>
-
-        <div className="rounded-xl bg-slate-50 p-4">
-          <h3 className="text-sm font-semibold text-slate-800">{t('สถานะเหตุขัดข้อง')}</h3>
-          <div className="mt-4 space-y-3 text-sm">
-            {[
-              { label: t('เปิดอยู่'), count: open.length, color: 'bg-rose-500' },
-              { label: t('กำลังเฝ้าระวัง'), count: monitoring.length, color: 'bg-amber-500' },
-              { label: t('กู้คืนแล้ว'), count: restored.length, color: 'bg-emerald-500' },
-            ].map(({ label, count, color }) => (
-              <div className="flex items-center justify-between gap-3" key={label}>
-                <span className="flex min-w-0 items-center gap-2 text-slate-600">
-                  <i aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} />
-                  <span className="truncate">{label}</span>
-                </span>
-                <strong className="tabular-nums text-slate-800">{loading ? '—' : count}</strong>
-              </div>
-            ))}
-          </div>
-          <p className="mt-5 border-t border-slate-200 pt-3 text-xs leading-5 text-slate-400">
-            {t('นับจาก Incident ล่าสุดสูงสุด 100 รายการ')}
+        {loading ? (
+          <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500" role="status">
+            {t('กำลังโหลด Incident…')}
           </p>
-        </div>
+        ) : visibleIncidents.length === 0 ? (
+          <div className="mt-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
+            <p className="font-semibold">{t('ไม่มีเหตุที่ยังเปิดอยู่')}</p>
+            <p className="mt-1 text-xs text-emerald-700">{t('ไม่พบเหตุขัดข้องที่ต้องติดตามในข้อมูลที่โหลด')}</p>
+          </div>
+        ) : (
+          <ul className="dashboard-incident-list mt-2 divide-y divide-slate-100 rounded-xl border border-slate-100">
+            {visibleIncidents.map((incident) => (
+              <li className="flex items-start justify-between gap-3 px-3.5 py-3" key={incident.id}>
+                <button
+                  className="min-w-0 flex-1 rounded-lg text-left hover:text-lotus-800 focus:outline-none focus:ring-2 focus:ring-lotus-300"
+                  onClick={onViewAll}
+                  type="button"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-500">{incident.propertyCode}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                      {t(incident.type)}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${incident.impact === 'Critical' ? 'bg-red-50 text-red-800' : incident.impact === 'High' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600'}`}
+                    >
+                      {t(incident.impact)}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-800">{incident.title}</p>
+                  <p className="mt-1 truncate text-xs text-slate-500">{incident.location}</p>
+                </button>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${incident.status === 'Monitoring' ? 'bg-amber-50 text-amber-800' : 'bg-rose-50 text-rose-800'}`}
+                >
+                  {t(incident.status)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   )
@@ -665,66 +655,99 @@ function SlaOperations({
     breached: number
     responseBreached: number
     resolutionBreached: number
+    responseMet: number
     met: number
     byProperty: Array<{ label: string; count: number }>
   }
 }) {
   const metRate = summary.eligible ? `${Math.round((summary.met / summary.eligible) * 100)}%` : t('ยังประเมินไม่ได้')
   return (
-    <section className="dashboard-panel rounded-2xl border border-violet-100 bg-violet-50/50 p-5 shadow-sm shadow-slate-200/30 sm:p-6">
+    <section className="dashboard-panel dashboard-sla-panel rounded-2xl border border-violet-100 bg-violet-50/50 p-5 shadow-sm shadow-slate-200/30 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="mt-1 font-semibold text-slate-900">{t('ติดตาม SLA')}</h2>
           <p className="mt-1 text-sm text-slate-600">{t('Response และ Resolution แยกกันตามข้อมูล Task ที่โหลดได้')}</p>
         </div>
-        <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-violet-800">
-          {t('สำเร็จ')} {metRate}
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-violet-800">
+          <span>{t('สำเร็จ')}</span>
+          <strong>{metRate}</strong>
         </span>
       </div>
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-white p-3">
-            <p className="text-xs text-slate-500">{t('งานที่เข้าเกณฑ์')}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{summary.eligible}</p>
+      <div className="dashboard-sla-metric-grid mt-5 grid grid-cols-2 overflow-hidden rounded-xl border border-violet-100 bg-white sm:grid-cols-4">
+        {[
+          { label: t('งานที่เข้าเกณฑ์'), value: summary.eligible, tone: 'text-slate-900' },
+          { label: t('ใกล้ครบกำหนด'), value: summary.dueSoon, tone: 'text-amber-700' },
+          { label: t('เกิน SLA'), value: summary.breached, tone: 'text-rose-700' },
+          { label: t('เปิดอยู่'), value: summary.open, tone: 'text-sky-700' },
+        ].map(({ label, value, tone }) => (
+          <div
+            className="border-b border-violet-100 px-3 py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:px-4 sm:last:border-r-0"
+            key={label}
+          >
+            <p className="text-xs text-slate-500">{label}</p>
+            <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
           </div>
-          <div className="rounded-xl bg-white p-3">
-            <p className="text-xs text-slate-500">{t('ใกล้ครบกำหนด')}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-700">{summary.dueSoon}</p>
-          </div>
-          <div className="rounded-xl bg-white p-3">
-            <p className="text-xs text-slate-500">{t('เกิน SLA')}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-rose-700">{summary.breached}</p>
-          </div>
-          <div className="rounded-xl bg-white p-3">
-            <p className="text-xs text-slate-500">{t('เปิดอยู่')}</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-sky-700">{summary.open}</p>
-          </div>
-        </div>
-        <div className="h-full rounded-xl bg-white p-4">
-          <p className="text-xs font-semibold text-slate-700">{t('แยกตามประเภท SLA')}</p>
-          <div className="mt-3 space-y-2 text-xs">
-            <div className="flex justify-between gap-3">
-              <span>{t('Response เกิน SLA')}</span>
-              <strong className="text-rose-700">{summary.responseBreached}</strong>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span>{t('Resolution เกิน SLA')}</span>
-              <strong className="text-rose-700">{summary.resolutionBreached}</strong>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span>{t('Resolution สำเร็จ')}</span>
-              <strong className="text-emerald-700">{summary.met}</strong>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
-      <div className="mt-4">
-        <BarList
-          accent="bg-violet-400"
-          rows={summary.byProperty}
-          title={t('งานเกิน SLA ตาม Property')}
-          totalCount={summary.breached}
-        />
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)]">
+        <div className="dashboard-sla-detail rounded-xl bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-slate-700">{t('แยกตามประเภท SLA')}</p>
+            <span className="text-xs text-slate-400">{t('งาน')}</span>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            {[
+              {
+                label: t('Response เกิน SLA'),
+                count: summary.responseBreached,
+                tone: 'text-rose-700',
+                color: 'bg-rose-500',
+              },
+              {
+                label: t('Resolution เกิน SLA'),
+                count: summary.resolutionBreached,
+                tone: 'text-rose-700',
+                color: 'bg-rose-500',
+              },
+              { label: t('Resolution สำเร็จ'), count: summary.met, tone: 'text-emerald-700', color: 'bg-emerald-500' },
+            ].map(({ label, count, tone, color }) => (
+              <div
+                className="dashboard-sla-row flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"
+                key={label}
+              >
+                <span className="flex min-w-0 items-center gap-2 text-slate-600">
+                  <i aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${color}`} />
+                  <span className="truncate">{label}</span>
+                </span>
+                <strong className={`tabular-nums ${tone}`}>{count}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="dashboard-sla-properties rounded-xl bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-slate-700">{t('งานเกิน SLA ตาม Property')}</p>
+            <span className="text-xs tabular-nums text-slate-400">
+              {summary.breached} {t('งาน')}
+            </span>
+          </div>
+          {summary.byProperty.length === 0 ? (
+            <p className="dashboard-sla-empty mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+              {t('ยังไม่มีข้อมูลในช่วงเวลานี้')}
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {summary.byProperty.slice(0, 4).map((row) => (
+                <li className="flex items-center justify-between gap-3 text-sm" key={row.label}>
+                  <span className="min-w-0 truncate text-slate-600" title={row.label}>
+                    {row.label}
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums text-violet-800">{row.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
       <p className="mt-4 text-xs leading-5 text-violet-900/70">
         {t('ตัวเลขนี้คำนวณจาก Task ล่าสุดที่โหลดตามสิทธิ์และช่วงวันที่เลือก ไม่ใช่ข้อมูลย้อนหลังทั้งหมด')}
@@ -1133,6 +1156,7 @@ export function ExecutiveDashboard({
       dueSoon: eligibleSla.filter(({ snapshot }) => snapshot.state === 'dueSoon').length,
       breached: eligibleSla.filter(({ snapshot }) => snapshot.state === 'breached').length,
       responseBreached: eligibleSla.filter(({ snapshot }) => snapshot.responseStatus === 'breached').length,
+      responseMet: eligibleSla.filter(({ snapshot }) => snapshot.responseStatus === 'met').length,
       resolutionBreached: eligibleSla.filter(
         ({ snapshot }) => snapshot.resolutionStatus === 'breached' || snapshot.state === 'breached',
       ).length,
@@ -1288,7 +1312,7 @@ export function ExecutiveDashboard({
         </p>
       ) : (
         <>
-          <div className="dashboard-metric-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="dashboard-metric-grid dashboard-kpi-rail grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Metric
               className="dashboard-metric"
               icon="alert"
@@ -1318,9 +1342,20 @@ export function ExecutiveDashboard({
               note={t('ไม่รวม Completed และ Cancelled')}
               tone={data.active.length ? 'neutral' : 'success'}
             />
+            <Metric
+              icon="clock"
+              label={t('Response SLA')}
+              value={
+                data.slaSummary.eligible
+                  ? `${Math.round((data.slaSummary.responseMet / data.slaSummary.eligible) * 100)}%`
+                  : '—'
+              }
+              note={t('จาก Task ที่ประเมินได้')}
+              tone={data.slaSummary.responseMet === data.slaSummary.eligible ? 'success' : 'neutral'}
+            />
           </div>
 
-          <div className="dashboard-command-grid grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
+          <div className="dashboard-command-grid grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
             <div className="dashboard-command-primary min-w-0">
               <PendingTickets onOpenTicket={onOpenTicket} onViewAll={onViewTickets} tickets={tickets} />
             </div>
@@ -1336,7 +1371,10 @@ export function ExecutiveDashboard({
 
           {canReadTodos && <TodoDashboardPreview onOpen={onViewTodo} selectedPropertyId={selectedPropertyId} />}
 
-          <details className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/20" open>
+          <details
+            className="dashboard-details-band group rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/20"
+            open
+          >
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold text-slate-900 marker:hidden sm:px-6">
               <span>{t('รายละเอียดเพิ่มเติม')}</span>
               <span aria-hidden="true" className="text-xl text-slate-400 transition-transform group-open:rotate-45">
@@ -1396,7 +1434,7 @@ export function ExecutiveDashboard({
           </details>
 
           {(showCctv || canReadPm || canReadAssets || canReadLicenses) && (
-            <section aria-labelledby="dashboard-service-health-heading">
+            <section aria-labelledby="dashboard-service-health-heading" className="dashboard-service-health">
               <div className="mb-3 border-b border-slate-200/80 pb-3">
                 <h2 className="text-lg font-semibold text-slate-900" id="dashboard-service-health-heading">
                   {t('สุขภาพงานบริการและทรัพย์สิน')}
@@ -1405,7 +1443,7 @@ export function ExecutiveDashboard({
                   {t('ติดตามสถานะ CCTV, PM, Asset และ License ในขอบเขตปัจจุบัน')}
                 </p>
               </div>
-              <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
+              <div className="dashboard-service-health-grid grid grid-cols-1 items-start gap-3 md:grid-cols-2">
                 {showCctv && <CctvOverview compact onOpenCctv={onOpenCctv} selectedPropertyId={selectedPropertyId} />}
                 {canReadPm && <PmOverviewSummary compact selectedPropertyId={selectedPropertyId} />}
                 {canReadAssets && <RepairAssets assets={assets} compact onViewAll={onViewDamagedAssets} />}
